@@ -12,6 +12,12 @@ public class User : IdentityUser<Guid>
 
     public Guid TenantId { get; set; }
     public UserRole Role { get; set; }
+
+    /// <summary>
+    /// Uitgeschakelde gebruikers kunnen niet meer inloggen, maar blijven bestaan
+    /// zodat zichtbaar blijft wie wat deed.
+    /// </summary>
+    public bool IsActive { get; set; } = true;
 }
 
 public enum UserRole

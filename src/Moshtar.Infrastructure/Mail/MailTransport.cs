@@ -55,8 +55,9 @@ public sealed class RecordingMailTransport(ILogger<RecordingMailTransport> logge
     public Task SendAsync(OutgoingMail mail, CancellationToken ct = default)
     {
         _sent.Enqueue(mail);
-        logger.LogInformation("Mail niet verstuurd (geen Azure Communication Services ingesteld): {From} → {To}: {Subject}",
-            mail.FromAddress, mail.To, mail.Subject);
+        // De volledige tekst, zodat je lokaal ook de links uit uitnodigingen kan volgen.
+        logger.LogInformation("Mail niet echt verstuurd: {From} → {To}: {Subject}\n{Body}",
+            mail.FromAddress, mail.To, mail.Subject, mail.TextBody);
         return Task.CompletedTask;
     }
 }

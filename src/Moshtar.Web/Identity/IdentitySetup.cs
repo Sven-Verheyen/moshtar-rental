@@ -49,9 +49,16 @@ internal static class IdentitySetup
                 o.Lockout.AllowedForNewUsers = true;
             })
             .AddEntityFrameworkStores<AppDbContext>()
-            .AddSignInManager()
+            .AddSignInManager<BackOfficeSignInManager>()
             .AddClaimsPrincipalFactory<UserClaimsFactory>()
+            .AddErrorDescriber<DutchIdentityErrorDescriber>()
             .AddDefaultTokenProviders();
+
+        // Links in uitnodigingen zijn 48 uur geldig.
+        services.Configure<DataProtectionTokenProviderOptions>(o => o.TokenLifespan = TimeSpan.FromHours(48));
+        // Een uitgeschakelde gebruiker of gewijzigde rol werkt binnen de minuut door in open sessies.
+        services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.FromMinutes(1));
+        services.AddScoped<UserAdministration>();
 
         services.ConfigureApplicationCookie(o =>
         {

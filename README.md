@@ -9,6 +9,7 @@ aan andere verhuurbedrijven aangeboden te worden.
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat.
 - **Back office** (`/admin`): reservaties bekijken en annuleren, voorraad en prijzen van artikelen aanpassen.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
+  Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).
 - **Meertalig**: NL (standaard), FR en EN, via een taalkeuze bovenaan de site.
 - **Multi-tenant**: elke tabel heeft een `TenantId`, de verhuurder wordt herkend aan de domeinnaam.
   Moshtar is het platform; Hopsakee.fun (hopsakee.fun) is de eerste verhuurder en de demo-data in de lokale omgeving.
@@ -38,7 +39,8 @@ tests/
 - **E-mail**: mails vertrekken via Azure Communication Services vanaf het eigen domein van de verhuurder
   (`SenderEmail`, bv. noreply@hopsakee.fun), met zijn contactadres als antwoordadres (zie
   `docs/adr/0002-verhuurder-mailt-vanaf-eigen-domein.md`). Zonder `Mail:AzureCommunicationServicesConnectionString`
-  wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests.
+  wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests. Lokaal vind je zo
+  ook de link uit een uitnodiging terug in de console.
 - **Vertalingen**: UI-teksten in `Resources/SharedResource.*.resx`, inhoud (namen, beschrijvingen) als JSON in de database.
 
 ## Lokaal draaien
