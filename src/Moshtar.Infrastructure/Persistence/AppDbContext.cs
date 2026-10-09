@@ -21,6 +21,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<Blockout> Blockouts => Set<Blockout>();
+    public DbSet<ReservationEvent> ReservationEvents => Set<ReservationEvent>();
 
     /// <summary>Wordt per query geëvalueerd door de globale tenantfilter.</summary>
     internal Guid CurrentTenantId => tenantContext.TenantId;

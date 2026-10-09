@@ -39,16 +39,28 @@ public class Reservation : TenantEntity
 
     public List<ReservationLine> Lines { get; set; } = [];
 
+    /// <summary>Wie wat deed met deze reservatie, en wanneer.</summary>
+    public List<ReservationEvent> History { get; set; } = [];
+
+    /// <summary>Noteert in de historiek dat de reservatie aangemaakt is.</summary>
+    public void RecordCreated(ReservationActor actor, DateTime atUtc) =>
+        Record(ReservationEventKind.Created, actor, atUtc);
+
     /// <summary>
-    /// Zet de reservatie in een nieuwe status. Een geannuleerde reservatie blijft geannuleerd:
-    /// haar voorraad kan intussen aan iemand anders verhuurd zijn.
+    /// Zet de reservatie in een nieuwe status en noteert dat in de historiek. Een geannuleerde reservatie
+    /// blijft geannuleerd: haar voorraad kan intussen aan iemand anders verhuurd zijn.
     /// </summary>
-    public void ChangeStatus(ReservationStatus status)
+    public void ChangeStatus(ReservationStatus status, ReservationActor actor, DateTime atUtc)
     {
-        if (Status == ReservationStatus.Cancelled && status != ReservationStatus.Cancelled)
+        if (status == Status) return;
+        if (Status == ReservationStatus.Cancelled)
             throw new InvalidOperationException($"Reservatie {Number} is geannuleerd en kan niet meer van status veranderen.");
         Status = status;
+        Record(status == ReservationStatus.Cancelled ? ReservationEventKind.Cancelled : ReservationEventKind.StatusChanged, actor, atUtc);
     }
+
+    private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc) =>
+        History.Add(new ReservationEvent { ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId });
 
     /// <summary>Telt deze reservatie mee voor de bezetting van de voorraad?</summary>
     public bool OccupiesStock => Status is not ReservationStatus.Cancelled and not ReservationStatus.Completed;

@@ -56,6 +56,10 @@ _Avoid_: boekingswebsite, front office, webshop
 Een reservatie aanmaken, door een klant op de website of door een gebruiker in het back office.
 _Avoid_: boeken, bestellen
 
+**Historiek** (`History`):
+De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd of geannuleerd, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
+_Avoid_: audit log, logboek, geschiedenis
+
 **Huurperiode** (`DateRange`):
 De hele dagen waarvoor gehuurd wordt, begin- en einddag inbegrepen.
 _Avoid_: periode, verhuurdagen
