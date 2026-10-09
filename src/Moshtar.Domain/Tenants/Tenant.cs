@@ -1,6 +1,6 @@
 namespace Moshtar.Domain.Tenants;
 
-/// <summary>Een verhuurbedrijf dat het platform gebruikt. Moshtar is de eerste tenant.</summary>
+/// <summary>Een verhuurbedrijf dat het platform gebruikt. Hopsakee.fun is de eerste verhuurder.</summary>
 public class Tenant
 {
     public Guid Id { get; set; } = Guid.NewGuid();
