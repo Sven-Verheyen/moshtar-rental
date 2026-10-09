@@ -59,6 +59,18 @@ internal sealed class ReservationService(AppDbContext db, ITenantContext tenantC
         return new ReservationResult(reservation, []);
     }
 
+    public async Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, CancellationToken ct = default)
+    {
+        // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen,
+        // zodat een wijziging door een collega intussen niet over het hoofd gezien wordt.
+        db.ChangeTracker.Clear();
+        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId, ct)
+            ?? throw new InvalidOperationException("Reservatie niet gevonden.");
+        reservation.ChangeStatus(status);
+        await db.SaveChangesAsync(ct);
+        return reservation;
+    }
+
     private async Task<(IReadOnlyList<StockShortage> Shortages, Dictionary<Guid, RentalItem> Items, Dictionary<Guid, Bundle> Bundles)> EvaluateAsync(
         DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct)
     {

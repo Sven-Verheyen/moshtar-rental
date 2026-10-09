@@ -1,0 +1,15 @@
+@page "/admin/geen-toegang"
+@layout AccountLayout
+
+<PageTitle>Geen toegang</PageTitle>
+
+<NoAccess />
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    protected override void OnInitialized()
+    {
+        if (HttpContext is not null) HttpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+    }
+}

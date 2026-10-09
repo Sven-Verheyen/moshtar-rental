@@ -6,6 +6,7 @@ using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Web.Identity;
+using Moshtar.Web.Tenancy;
 using Npgsql;
 
 namespace Moshtar.Web.Tests;
@@ -48,6 +49,27 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
     {
         await using var scope = Services.CreateAsyncScope();
         return await BackOfficeUsers.EnsureAsync(scope.ServiceProvider, tenantSlug, email, password, role);
+    }
+
+    /// <summary>Een scope die werkt namens de verhuurder met deze slug, zoals een request op zijn domein.</summary>
+    public async Task<AsyncServiceScope> TenantScopeAsync(string tenantSlug)
+    {
+        var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var tenant = await db.Tenants.AsNoTracking().SingleAsync(t => t.Slug == tenantSlug);
+        scope.ServiceProvider.GetRequiredService<HostTenantContext>().UseTenant(tenant);
+        return scope;
+    }
+
+    /// <summary>Een browser die ingelogd is als een nieuwe gebruiker van Hopsakee.fun met deze rol.</summary>
+    public async Task<HttpClient> LoggedInClientAsync(string email, UserRole role)
+    {
+        await CreateUserAsync("hopsakee", email, role);
+        var client = CreateClient(HopsakeeHost);
+        var login = await BackOffice.LoginAsync(client, email, Password);
+        if (login.StatusCode != System.Net.HttpStatusCode.Redirect)
+            throw new InvalidOperationException($"Inloggen als {email} mislukt.");
+        return client;
     }
 
     public HttpClient CreateClient(string host) =>

@@ -15,6 +15,9 @@ public interface IReservationService
     /// zodat het laatste exemplaar nooit twee keer verhuurd wordt.
     /// </summary>
     Task<ReservationResult> ReserveAsync(ReservationRequest request, CancellationToken ct = default);
+
+    /// <summary>Zet een reservatie in een nieuwe status, ook annuleren. Geeft de bijgewerkte reservatie terug.</summary>
+    Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, CancellationToken ct = default);
 }
 
 public record ReservationLineRequest(Guid? RentalItemId, Guid? BundleId, int Quantity);
