@@ -59,6 +59,7 @@ internal static class IdentitySetup
         // Een uitgeschakelde gebruiker of gewijzigde rol werkt binnen de minuut door in open sessies.
         services.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.FromMinutes(1));
         services.AddScoped<UserAdministration>();
+        services.AddScoped<PasswordRecovery>();
 
         services.ConfigureApplicationCookie(o =>
         {

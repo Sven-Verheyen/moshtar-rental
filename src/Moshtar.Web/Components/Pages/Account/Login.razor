@@ -10,6 +10,11 @@
 
 <h1>Inloggen</h1>
 
+@if (Restored == "1" && _error is null)
+{
+    <p class="account-success" role="status">Je wachtwoord is gewijzigd. Log in met je nieuwe wachtwoord.</p>
+}
+
 @if (_error is not null)
 {
     <p class="account-error" role="alert">@_error</p>
@@ -34,11 +39,14 @@
     <button type="submit">Inloggen</button>
 </EditForm>
 
+<p><a href="admin/wachtwoord-vergeten">Wachtwoord vergeten?</a></p>
+
 @code {
     private string? _error;
 
     [SupplyParameterFromForm(FormName = "login")] private LoginInput? Input { get; set; }
     [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "hersteld")] private string? Restored { get; set; }
 
     protected override void OnInitialized() => Input ??= new();
 

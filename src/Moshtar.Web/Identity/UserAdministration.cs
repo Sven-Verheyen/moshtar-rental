@@ -1,7 +1,5 @@
 using System.Net;
-using System.Text;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Tenancy;
@@ -93,27 +91,12 @@ public sealed class UserAdministration(UserManager<User> userManager, ITenantCon
         var user = await userManager.FindByIdAsync(userId.ToString());
         if (user is null || !user.IsActive || user.PasswordHash is not null) return invalidLink;
 
-        string token;
-        try { token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code)); }
-        catch (FormatException) { return invalidLink; }
-
-        var result = await userManager.ResetPasswordAsync(user, token, password);
-        if (result.Succeeded)
-        {
-            user.EmailConfirmed = true;
-            await userManager.UpdateAsync(user);
-            return null;
-        }
-        return result.Errors.Any(e => e.Code == nameof(IdentityErrorDescriber.InvalidToken))
-            ? invalidLink
-            : string.Join(" ", result.Errors.Select(e => e.Description));
+        return await PasswordLinks.SetPasswordAsync(userManager, user, code, password, invalidLink);
     }
 
     private async Task SendInviteAsync(User user, Uri baseUri)
     {
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        var code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-        var link = new Uri(baseUri, $"{InvitePath}?gebruiker={user.Id}&code={code}").ToString();
+        var link = await PasswordLinks.CreateAsync(userManager, user, baseUri, InvitePath);
         var tenantName = tenantContext.Tenant!.Name;
         var role = user.Role == UserRole.Administrator ? "Beheerder" : "Medewerker";
 
