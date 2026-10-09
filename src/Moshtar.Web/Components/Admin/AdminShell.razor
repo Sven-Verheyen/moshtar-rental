@@ -8,6 +8,14 @@
 <MudLayout>
     <MudAppBar Elevation="1">
         <MudText Typo="Typo.h6">@TenantContext.Tenant?.Name · Back office</MudText>
+        <MudSpacer />
+        <AuthorizeView>
+            <MudText Typo="Typo.body2" Class="mr-2">@context.User.Identity?.Name</MudText>
+            <form action="admin/uitloggen" method="post">
+                <AntiforgeryToken />
+                <MudButton ButtonType="ButtonType.Submit" Color="Color.Inherit" StartIcon="@Icons.Material.Filled.Logout">Uitloggen</MudButton>
+            </form>
+        </AuthorizeView>
     </MudAppBar>
     <MudDrawer Open="true" ClipMode="DrawerClipMode.Always" Elevation="1">
         <MudNavMenu>

@@ -9,7 +9,7 @@ namespace Moshtar.Web.Tenancy;
 /// Bepaalt de tenant aan de hand van de domeinnaam. Werkt zowel in gewone HTTP-requests
 /// (via HttpContext) als in interactieve Blazor-circuits (via NavigationManager).
 /// </summary>
-internal sealed class HostTenantContext(IHttpContextAccessor httpContextAccessor, NavigationManager navigation, ITenantStore store) : ITenantContext
+public sealed class HostTenantContext(IHttpContextAccessor httpContextAccessor, NavigationManager navigation, ITenantStore store) : ITenantContext
 {
     private Tenant? _tenant;
     private bool _resolved;
@@ -25,6 +25,13 @@ internal sealed class HostTenantContext(IHttpContextAccessor httpContextAccessor
             _resolved = true;
             return _tenant;
         }
+    }
+
+    /// <summary>Legt de tenant vast buiten een request om, bv. bij het aanmaken van de eerste Beheerder.</summary>
+    public void UseTenant(Tenant tenant)
+    {
+        _tenant = tenant;
+        _resolved = true;
     }
 
     private string? ResolveHost()

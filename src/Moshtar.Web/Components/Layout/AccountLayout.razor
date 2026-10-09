@@ -1,0 +1,9 @@
+@inherits LayoutComponentBase
+@inject ITenantContext TenantContext
+
+<main class="account">
+    <div class="account-card">
+        <p class="account-brand">@TenantContext.Tenant?.Name · Back office</p>
+        @Body
+    </div>
+</main>

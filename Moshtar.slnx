@@ -7,5 +7,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Moshtar.Domain.Tests/Moshtar.Domain.Tests.csproj" />
+    <Project Path="tests/Moshtar.Web.Tests/Moshtar.Web.Tests.csproj" />
   </Folder>
 </Solution>

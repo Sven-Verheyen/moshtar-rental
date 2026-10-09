@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Catalog;
@@ -6,10 +7,11 @@ using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
+using Moshtar.Infrastructure.Identity;
 
 namespace Moshtar.Infrastructure.Persistence;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : IdentityUserContext<User, Guid>(options)
 {
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantHost> TenantHosts => Set<TenantHost>();
@@ -25,7 +27,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        base.OnModelCreating(b);
         b.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        // Gebruikers horen ook bij één verhuurder, maar erven van IdentityUser in plaats van TenantEntity.
+        b.Entity<User>().HasQueryFilter(u => u.TenantId == CurrentTenantId);
 
         // Elke tenant ziet enkel zijn eigen data.
         foreach (var entityType in b.Model.GetEntityTypes()
