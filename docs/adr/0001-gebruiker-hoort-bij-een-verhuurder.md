@@ -1,0 +1,3 @@
+# Een gebruiker hoort bij precies één verhuurder
+
+Elke gebruiker van het back office hoort bij precies één verhuurder, en logt in op het domein van die verhuurder. Iemand die voor twee verhuurders werkt, is voor elk van hen een aparte gebruiker. We kozen dit boven gebruikers die over verhuurders heen gedeeld worden, omdat de scheiding tussen verhuurders dan eenvoudig en waterdicht blijft (gebruikers worden op dezelfde manier per verhuurder afgeschermd als de rest van de data) en het inloggen per domein geen verhuurderkeuze nodig heeft. Beheer van het platform zelf (over alle verhuurders heen) is een aparte rol die later komt.
