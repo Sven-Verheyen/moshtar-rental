@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Catalog;
 using Moshtar.Application.Mail;
@@ -36,7 +37,8 @@ public static class DependencyInjection
         services.AddScoped<IMailer, Mailer>();
         if (!sendRealMail || string.IsNullOrWhiteSpace(mail[nameof(MailOptions.AzureCommunicationServicesConnectionString)]))
         {
-            services.AddSingleton<RecordingMailTransport>();
+            services.AddSingleton(sp => new RecordingMailTransport(
+                sp.GetRequiredService<ILogger<RecordingMailTransport>>(), logBody: !sendRealMail));
             services.AddSingleton<IMailTransport>(sp => sp.GetRequiredService<RecordingMailTransport>());
         }
         else

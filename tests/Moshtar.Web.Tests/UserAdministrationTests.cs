@@ -140,6 +140,17 @@ public sealed partial class UserAdministrationTests(MoshtarApp app) : IClassFixt
     }
 
     [Fact]
+    public async Task An_invited_administrator_does_not_count_until_the_invite_is_accepted()
+    {
+        await app.CreateTenantAsync("uitgenodigde-beheerder", "uitgenodigde-beheerder.test");
+        var admin = await app.CreateUserAsync("uitgenodigde-beheerder", "enige@uitgenodigde-beheerder.test");
+        var site = new Uri("http://uitgenodigde-beheerder.test/");
+        await WithUsersAsync(u => u.InviteAsync("nog-niet@uitgenodigde-beheerder.test", UserRole.Administrator, site), "uitgenodigde-beheerder");
+
+        await Assert.ThrowsAsync<UserAdministrationException>(() => WithUsersAsync(u => u.DisableAsync(admin.Id), "uitgenodigde-beheerder"));
+    }
+
+    [Fact]
     public async Task Administrator_cannot_touch_a_user_of_another_rental_company()
     {
         var stranger = await app.CreateUserAsync("andere", "buitenstaander@andere.test", UserRole.Staff);

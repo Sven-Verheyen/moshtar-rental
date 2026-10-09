@@ -59,8 +59,8 @@ public sealed class UserAdministration(UserManager<User> userManager, ITenantCon
         if (user.Role == role) return;
         if (role != UserRole.Administrator) await EnsureAnotherActiveAdministratorAsync(user);
         user.Role = role;
-        Ensure(await userManager.UpdateAsync(user));
-        // De rol zit in de login: opnieuw laten inloggen zodat ze meteen geldt.
+        // De rol zit in de login: een nieuwe security stamp laat ze meteen gelden.
+        // UpdateSecurityStampAsync bewaart ook de rol, in één keer.
         Ensure(await userManager.UpdateSecurityStampAsync(user));
     }
 
@@ -71,7 +71,7 @@ public sealed class UserAdministration(UserManager<User> userManager, ITenantCon
         if (!user.IsActive) return;
         await EnsureAnotherActiveAdministratorAsync(user);
         user.IsActive = false;
-        Ensure(await userManager.UpdateAsync(user));
+        // Een nieuwe security stamp beëindigt lopende sessies; zelfde update als IsActive.
         Ensure(await userManager.UpdateSecurityStampAsync(user));
     }
 
@@ -145,7 +145,9 @@ public sealed class UserAdministration(UserManager<User> userManager, ITenantCon
     private async Task EnsureAnotherActiveAdministratorAsync(User user)
     {
         if (user.Role != UserRole.Administrator || !user.IsActive) return;
-        var others = await userManager.Users.CountAsync(u => u.Id != user.Id && u.IsActive && u.Role == UserRole.Administrator);
+        // Een uitnodiging die nog niet aanvaard is, telt niet: die persoon kan (nog) niet inloggen.
+        var others = await userManager.Users.CountAsync(u =>
+            u.Id != user.Id && u.IsActive && u.Role == UserRole.Administrator && u.PasswordHash != null);
         if (others == 0)
             throw new UserAdministrationException("Er moet minstens één actieve Beheerder overblijven.");
     }
