@@ -5,7 +5,7 @@ using Moshtar.Domain.Tenants;
 
 namespace Moshtar.Infrastructure.Persistence;
 
-/// <summary>Demo-data voor lokale ontwikkeling: de tenant Moshtar met enkele artikelen en een pakket.</summary>
+/// <summary>Demo-data voor lokale ontwikkeling: de verhuurder Hopsakee.fun met enkele artikelen en een pakket.</summary>
 public static class DbSeeder
 {
     public static async Task SeedAsync(AppDbContext db, CancellationToken ct = default)
@@ -14,12 +14,12 @@ public static class DbSeeder
 
         var tenant = new Tenant
         {
-            Name = "Moshtar",
-            Slug = "moshtar",
+            Name = "Hopsakee.fun",
+            Slug = "hopsakee",
             DefaultCulture = "nl",
             SupportedCultures = "nl,fr,en",
             BufferDaysAfter = 0,
-            Hosts = [new TenantHost { Hostname = "localhost" }, new TenantHost { Hostname = "moshtar.be" }, new TenantHost { Hostname = "www.moshtar.be" }],
+            Hosts = [new TenantHost { Hostname = "localhost" }, new TenantHost { Hostname = "hopsakee.fun" }, new TenantHost { Hostname = "www.hopsakee.fun" }],
         };
         foreach (var h in tenant.Hosts) h.TenantId = tenant.Id;
         db.Tenants.Add(tenant);

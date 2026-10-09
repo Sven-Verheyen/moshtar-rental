@@ -11,7 +11,7 @@
   <data name="BundleContains" xml:space="preserve"><value>Contient</value></data>
   <data name="MoreInfo" xml:space="preserve"><value>Plus d'infos et réserver</value></data>
   <data name="Back" xml:space="preserve"><value>Retour à l'offre</value></data>
-  <data name="BookThis" xml:space="preserve"><value>Réserver</value></data>
+  <data name="ReserveThis" xml:space="preserve"><value>Réserver</value></data>
   <data name="StartDate" xml:space="preserve"><value>Du</value></data>
   <data name="EndDate" xml:space="preserve"><value>Jusqu'au</value></data>
   <data name="Quantity" xml:space="preserve"><value>Quantité</value></data>

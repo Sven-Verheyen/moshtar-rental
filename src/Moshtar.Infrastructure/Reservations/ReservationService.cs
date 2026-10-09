@@ -1,5 +1,5 @@
 using Microsoft.EntityFrameworkCore;
-using Moshtar.Application.Booking;
+using Moshtar.Application.Reservations;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Availability;
 using Moshtar.Domain.Catalog;
@@ -8,32 +8,32 @@ using Moshtar.Domain.Customers;
 using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Persistence;
 
-namespace Moshtar.Infrastructure.Booking;
+namespace Moshtar.Infrastructure.Reservations;
 
-internal sealed class BookingService(AppDbContext db, ITenantContext tenantContext, TimeProvider clock) : IBookingService
+internal sealed class ReservationService(AppDbContext db, ITenantContext tenantContext, TimeProvider clock) : IReservationService
 {
     private static readonly ReservationStatus[] OccupyingStatuses =
         [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned];
 
     public async Task<IReadOnlyList<StockShortage>> CheckAvailabilityAsync(
-        DateRange period, IReadOnlyList<BookingLineRequest> lines, CancellationToken ct = default)
+        DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct = default)
     {
         var (shortages, _, _) = await EvaluateAsync(period, lines, ct);
         return shortages;
     }
 
-    public async Task<BookingResult> BookAsync(BookingRequest request, CancellationToken ct = default)
+    public async Task<ReservationResult> ReserveAsync(ReservationRequest request, CancellationToken ct = default)
     {
         Validate(request);
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        // Boekingen per tenant na elkaar afhandelen, tot het einde van de transactie.
+        // Reservaties per tenant na elkaar afhandelen, tot het einde van de transactie.
         await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({tenant.Id.ToString()}, 0))", ct);
 
         var (shortages, items, bundles) = await EvaluateAsync(request.Period, request.Lines, ct);
         if (shortages.Count > 0)
-            return new BookingResult(null, shortages);
+            return new ReservationResult(null, shortages);
 
         var customer = await UpsertCustomerAsync(request, ct);
         var days = request.Period.Days;
@@ -56,11 +56,11 @@ internal sealed class BookingService(AppDbContext db, ITenantContext tenantConte
         db.Reservations.Add(reservation);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
-        return new BookingResult(reservation, []);
+        return new ReservationResult(reservation, []);
     }
 
     private async Task<(IReadOnlyList<StockShortage> Shortages, Dictionary<Guid, RentalItem> Items, Dictionary<Guid, Bundle> Bundles)> EvaluateAsync(
-        DateRange period, IReadOnlyList<BookingLineRequest> lines, CancellationToken ct)
+        DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct)
     {
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
         var before = tenant.BufferDaysBefore;
@@ -99,7 +99,7 @@ internal sealed class BookingService(AppDbContext db, ITenantContext tenantConte
         return (shortages, items, bundles);
     }
 
-    private static ReservationLine CreateLine(BookingLineRequest l, Dictionary<Guid, RentalItem> items, Dictionary<Guid, Bundle> bundles,
+    private static ReservationLine CreateLine(ReservationLineRequest l, Dictionary<Guid, RentalItem> items, Dictionary<Guid, Bundle> bundles,
         int days, string culture, string fallbackCulture)
     {
         if (l.RentalItemId is { } itemId)
@@ -123,7 +123,7 @@ internal sealed class BookingService(AppDbContext db, ITenantContext tenantConte
         };
     }
 
-    private async Task<Customer> UpsertCustomerAsync(BookingRequest request, CancellationToken ct)
+    private async Task<Customer> UpsertCustomerAsync(ReservationRequest request, CancellationToken ct)
     {
         var email = request.Customer.Email.Trim().ToLowerInvariant();
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Email == email, ct);
@@ -149,10 +149,10 @@ internal sealed class BookingService(AppDbContext db, ITenantContext tenantConte
         return $"{prefix}{count + 1:0000}";
     }
 
-    private void Validate(BookingRequest request)
+    private void Validate(ReservationRequest request)
     {
         if (request.Lines.Count == 0)
-            throw new ArgumentException("Een boeking heeft minstens één artikel of pakket nodig.");
+            throw new ArgumentException("Een reservatie heeft minstens één artikel of pakket nodig.");
         if (request.Lines.Any(l => l.Quantity < 1 || (l.RentalItemId is null) == (l.BundleId is null)))
             throw new ArgumentException("Elke lijn moet precies één artikel of pakket bevatten met aantal ≥ 1.");
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);

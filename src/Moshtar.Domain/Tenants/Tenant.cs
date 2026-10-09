@@ -28,7 +28,7 @@ public class Tenant
         SupportedCultures.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 }
 
-/// <summary>Domeinnaam waarop een tenant herkend wordt (bv. "moshtar.be").</summary>
+/// <summary>Domeinnaam waarop een tenant herkend wordt (bv. "hopsakee.fun").</summary>
 public class TenantHost
 {
     public Guid Id { get; set; } = Guid.NewGuid();

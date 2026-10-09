@@ -22,7 +22,7 @@ public class AvailabilityCalculatorTests
     }
 
     [Fact]
-    public void Last_unit_cannot_be_booked_twice_on_overlapping_days()
+    public void Last_unit_cannot_be_reserved_twice_on_overlapping_days()
     {
         var shortages = AvailabilityCalculator.FindShortages(
             Stock, reserved: [new(Castle, 1, Days(6, 7))], blocked: [], requested: [new(Castle, 1, Days(7, 8))]);
@@ -80,7 +80,7 @@ public class AvailabilityCalculatorTests
         var reservedLines = new[] { new ReservationLine { BundleId = bundle.Id, Quantity = 1 } };
         var reserved = DemandExpander.Expand(reservedLines, Days(6, 7), bundles).ToList();
 
-        // Het springkasteel zit in het pakket, dus los boeken lukt niet meer...
+        // Het springkasteel zit in het pakket, dus los reserveren lukt niet meer...
         Assert.NotEmpty(AvailabilityCalculator.FindShortages(Stock, reserved, [], [new(Castle, 1, Days(7, 7))]));
         // ...maar van de spellen is er nog één over.
         Assert.Empty(AvailabilityCalculator.FindShortages(Stock, reserved, [], [new(Game, 1, Days(7, 7))]));

@@ -9,9 +9,9 @@
   <data name="PerExtraDay" xml:space="preserve"><value>per extra day</value></data>
   <data name="Bundle" xml:space="preserve"><value>Package</value></data>
   <data name="BundleContains" xml:space="preserve"><value>Contains</value></data>
-  <data name="MoreInfo" xml:space="preserve"><value>More info and book</value></data>
+  <data name="MoreInfo" xml:space="preserve"><value>More info and reserve</value></data>
   <data name="Back" xml:space="preserve"><value>Back to the range</value></data>
-  <data name="BookThis" xml:space="preserve"><value>Book</value></data>
+  <data name="ReserveThis" xml:space="preserve"><value>Reserve</value></data>
   <data name="StartDate" xml:space="preserve"><value>From</value></data>
   <data name="EndDate" xml:space="preserve"><value>Until</value></data>
   <data name="Quantity" xml:space="preserve"><value>Quantity</value></data>
@@ -26,8 +26,8 @@
   <data name="Delivery" xml:space="preserve"><value>Deliver to address</value></data>
   <data name="Pickup" xml:space="preserve"><value>Pick up myself</value></data>
   <data name="Notes" xml:space="preserve"><value>Notes</value></data>
-  <data name="Submit" xml:space="preserve"><value>Confirm booking</value></data>
-  <data name="Confirmed" xml:space="preserve"><value>Your booking {0} is confirmed. Total: {1}.</value></data>
+  <data name="Submit" xml:space="preserve"><value>Confirm reservation</value></data>
+  <data name="Confirmed" xml:space="preserve"><value>Your reservation {0} is confirmed. Total: {1}.</value></data>
   <data name="NotAvailable" xml:space="preserve"><value>Sorry, this is no longer available on {0}. Please choose another date.</value></data>
   <data name="Specs" xml:space="preserve"><value>Specifications</value></data>
   <data name="Dimensions" xml:space="preserve"><value>Dimensions</value></data>

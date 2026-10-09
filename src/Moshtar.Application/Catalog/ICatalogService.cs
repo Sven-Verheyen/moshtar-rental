@@ -1,6 +1,6 @@
 namespace Moshtar.Application.Catalog;
 
-/// <summary>Leesmodel van de catalogus voor de boekingswebsite, vertaald naar de gevraagde taal.</summary>
+/// <summary>Leesmodel van de catalogus voor de reservatiewebsite, vertaald naar de gevraagde taal.</summary>
 public interface ICatalogService
 {
     Task<IReadOnlyList<CatalogEntry>> GetCatalogAsync(string culture, CancellationToken ct = default);

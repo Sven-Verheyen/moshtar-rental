@@ -36,7 +36,7 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
-/* Boekingswebsite: basisstijl. Kleuren komen later uit de tenant-instellingen. */
+/* Reservatiewebsite: basisstijl. Kleuren komen later uit de tenant-instellingen. */
 :root {
     --brand: #e4572e;
     --text: #1f2933;
@@ -87,12 +87,12 @@ body {
 }
 
 .detail { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr)); }
-.booking { background: var(--surface); border-radius: .75rem; padding: 1.25rem; }
-.booking form { display: flex; flex-direction: column; gap: .75rem; }
-.booking label { display: flex; flex-direction: column; gap: .25rem; flex: 1; }
-.booking input, .booking textarea { font: inherit; padding: .5rem; border: 1px solid #cbd2d9; border-radius: .4rem; }
-.booking fieldset { border: 0; padding: 0; }
-.booking fieldset label { flex-direction: row; align-items: center; gap: .5rem; }
+.reservation { background: var(--surface); border-radius: .75rem; padding: 1.25rem; }
+.reservation form { display: flex; flex-direction: column; gap: .75rem; }
+.reservation label { display: flex; flex-direction: column; gap: .25rem; flex: 1; }
+.reservation input, .reservation textarea { font: inherit; padding: .5rem; border: 1px solid #cbd2d9; border-radius: .4rem; }
+.reservation fieldset { border: 0; padding: 0; }
+.reservation fieldset label { flex-direction: row; align-items: center; gap: .5rem; }
 .row { display: flex; gap: .75rem; flex-wrap: wrap; }
 .alert { padding: .75rem 1rem; border-radius: .5rem; }
 .alert.success { background: #e3f9e5; color: #05400a; }
