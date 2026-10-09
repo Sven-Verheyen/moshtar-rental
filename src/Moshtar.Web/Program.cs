@@ -18,7 +18,8 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 builder.Services.AddMudServices();
 
-builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddInfrastructure(builder.Configuration,
+    sendRealMail: !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"));
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<HostTenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HostTenantContext>());

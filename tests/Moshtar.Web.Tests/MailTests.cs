@@ -52,16 +52,44 @@ public sealed class MailTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
-    public void With_a_connection_string_mail_goes_through_Azure_Communication_Services()
+    public void In_production_a_connection_string_sends_mail_through_Azure_Communication_Services()
     {
-        using var configured = app.WithWebHostBuilder(b => b.UseSetting(
-            "Mail:AzureCommunicationServicesConnectionString",
-            "endpoint=https://moshtar-test.communication.azure.com/;accesskey=" + Convert.ToBase64String(new byte[32])));
+        using var production = WithAzureConnectionString("Production");
 
-        var transport = configured.Services.GetRequiredService<IMailTransport>();
-
-        Assert.Equal("AzureMailTransport", transport.GetType().Name);
+        Assert.Equal("AzureMailTransport", production.Services.GetRequiredService<IMailTransport>().GetType().Name);
     }
+
+    [Theory]
+    [InlineData("Development")]
+    [InlineData("Testing")]
+    public void Development_and_tests_never_send_real_mail_even_with_a_connection_string(string environment)
+    {
+        using var local = WithAzureConnectionString(environment);
+
+        Assert.IsType<RecordingMailTransport>(local.Services.GetRequiredService<IMailTransport>());
+    }
+
+    [Fact]
+    public async Task Rental_company_without_a_contact_address_cannot_send_mail()
+    {
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Tenants.Add(new Tenant { Name = "Zonder contact", Slug = "zonder-contact", SenderEmail = "noreply@zonder-contact.test" });
+            await db.SaveChangesAsync();
+        }
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => SendAsync("zonder-contact", "klant5@example.test"));
+
+        Assert.Contains("contactadres", error.Message);
+        Assert.DoesNotContain(Outbox.Sent, m => m.To == "klant5@example.test");
+    }
+
+    private Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactory<Program> WithAzureConnectionString(string environment) =>
+        app.WithWebHostBuilder(b => b
+            .UseEnvironment(environment)
+            .UseSetting("Mail:AzureCommunicationServicesConnectionString",
+                "endpoint=https://moshtar-test.communication.azure.com/;accesskey=" + Convert.ToBase64String(new byte[32])));
 
     private async Task SendAsync(string tenantSlug, string to)
     {

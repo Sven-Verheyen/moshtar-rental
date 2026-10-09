@@ -8,7 +8,7 @@ namespace Moshtar.Infrastructure.Mail;
 
 /// <summary>Een volledig geadresseerde mail, klaar om te versturen.</summary>
 public record OutgoingMail(
-    string FromAddress, string FromName, string? ReplyTo,
+    string FromAddress, string FromName, string ReplyTo,
     string To, string Subject, string HtmlBody, string TextBody);
 
 /// <summary>Het kanaal waarlangs mails echt vertrekken.</summary>
@@ -40,8 +40,7 @@ internal sealed class AzureMailTransport(IOptions<MailOptions> options) : IMailT
             mail.FromAddress,
             new EmailRecipients([new EmailAddress(mail.To)]),
             new EmailContent(mail.Subject) { Html = mail.HtmlBody, PlainText = mail.TextBody });
-        if (mail.ReplyTo is { Length: > 0 } replyTo)
-            message.ReplyTo.Add(new EmailAddress(replyTo, mail.FromName));
+        message.ReplyTo.Add(new EmailAddress(mail.ReplyTo, mail.FromName));
         await _client.SendAsync(WaitUntil.Started, message, ct);
     }
 }

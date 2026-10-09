@@ -14,7 +14,10 @@ namespace Moshtar.Infrastructure;
 
 public static class DependencyInjection
 {
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    /// <param name="sendRealMail">
+    /// Mag er echt gemaild worden? Lokaal en in tests niet, ook niet als er een connection string ingesteld is.
+    /// </param>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool sendRealMail)
     {
         var connectionString = configuration.GetConnectionString("Moshtar")
             ?? throw new InvalidOperationException("Connection string 'Moshtar' ontbreekt.");
@@ -31,7 +34,7 @@ public static class DependencyInjection
         var mail = configuration.GetSection("Mail");
         services.Configure<MailOptions>(mail);
         services.AddScoped<IMailer, Mailer>();
-        if (string.IsNullOrWhiteSpace(mail[nameof(MailOptions.AzureCommunicationServicesConnectionString)]))
+        if (!sendRealMail || string.IsNullOrWhiteSpace(mail[nameof(MailOptions.AzureCommunicationServicesConnectionString)]))
         {
             services.AddSingleton<RecordingMailTransport>();
             services.AddSingleton<IMailTransport>(sp => sp.GetRequiredService<RecordingMailTransport>());
