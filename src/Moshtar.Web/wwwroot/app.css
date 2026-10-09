@@ -109,3 +109,5 @@ body {
 .account-card .account-check { flex-direction: row; align-items: center; gap: .5rem; }
 .account-card button { font: inherit; padding: .6rem; border: 0; border-radius: .4rem; background: #1e6fd9; color: #fff; cursor: pointer; }
 .account-error { background: #fdecea; color: #a61b1b; padding: .6rem .75rem; border-radius: .4rem; }
+.account-success { background: #e6f4ea; color: #1e5b2f; padding: .6rem .75rem; border-radius: .4rem; }
+.account-card a { color: #1e6fd9; }
