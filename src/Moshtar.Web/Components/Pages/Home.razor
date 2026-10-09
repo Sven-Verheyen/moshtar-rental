@@ -1,0 +1,49 @@
+@page "/"
+@inject ICatalogService Catalog
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>@L["Catalog"]</PageTitle>
+
+<h1>@L["Catalog"]</h1>
+
+@if (_entries is null)
+{
+    <p>…</p>
+}
+else
+{
+    @foreach (var group in _entries.GroupBy(e => e.Kind == CatalogEntryKind.Bundle ? L["Bundle"].Value : e.Category ?? ""))
+    {
+        <h2>@group.Key</h2>
+        <div class="catalog-grid">
+            @foreach (var entry in group)
+            {
+                <article class="catalog-card">
+                    @if (entry.ImageUrl is not null)
+                    {
+                        <img src="@entry.ImageUrl" alt="@entry.Name" loading="lazy" />
+                    }
+                    <h3>@entry.Name</h3>
+                    @if (entry.Description is not null)
+                    {
+                        <p>@entry.Description</p>
+                    }
+                    @if (entry.Contents.Count > 0)
+                    {
+                        <p class="muted">@L["BundleContains"]: @string.Join(", ", entry.Contents)</p>
+                    }
+                    <p class="price">@entry.DayPrice.ToString("C", Money) @L["PerDay"]</p>
+                    <a class="button" href="huren/@entry.Slug">@L["MoreInfo"]</a>
+                </article>
+            }
+        </div>
+    }
+}
+
+@code {
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
+    private IReadOnlyList<CatalogEntry>? _entries;
+
+    protected override async Task OnInitializedAsync() =>
+        _entries = await Catalog.GetCatalogAsync(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
+}

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Catalog" xml:space="preserve"><value>Ons aanbod</value></data>
+  <data name="PerDay" xml:space="preserve"><value>per dag</value></data>
+  <data name="PerExtraDay" xml:space="preserve"><value>per extra dag</value></data>
+  <data name="Bundle" xml:space="preserve"><value>Pakket</value></data>
+  <data name="BundleContains" xml:space="preserve"><value>Bevat</value></data>
+  <data name="MoreInfo" xml:space="preserve"><value>Meer info en boeken</value></data>
+  <data name="Back" xml:space="preserve"><value>Terug naar het aanbod</value></data>
+  <data name="BookThis" xml:space="preserve"><value>Boeken</value></data>
+  <data name="StartDate" xml:space="preserve"><value>Van</value></data>
+  <data name="EndDate" xml:space="preserve"><value>Tot en met</value></data>
+  <data name="Quantity" xml:space="preserve"><value>Aantal</value></data>
+  <data name="FirstName" xml:space="preserve"><value>Voornaam</value></data>
+  <data name="LastName" xml:space="preserve"><value>Naam</value></data>
+  <data name="Email" xml:space="preserve"><value>E-mail</value></data>
+  <data name="Phone" xml:space="preserve"><value>Telefoon</value></data>
+  <data name="Street" xml:space="preserve"><value>Straat en nummer</value></data>
+  <data name="PostalCode" xml:space="preserve"><value>Postcode</value></data>
+  <data name="City" xml:space="preserve"><value>Gemeente</value></data>
+  <data name="DeliveryMethod" xml:space="preserve"><value>Levering</value></data>
+  <data name="Delivery" xml:space="preserve"><value>Leveren op adres</value></data>
+  <data name="Pickup" xml:space="preserve"><value>Zelf afhalen</value></data>
+  <data name="Notes" xml:space="preserve"><value>Opmerkingen</value></data>
+  <data name="Submit" xml:space="preserve"><value>Boeking bevestigen</value></data>
+  <data name="Confirmed" xml:space="preserve"><value>Je reservatie {0} is bevestigd. Totaal: {1}.</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>Helaas, dit is niet meer beschikbaar op {0}. Kies een andere datum.</value></data>
+  <data name="Specs" xml:space="preserve"><value>Specificaties</value></data>
+  <data name="Dimensions" xml:space="preserve"><value>Afmetingen</value></data>
+  <data name="Age" xml:space="preserve"><value>Leeftijd</value></data>
+  <data name="MaxPersons" xml:space="preserve"><value>Max. personen</value></data>
+  <data name="RequiresPower" xml:space="preserve"><value>Stroom nodig</value></data>
+  <data name="Years" xml:space="preserve"><value>jaar</value></data>
+</root>

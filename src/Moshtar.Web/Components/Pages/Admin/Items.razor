@@ -1,0 +1,60 @@
+@page "/admin/artikelen"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Moshtar.Domain.Catalog
+@using Moshtar.Domain.Common
+@using Moshtar.Infrastructure.Persistence
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+
+<PageTitle>Artikelen</PageTitle>
+
+<AdminShell Title="Artikelen">
+    <MudTable Items="_items" Loading="_items is null" Dense="true">
+        <HeaderContent>
+            <MudTh>Naam</MudTh>
+            <MudTh>Categorie</MudTh>
+            <MudTh>Voorraad</MudTh>
+            <MudTh>Dagprijs</MudTh>
+            <MudTh>Extra dag</MudTh>
+            <MudTh>Actief</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@Name(context.Translations, context.Slug)</MudTd>
+            <MudTd>@(context.Category is { } c ? Name(c.Translations, c.Slug) : "")</MudTd>
+            <MudTd><MudNumericField @bind-Value="context.Stock" Min="0" Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 6rem" /></MudTd>
+            <MudTd><MudNumericField @bind-Value="context.Pricing.DayPrice" Min="0" Format="N2" Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 8rem" /></MudTd>
+            <MudTd><MudNumericField @bind-Value="context.Pricing.ExtraDayPrice" Min="0" Format="N2" Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 8rem" /></MudTd>
+            <MudTd><MudSwitch @bind-Value="context.IsActive" Color="Color.Primary" /></MudTd>
+            <MudTd><MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SaveAsync(context)">Opslaan</MudButton></MudTd>
+        </RowTemplate>
+    </MudTable>
+</AdminShell>
+
+@code {
+    private List<RentalItem>? _items;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _items = await db.RentalItems.AsNoTracking().Include(i => i.Category).OrderBy(i => i.Slug).ToListAsync();
+    }
+
+    private async Task SaveAsync(RentalItem edited)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var item = await db.RentalItems.FirstAsync(i => i.Id == edited.Id);
+        item.Stock = edited.Stock;
+        item.Pricing.DayPrice = edited.Pricing.DayPrice;
+        item.Pricing.ExtraDayPrice = edited.Pricing.ExtraDayPrice;
+        item.IsActive = edited.IsActive;
+        await db.SaveChangesAsync();
+        Snackbar.Add("Opgeslagen.", Severity.Success);
+    }
+
+    private string Name(IEnumerable<Translation> translations, string fallback) =>
+        translations.For("nl", TenantContext.Tenant?.DefaultCulture ?? "nl")?.Name ?? fallback;
+}

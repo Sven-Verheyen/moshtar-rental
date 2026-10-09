@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value></resheader>
+  <data name="Catalog" xml:space="preserve"><value>Notre offre</value></data>
+  <data name="PerDay" xml:space="preserve"><value>par jour</value></data>
+  <data name="PerExtraDay" xml:space="preserve"><value>par jour supplémentaire</value></data>
+  <data name="Bundle" xml:space="preserve"><value>Forfait</value></data>
+  <data name="BundleContains" xml:space="preserve"><value>Contient</value></data>
+  <data name="MoreInfo" xml:space="preserve"><value>Plus d'infos et réserver</value></data>
+  <data name="Back" xml:space="preserve"><value>Retour à l'offre</value></data>
+  <data name="BookThis" xml:space="preserve"><value>Réserver</value></data>
+  <data name="StartDate" xml:space="preserve"><value>Du</value></data>
+  <data name="EndDate" xml:space="preserve"><value>Jusqu'au</value></data>
+  <data name="Quantity" xml:space="preserve"><value>Quantité</value></data>
+  <data name="FirstName" xml:space="preserve"><value>Prénom</value></data>
+  <data name="LastName" xml:space="preserve"><value>Nom</value></data>
+  <data name="Email" xml:space="preserve"><value>E-mail</value></data>
+  <data name="Phone" xml:space="preserve"><value>Téléphone</value></data>
+  <data name="Street" xml:space="preserve"><value>Rue et numéro</value></data>
+  <data name="PostalCode" xml:space="preserve"><value>Code postal</value></data>
+  <data name="City" xml:space="preserve"><value>Commune</value></data>
+  <data name="DeliveryMethod" xml:space="preserve"><value>Livraison</value></data>
+  <data name="Delivery" xml:space="preserve"><value>Livraison à l'adresse</value></data>
+  <data name="Pickup" xml:space="preserve"><value>Retrait sur place</value></data>
+  <data name="Notes" xml:space="preserve"><value>Remarques</value></data>
+  <data name="Submit" xml:space="preserve"><value>Confirmer la réservation</value></data>
+  <data name="Confirmed" xml:space="preserve"><value>Votre réservation {0} est confirmée. Total : {1}.</value></data>
+  <data name="NotAvailable" xml:space="preserve"><value>Malheureusement, ce n'est plus disponible le {0}. Choisissez une autre date.</value></data>
+  <data name="Specs" xml:space="preserve"><value>Caractéristiques</value></data>
+  <data name="Dimensions" xml:space="preserve"><value>Dimensions</value></data>
+  <data name="Age" xml:space="preserve"><value>Âge</value></data>
+  <data name="MaxPersons" xml:space="preserve"><value>Personnes max.</value></data>
+  <data name="RequiresPower" xml:space="preserve"><value>Électricité nécessaire</value></data>
+  <data name="Years" xml:space="preserve"><value>ans</value></data>
+</root>
