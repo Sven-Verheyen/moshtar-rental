@@ -9,7 +9,7 @@ Het platform zelf, dat aan verhuurders wordt aangeboden. Moshtar is nooit zelf e
 _Avoid_: Moshtar Rental, de software
 
 **Verhuurder** (`Tenant`):
-Een bedrijf dat Moshtar gebruikt om zijn aanbod te verhuren, op zijn eigen domein en met zijn eigen e-mailafzender. Hopsakee.fun is de eerste verhuurder.
+Een bedrijf dat Moshtar gebruikt om zijn aanbod te verhuren. Hopsakee.fun is de eerste verhuurder.
 _Avoid_: tenant (in gesprekken), klant, bedrijf
 
 **Gebruiker** (`User`):
@@ -25,7 +25,7 @@ Een gebruiker die reservaties opvolgt, maar geen prijzen, voorraad, instellingen
 _Avoid_: personeel, operator
 
 **Klant** (`Customer`):
-Een persoon of organisatie die bij een verhuurder huurt via de boekingswebsite. Een klant is nooit een gebruiker.
+Een persoon of organisatie die bij een verhuurder huurt via de reservatiewebsite. Een klant is nooit een gebruiker.
 _Avoid_: huurder, gebruiker, client
 
 ## Aanbod
@@ -39,7 +39,7 @@ Het aantal exemplaren van een artikel dat een verhuurder bezit.
 _Avoid_: stock, aantal
 
 **Pakket** (`Bundle`):
-Een vaste combinatie van artikelen met een eigen prijs, die als één geheel geboekt wordt.
+Een vaste combinatie van artikelen met een eigen prijs, die als één geheel gereserveerd wordt.
 _Avoid_: bundel, combo, set
 
 ## Verhuur
@@ -47,6 +47,10 @@ _Avoid_: bundel, combo, set
 **Reservatie** (`Reservation`):
 De afspraak dat een klant artikelen of pakketten huurt voor een huurperiode. Een reservatie is bevestigd zodra ze bestaat.
 _Avoid_: boeking, bestelling, order
+
+**Reservatiewebsite**:
+De publieke website van een verhuurder waarop klanten het aanbod bekijken en reserveren.
+_Avoid_: boekingswebsite, front office, webshop
 
 **Reserveren** (`Reserve`):
 Een reservatie aanmaken, door een klant op de website of door een gebruiker in het back office.
