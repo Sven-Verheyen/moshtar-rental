@@ -1,0 +1,143 @@
+@page "/huren/{Slug}"
+@inject ICatalogService Catalog
+@inject IBookingService Booking
+@inject IStringLocalizer<SharedResource> L
+
+@if (_entry is null)
+{
+    <PageTitle>404</PageTitle>
+    <p>404</p>
+    return;
+}
+
+<PageTitle>@_entry.Name</PageTitle>
+
+<p><a href="/">← @L["Back"]</a></p>
+<h1>@_entry.Name</h1>
+
+<div class="detail">
+    <section>
+        @if (_entry.ImageUrl is not null)
+        {
+            <img src="@_entry.ImageUrl" alt="@_entry.Name" />
+        }
+        @if (_entry.Description is not null)
+        {
+            <p>@_entry.Description</p>
+        }
+        @if (_entry.Contents.Count > 0)
+        {
+            <p>@L["BundleContains"]: @string.Join(", ", _entry.Contents)</p>
+        }
+        <p class="price">
+            @_entry.DayPrice.ToString("C", Money) @L["PerDay"]
+            @if (_entry.ExtraDayPrice is { } extra)
+            {
+                <span class="muted"> · @extra.ToString("C", Money) @L["PerExtraDay"]</span>
+            }
+        </p>
+    </section>
+
+    <section class="booking">
+        <h2>@L["BookThis"]</h2>
+
+        @if (_confirmation is not null)
+        {
+            <p class="alert success">@_confirmation</p>
+        }
+        else
+        {
+            @if (_error is not null)
+            {
+                <p class="alert error">@_error</p>
+            }
+            <EditForm Model="Form" FormName="booking" OnValidSubmit="SubmitAsync" Enhance>
+                <DataAnnotationsValidator />
+                <ValidationSummary />
+                <div class="row">
+                    <label>@L["StartDate"] <InputDate @bind-Value="Form!.StartDate" min="@Today" /></label>
+                    <label>@L["EndDate"] <InputDate @bind-Value="Form!.EndDate" min="@Today" /></label>
+                    <label>@L["Quantity"] <InputNumber @bind-Value="Form!.Quantity" min="1" /></label>
+                </div>
+                <div class="row">
+                    <label>@L["FirstName"] <InputText @bind-Value="Form!.FirstName" autocomplete="given-name" /></label>
+                    <label>@L["LastName"] <InputText @bind-Value="Form!.LastName" autocomplete="family-name" /></label>
+                </div>
+                <div class="row">
+                    <label>@L["Email"] <InputText type="email" @bind-Value="Form!.Email" autocomplete="email" /></label>
+                    <label>@L["Phone"] <InputText type="tel" @bind-Value="Form!.Phone" autocomplete="tel" /></label>
+                </div>
+                <label>@L["Street"] <InputText @bind-Value="Form!.Street" autocomplete="street-address" /></label>
+                <div class="row">
+                    <label>@L["PostalCode"] <InputText @bind-Value="Form!.PostalCode" autocomplete="postal-code" /></label>
+                    <label>@L["City"] <InputText @bind-Value="Form!.City" autocomplete="address-level2" /></label>
+                </div>
+                <fieldset>
+                    <legend>@L["DeliveryMethod"]</legend>
+                    <InputRadioGroup @bind-Value="Form!.DeliveryMethod">
+                        <label><InputRadio Value="DeliveryMethod.Delivery" /> @L["Delivery"]</label>
+                        <label><InputRadio Value="DeliveryMethod.Pickup" /> @L["Pickup"]</label>
+                    </InputRadioGroup>
+                </fieldset>
+                <label>@L["Notes"] <InputTextArea @bind-Value="Form!.Notes" rows="3" /></label>
+                <button type="submit" class="button">@L["Submit"]</button>
+            </EditForm>
+        }
+    </section>
+</div>
+
+@code {
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
+
+    [Parameter] public string Slug { get; set; } = "";
+    [SupplyParameterFromForm] private BookingForm? Form { get; set; }
+
+    private CatalogEntry? _entry;
+    private string? _confirmation;
+    private string? _error;
+
+    private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+    private static string Today => DateTime.Today.ToString("yyyy-MM-dd");
+
+    protected override async Task OnInitializedAsync()
+    {
+        Form ??= new();
+        _entry = await Catalog.GetBySlugAsync(Slug, Culture);
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_entry is null || Form is null) return;
+        if (Form.EndDate < Form.StartDate)
+        {
+            _error = L["EndDate"] + " < " + L["StartDate"];
+            return;
+        }
+
+        var address = new Moshtar.Domain.Common.Address { Street = Form.Street, PostalCode = Form.PostalCode, City = Form.City };
+        var line = _entry.Kind == CatalogEntryKind.Item
+            ? new BookingLineRequest(_entry.Id, null, Form.Quantity)
+            : new BookingLineRequest(null, _entry.Id, Form.Quantity);
+
+        try
+        {
+            var result = await Booking.BookAsync(new BookingRequest(
+                new Moshtar.Domain.Common.DateRange(Form.StartDate!.Value, Form.EndDate!.Value),
+                [line],
+                new BookingCustomer(Form.FirstName, Form.LastName, Form.Email, Form.Phone, address),
+                Form.DeliveryMethod,
+                address,
+                Form.Notes,
+                Culture));
+
+            if (result.Reservation is { } reservation)
+                _confirmation = L["Confirmed", reservation.Number, reservation.TotalPrice.ToString("C", Money)];
+            else
+                _error = L["NotAvailable", result.Shortages[0].Day.ToString("d", CultureInfo.CurrentUICulture)];
+        }
+        catch (ArgumentException ex)
+        {
+            _error = ex.Message;
+        }
+    }
+}

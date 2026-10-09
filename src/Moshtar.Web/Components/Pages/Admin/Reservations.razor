@@ -1,0 +1,83 @@
+@page "/admin"
+@page "/admin/reservaties"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Moshtar.Infrastructure.Persistence
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject ISnackbar Snackbar
+
+<PageTitle>Reservaties</PageTitle>
+
+<AdminShell Title="Reservaties">
+    <MudTable Items="_reservations" Loading="_reservations is null" Hover="true" Dense="true">
+        <HeaderContent>
+            <MudTh>Nummer</MudTh>
+            <MudTh>Klant</MudTh>
+            <MudTh>Periode</MudTh>
+            <MudTh>Inhoud</MudTh>
+            <MudTh>Levering</MudTh>
+            <MudTh>Totaal</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Number</MudTd>
+            <MudTd>@context.Customer?.FirstName @context.Customer?.LastName<br /><small>@context.Customer?.Email</small></MudTd>
+            <MudTd>@context.StartDate.ToString("dd/MM/yyyy") – @context.EndDate.ToString("dd/MM/yyyy")</MudTd>
+            <MudTd>@string.Join(", ", context.Lines.Select(l => $"{l.Quantity} × {l.Description}"))</MudTd>
+            <MudTd>@(context.DeliveryMethod == DeliveryMethod.Delivery ? "Leveren" : "Afhalen")</MudTd>
+            <MudTd>@context.TotalPrice.ToString("C", Money)</MudTd>
+            <MudTd><MudChip T="string" Size="Size.Small" Color="StatusColor(context.Status)">@StatusLabel(context.Status)</MudChip></MudTd>
+            <MudTd>
+                @if (context.Status == ReservationStatus.Confirmed)
+                {
+                    <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => CancelAsync(context.Id)">Annuleren</MudButton>
+                }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>Nog geen reservaties.</NoRecordsContent>
+    </MudTable>
+</AdminShell>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Money = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
+    private List<Reservation>? _reservations;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        _reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
+            .OrderByDescending(r => r.StartDate).ThenBy(r => r.Number)
+            .Take(200).ToListAsync();
+    }
+
+    private async Task CancelAsync(Guid id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var reservation = await db.Reservations.FirstAsync(r => r.Id == id);
+        reservation.Status = ReservationStatus.Cancelled;
+        await db.SaveChangesAsync();
+        Snackbar.Add($"Reservatie {reservation.Number} geannuleerd.", Severity.Info);
+        await LoadAsync();
+    }
+
+    private static string StatusLabel(ReservationStatus s) => s switch
+    {
+        ReservationStatus.Confirmed => "Bevestigd",
+        ReservationStatus.Delivered => "Geleverd",
+        ReservationStatus.Returned => "Teruggebracht",
+        ReservationStatus.Completed => "Afgerond",
+        ReservationStatus.Cancelled => "Geannuleerd",
+        _ => s.ToString(),
+    };
+
+    private static Color StatusColor(ReservationStatus s) => s switch
+    {
+        ReservationStatus.Confirmed => Color.Success,
+        ReservationStatus.Cancelled => Color.Error,
+        _ => Color.Default,
+    };
+}

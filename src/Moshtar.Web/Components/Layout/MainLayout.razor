@@ -1,0 +1,38 @@
+@inherits LayoutComponentBase
+@inject ITenantContext TenantContext
+@inject NavigationManager Navigation
+
+<header class="site-header">
+    <a class="brand" href="/">@TenantContext.Tenant?.Name</a>
+    <nav class="languages">
+        @foreach (var culture in TenantContext.Tenant?.Cultures ?? [])
+        {
+            <a href="@CultureLink(culture)" class="@(culture == CurrentCulture ? "active" : null)">@culture.ToUpperInvariant()</a>
+        }
+    </nav>
+</header>
+
+<main class="site-main">
+    @Body
+</main>
+
+<footer class="site-footer">
+    @TenantContext.Tenant?.Name
+    @if (TenantContext.Tenant?.ContactEmail is { } email)
+    {
+        <a href="mailto:@email">@email</a>
+    }
+</footer>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private static string CurrentCulture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+
+    private string CultureLink(string culture) =>
+        $"culture/{culture}?redirectUri={Uri.EscapeDataString("/" + Navigation.ToBaseRelativePath(Navigation.Uri))}";
+}

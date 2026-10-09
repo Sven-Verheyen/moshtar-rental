@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Moshtar.Application/Moshtar.Application.csproj" />
+    <Project Path="src/Moshtar.Domain/Moshtar.Domain.csproj" />
+    <Project Path="src/Moshtar.Infrastructure/Moshtar.Infrastructure.csproj" />
+    <Project Path="src/Moshtar.Web/Moshtar.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Moshtar.Domain.Tests/Moshtar.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
