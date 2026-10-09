@@ -1,0 +1,3 @@
+# Elke verhuurder mailt vanaf zijn eigen domein
+
+E-mails aan klanten en gebruikers (reservatiebevestigingen, uitnodigingen, wachtwoordherstel) vertrekken vanaf het eigen domein van de verhuurder, zoals noreply@hopsakee.fun, met de naam van de verhuurder als afzender en zijn contactadres als antwoordadres. We kozen dit boven één gedeelde platformafzender, omdat klanten de verhuurder kennen en niet het platform Moshtar. De prijs is dat elk nieuw domein eerst geverifieerd moet worden (DNS-records in Azure Communication Services) voor die verhuurder kan mailen; dat doet de platformbeheerder voorlopig zelf.
