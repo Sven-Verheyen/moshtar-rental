@@ -1,0 +1,120 @@
+@page "/admin/gebruikers"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Infrastructure.Identity
+@inject UserAdministration UserAdmin
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Gebruikers</PageTitle>
+
+<AdminShell Title="Gebruikers">
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Gebruiker uitnodigen</MudText>
+        <MudStack Row="true" AlignItems="AlignItems.End" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_inviteEmail" Label="E-mailadres" InputType="InputType.Email" Style="min-width: 18rem" />
+            <MudSelect @bind-Value="_inviteRole" Label="Rol" Style="max-width: 12rem">
+                <MudSelectItem Value="UserRole.Staff">Medewerker</MudSelectItem>
+                <MudSelectItem Value="UserRole.Administrator">Beheerder</MudSelectItem>
+            </MudSelect>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="string.IsNullOrWhiteSpace(_inviteEmail)" OnClick="InviteAsync">Uitnodigen</MudButton>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mt-2">De gebruiker krijgt een mail met een link om zelf een wachtwoord te kiezen. De link is 48 uur geldig.</MudText>
+    </MudPaper>
+
+    <MudTable Items="_users" Loading="_users is null" Dense="true" Hover="true">
+        <HeaderContent>
+            <MudTh>E-mailadres</MudTh>
+            <MudTh>Rol</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh></MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>
+                <MudSelect T="UserRole" Value="context.Role" ValueChanged="role => ChangeRoleAsync(context, role)"
+                           Dense="true" Disabled="!context.IsActive" Style="max-width: 10rem">
+                    <MudSelectItem Value="UserRole.Staff">Medewerker</MudSelectItem>
+                    <MudSelectItem Value="UserRole.Administrator">Beheerder</MudSelectItem>
+                </MudSelect>
+            </MudTd>
+            <MudTd>
+                @if (!context.IsActive)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Default">Uitgeschakeld</MudChip>
+                }
+                else if (!context.HasAcceptedInvite)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Info">Uitgenodigd</MudChip>
+                }
+                else
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Success">Actief</MudChip>
+                }
+            </MudTd>
+            <MudTd>
+                @if (context.IsActive && !context.HasAcceptedInvite)
+                {
+                    <MudButton Size="Size.Small" OnClick="() => ResendAsync(context)">Opnieuw uitnodigen</MudButton>
+                }
+                @if (context.IsActive)
+                {
+                    <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => DisableAsync(context)">Uitschakelen</MudButton>
+                }
+                else
+                {
+                    <MudButton Size="Size.Small" OnClick="() => EnableAsync(context)">Inschakelen</MudButton>
+                }
+            </MudTd>
+        </RowTemplate>
+    </MudTable>
+</AdminShell>
+
+@code {
+    private IReadOnlyList<UserSummary>? _users;
+    private string _inviteEmail = "";
+    private UserRole _inviteRole = UserRole.Staff;
+
+    private Uri BaseUri => new(Navigation.BaseUri);
+
+    protected override async Task OnInitializedAsync() => _users = await UserAdmin.ListAsync();
+
+    private async Task InviteAsync()
+    {
+        var email = _inviteEmail.Trim();
+        if (await RunAsync(() => UserAdmin.InviteAsync(email, _inviteRole, BaseUri), $"Uitnodiging verstuurd naar {email}."))
+            _inviteEmail = "";
+    }
+
+    private Task ChangeRoleAsync(UserSummary user, UserRole role) =>
+        RunAsync(() => UserAdmin.ChangeRoleAsync(user.Id, role), $"{user.Email} is nu {RoleLabel(role)}.");
+
+    private Task ResendAsync(UserSummary user) =>
+        RunAsync(() => UserAdmin.ResendInviteAsync(user.Id, BaseUri), $"Nieuwe uitnodiging verstuurd naar {user.Email}.");
+
+    private Task DisableAsync(UserSummary user) =>
+        RunAsync(() => UserAdmin.DisableAsync(user.Id), $"{user.Email} is uitgeschakeld.");
+
+    private Task EnableAsync(UserSummary user) =>
+        RunAsync(() => UserAdmin.EnableAsync(user.Id), $"{user.Email} is weer ingeschakeld.");
+
+    private async Task<bool> RunAsync(Func<Task> action, string success)
+    {
+        var ok = false;
+        try
+        {
+            await action();
+            Snackbar.Add(success, Severity.Success);
+            ok = true;
+        }
+        catch (UserAdministrationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _users = await UserAdmin.ListAsync();
+        return ok;
+    }
+
+    private static string RoleLabel(UserRole role) => role == UserRole.Administrator ? "Beheerder" : "Medewerker";
+}

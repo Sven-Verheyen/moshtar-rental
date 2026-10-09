@@ -1,0 +1,65 @@
+@page "/admin/uitnodiging"
+@layout AccountLayout
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Moshtar.Infrastructure.Identity
+@inject UserAdministration Users
+@inject UserManager<User> UserManager
+@inject SignInManager<User> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Wachtwoord kiezen</PageTitle>
+
+<h1>Wachtwoord kiezen</h1>
+
+@if (_error is not null)
+{
+    <p class="account-error" role="alert">@_error</p>
+}
+
+<p>Kies een wachtwoord van minstens 12 tekens. Een zin die je makkelijk onthoudt, werkt goed.</p>
+
+<EditForm Model="Input" FormName="uitnodiging" OnValidSubmit="AcceptAsync" method="post">
+    <DataAnnotationsValidator />
+    <label>
+        Wachtwoord
+        <InputText @bind-Value="Input!.Password" type="password" autocomplete="new-password" />
+        <ValidationMessage For="() => Input!.Password" />
+    </label>
+    <label>
+        Herhaal je wachtwoord
+        <InputText @bind-Value="Input!.ConfirmPassword" type="password" autocomplete="new-password" />
+        <ValidationMessage For="() => Input!.ConfirmPassword" />
+    </label>
+    <button type="submit">Opslaan en inloggen</button>
+</EditForm>
+
+@code {
+    private string? _error;
+
+    [SupplyParameterFromForm(FormName = "uitnodiging")] private AcceptInput? Input { get; set; }
+    [SupplyParameterFromQuery(Name = "gebruiker")] private Guid UserId { get; set; }
+    [SupplyParameterFromQuery(Name = "code")] private string? Code { get; set; }
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task AcceptAsync()
+    {
+        _error = await Users.AcceptInviteAsync(UserId, Code ?? "", Input!.Password);
+        if (_error is not null) return;
+
+        var user = await UserManager.FindByIdAsync(UserId.ToString());
+        await SignInManager.SignInAsync(user!, isPersistent: false);
+        Navigation.NavigateTo("/admin");
+    }
+
+    private sealed class AcceptInput
+    {
+        [Required(ErrorMessage = "Kies een wachtwoord.")]
+        [MinLength(12, ErrorMessage = "Een wachtwoord moet minstens 12 tekens lang zijn.")]
+        public string Password { get; set; } = "";
+
+        [Compare(nameof(Password), ErrorMessage = "De twee wachtwoorden zijn niet gelijk.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

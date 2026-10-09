@@ -125,6 +125,7 @@ internal class UserConfiguration : IEntityTypeConfiguration<User>
     public void Configure(EntityTypeBuilder<User> b)
     {
         b.Property(u => u.Role).HasConversion<string>().HasMaxLength(20);
+        b.Property(u => u.IsActive).HasDefaultValue(true);
         b.HasOne<Tenant>().WithMany().HasForeignKey(u => u.TenantId);
 
         // Identity maakt e-mail en gebruikersnaam uniek over het hele platform; wij enkel per verhuurder.

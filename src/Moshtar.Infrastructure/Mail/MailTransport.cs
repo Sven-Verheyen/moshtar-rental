@@ -46,7 +46,7 @@ internal sealed class AzureMailTransport(IOptions<MailOptions> options) : IMailT
 }
 
 /// <summary>Verstuurt niets: logt de mail en houdt ze bij, zodat tests kunnen nagaan wat vertrok.</summary>
-public sealed class RecordingMailTransport(ILogger<RecordingMailTransport> logger) : IMailTransport
+public sealed class RecordingMailTransport(ILogger<RecordingMailTransport> logger, bool logBody) : IMailTransport
 {
     private readonly ConcurrentQueue<OutgoingMail> _sent = new();
 
@@ -55,8 +55,14 @@ public sealed class RecordingMailTransport(ILogger<RecordingMailTransport> logge
     public Task SendAsync(OutgoingMail mail, CancellationToken ct = default)
     {
         _sent.Enqueue(mail);
-        logger.LogInformation("Mail niet verstuurd (geen Azure Communication Services ingesteld): {From} → {To}: {Subject}",
-            mail.FromAddress, mail.To, mail.Subject);
+        // Lokaal de volledige tekst, zodat je de links uit uitnodigingen kan volgen. Elders nooit:
+        // zo'n link geeft toegang tot een account.
+        if (logBody)
+            logger.LogInformation("Mail niet echt verstuurd: {From} → {To}: {Subject}\n{Body}",
+                mail.FromAddress, mail.To, mail.Subject, mail.TextBody);
+        else
+            logger.LogWarning("Mail niet verstuurd, want Azure Communication Services is niet ingesteld: {From} → {To}: {Subject}",
+                mail.FromAddress, mail.To, mail.Subject);
         return Task.CompletedTask;
     }
 }

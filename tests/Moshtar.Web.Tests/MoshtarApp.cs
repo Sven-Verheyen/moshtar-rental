@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +35,8 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Moshtar", _connectionString);
         builder.UseSetting("Tenancy:FallbackTenantSlug", "");
+        // Elke request controleert of de login nog geldig is, zodat uitschakelen meteen te testen is.
+        builder.ConfigureTestServices(s => s.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero));
     }
 
     public async Task InitializeAsync()
@@ -43,6 +47,15 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         db.Tenants.AddRange(
             NewTenant("Hopsakee.fun", "hopsakee", HopsakeeHost, "noreply@hopsakee.test", "info@hopsakee.test"),
             NewTenant("Andere", "andere", AndereHost, "noreply@andere.test", "contact@andere.test"));
+        await db.SaveChangesAsync();
+    }
+
+    /// <summary>Een extra verhuurder voor tests die een eigen, lege verhuurder nodig hebben.</summary>
+    public async Task CreateTenantAsync(string slug, string host)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        db.Tenants.Add(NewTenant(slug, slug, host, $"noreply@{host}", $"info@{host}"));
         await db.SaveChangesAsync();
     }
 
