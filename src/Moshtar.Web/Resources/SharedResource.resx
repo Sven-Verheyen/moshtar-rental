@@ -9,9 +9,9 @@
   <data name="PerExtraDay" xml:space="preserve"><value>per extra dag</value></data>
   <data name="Bundle" xml:space="preserve"><value>Pakket</value></data>
   <data name="BundleContains" xml:space="preserve"><value>Bevat</value></data>
-  <data name="MoreInfo" xml:space="preserve"><value>Meer info en boeken</value></data>
+  <data name="MoreInfo" xml:space="preserve"><value>Meer info en reserveren</value></data>
   <data name="Back" xml:space="preserve"><value>Terug naar het aanbod</value></data>
-  <data name="BookThis" xml:space="preserve"><value>Boeken</value></data>
+  <data name="ReserveThis" xml:space="preserve"><value>Reserveren</value></data>
   <data name="StartDate" xml:space="preserve"><value>Van</value></data>
   <data name="EndDate" xml:space="preserve"><value>Tot en met</value></data>
   <data name="Quantity" xml:space="preserve"><value>Aantal</value></data>
@@ -26,7 +26,7 @@
   <data name="Delivery" xml:space="preserve"><value>Leveren op adres</value></data>
   <data name="Pickup" xml:space="preserve"><value>Zelf afhalen</value></data>
   <data name="Notes" xml:space="preserve"><value>Opmerkingen</value></data>
-  <data name="Submit" xml:space="preserve"><value>Boeking bevestigen</value></data>
+  <data name="Submit" xml:space="preserve"><value>Reservatie bevestigen</value></data>
   <data name="Confirmed" xml:space="preserve"><value>Je reservatie {0} is bevestigd. Totaal: {1}.</value></data>
   <data name="NotAvailable" xml:space="preserve"><value>Helaas, dit is niet meer beschikbaar op {0}. Kies een andere datum.</value></data>
   <data name="Specs" xml:space="preserve"><value>Specificaties</value></data>

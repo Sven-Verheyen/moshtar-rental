@@ -3,7 +3,7 @@ using Moshtar.Domain.Reservations;
 
 namespace Moshtar.Web.Models;
 
-public class BookingForm
+public class ReservationForm
 {
     [Required] public DateOnly? StartDate { get; set; }
     [Required] public DateOnly? EndDate { get; set; }

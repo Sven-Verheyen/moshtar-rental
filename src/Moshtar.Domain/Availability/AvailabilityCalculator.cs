@@ -1,7 +1,7 @@
 namespace Moshtar.Domain.Availability;
 
 /// <summary>
-/// Berekent of een gevraagde boeking past binnen de voorraad.
+/// Berekent of een gevraagde reservatie past binnen de voorraad.
 /// Bestaande bezetting wordt per dag opgeteld; reservaties worden daarbij uitgebreid met de
 /// bufferdagen van de tenant (leveren, ophalen, poetsen). Blokkeringen tellen zonder buffer.
 /// </summary>
@@ -15,7 +15,7 @@ public static class AvailabilityCalculator
         int bufferDaysBefore = 0,
         int bufferDaysAfter = 0)
     {
-        // Vraag van de nieuwe boeking, ook met buffer: twee verhuringen mogen elkaars buffer niet raken.
+        // Vraag van de nieuwe reservatie, ook met buffer: twee verhuringen mogen elkaars buffer niet raken.
         var requestedPerItem = requested
             .Select(d => d with { Period = d.Period.Expand(bufferDaysBefore, bufferDaysAfter) })
             .GroupBy(d => d.RentalItemId)

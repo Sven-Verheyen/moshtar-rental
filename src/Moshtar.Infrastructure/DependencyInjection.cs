@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Moshtar.Application.Booking;
+using Moshtar.Application.Reservations;
 using Moshtar.Application.Catalog;
-using Moshtar.Infrastructure.Booking;
+using Moshtar.Infrastructure.Reservations;
 using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Tenancy;
@@ -23,7 +23,7 @@ public static class DependencyInjection
         services.Configure<TenancyOptions>(configuration.GetSection("Tenancy"));
         services.AddSingleton<ITenantStore, TenantStore>();
         services.AddSingleton(TimeProvider.System);
-        services.AddScoped<IBookingService, BookingService>();
+        services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();
         return services;
     }
