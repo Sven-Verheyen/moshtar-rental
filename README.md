@@ -47,7 +47,9 @@ dotnet run --project src/Moshtar.Web          # migreert de database en laadt de
 ```
 
 Open daarna http://localhost:5016 (reservatiewebsite) of http://localhost:5016/admin (back office).
-Lokaal log je in als `beheerder@hopsakee.fun` met wachtwoord `hopsakee-demo-wachtwoord`.
+Lokaal log je in als `beheerder@hopsakee.fun` (Beheerder) of `medewerker@hopsakee.fun` (Medewerker),
+beide met wachtwoord `hopsakee-demo-wachtwoord`. Een Medewerker volgt reservaties op, maar beheert geen
+artikelen, prijzen, voorraad, instellingen of gebruikers.
 
 De eerste Beheerder van een verhuurder maak je bij de installatie aan (er is geen registratiepagina):
 

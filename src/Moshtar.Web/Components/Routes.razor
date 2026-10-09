@@ -2,7 +2,14 @@
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)">
             <NotAuthorized>
-                <Moshtar.Web.Components.Account.RedirectToLogin />
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <Moshtar.Web.Components.Account.NoAccess />
+                }
+                else
+                {
+                    <Moshtar.Web.Components.Account.RedirectToLogin />
+                }
             </NotAuthorized>
         </AuthorizeRouteView>
         <FocusOnNavigate RouteData="routeData" Selector="h1" />

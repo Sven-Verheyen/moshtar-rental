@@ -1,6 +1,7 @@
 @page "/admin/artikelen"
 @layout AdminLayout
 @rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Domain.Catalog
 @using Moshtar.Domain.Common

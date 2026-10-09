@@ -39,6 +39,17 @@ public class Reservation : TenantEntity
 
     public List<ReservationLine> Lines { get; set; } = [];
 
+    /// <summary>
+    /// Zet de reservatie in een nieuwe status. Een geannuleerde reservatie blijft geannuleerd:
+    /// haar voorraad kan intussen aan iemand anders verhuurd zijn.
+    /// </summary>
+    public void ChangeStatus(ReservationStatus status)
+    {
+        if (Status == ReservationStatus.Cancelled && status != ReservationStatus.Cancelled)
+            throw new InvalidOperationException($"Reservatie {Number} is geannuleerd en kan niet meer van status veranderen.");
+        Status = status;
+    }
+
     /// <summary>Telt deze reservatie mee voor de bezetting van de voorraad?</summary>
     public bool OccupiesStock => Status is not ReservationStatus.Cancelled and not ReservationStatus.Completed;
 }

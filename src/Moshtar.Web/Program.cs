@@ -65,8 +65,8 @@ if (app.Environment.IsDevelopment())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     await db.Database.MigrateAsync();
     await DbSeeder.SeedAsync(db);
-    if (app.Configuration.GetSection("DemoBeheerder") is { } demo && demo["Email"] is { Length: > 0 } demoEmail)
-        await BackOfficeUsers.EnsureAsync(scope.ServiceProvider, demo["Verhuurder"]!, demoEmail, demo["Wachtwoord"]!, UserRole.Administrator);
+    foreach (var demo in app.Configuration.GetSection("DemoGebruikers").GetChildren())
+        await BackOfficeUsers.EnsureAsync(scope.ServiceProvider, demo["Verhuurder"]!, demo["Email"]!, demo["Wachtwoord"]!, Enum.Parse<UserRole>(demo["Rol"]!));
 }
 else
 {

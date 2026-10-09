@@ -14,6 +14,7 @@ internal static class IdentitySetup
 {
     public const string LoginPath = "/admin/inloggen";
     public const string LogoutPath = "/admin/uitloggen";
+    public const string AccessDeniedPath = "/admin/geen-toegang";
     public const string TenantClaim = "moshtar:tenant";
 
     /// <summary>Login voor het back office: e-mail en wachtwoord, per verhuurder.</summary>
@@ -57,7 +58,7 @@ internal static class IdentitySetup
             o.Cookie.Name = ".Moshtar.BackOffice";
             o.LoginPath = LoginPath;
             o.LogoutPath = LogoutPath;
-            o.AccessDeniedPath = LoginPath;
+            o.AccessDeniedPath = AccessDeniedPath;
             // "Onthoud mij" geeft een cookie van 14 dagen; zonder vinkje is het een sessiecookie.
             o.ExpireTimeSpan = TimeSpan.FromDays(14);
             o.SlidingExpiration = true;

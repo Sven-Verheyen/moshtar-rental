@@ -5,6 +5,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Infrastructure.Persistence
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject IReservationService ReservationService
 @inject ISnackbar Snackbar
 
 <PageTitle>Reservaties</PageTitle>
@@ -30,9 +31,18 @@
             <MudTd>@context.TotalPrice.ToString("C", Money)</MudTd>
             <MudTd><MudChip T="string" Size="Size.Small" Color="StatusColor(context.Status)">@StatusLabel(context.Status)</MudChip></MudTd>
             <MudTd>
-                @if (context.Status == ReservationStatus.Confirmed)
+                @if (context.Status != ReservationStatus.Cancelled)
                 {
-                    <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => CancelAsync(context.Id)">Annuleren</MudButton>
+                    <MudMenu Label="Status" Size="Size.Small" Dense="true" EndIcon="@Icons.Material.Filled.ArrowDropDown">
+                        @foreach (var status in NextStatuses.Where(s => s != context.Status))
+                        {
+                            <MudMenuItem OnClick="() => ChangeStatusAsync(context.Id, status)">@StatusLabel(status)</MudMenuItem>
+                        }
+                    </MudMenu>
+                    @if (context.Status == ReservationStatus.Confirmed)
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => ChangeStatusAsync(context.Id, ReservationStatus.Cancelled)">Annuleren</MudButton>
+                    }
                 }
             </MudTd>
         </RowTemplate>
@@ -54,13 +64,20 @@
             .Take(200).ToListAsync();
     }
 
-    private async Task CancelAsync(Guid id)
+    private static readonly ReservationStatus[] NextStatuses =
+        [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned, ReservationStatus.Completed];
+
+    private async Task ChangeStatusAsync(Guid id, ReservationStatus status)
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        var reservation = await db.Reservations.FirstAsync(r => r.Id == id);
-        reservation.Status = ReservationStatus.Cancelled;
-        await db.SaveChangesAsync();
-        Snackbar.Add($"Reservatie {reservation.Number} geannuleerd.", Severity.Info);
+        try
+        {
+            var reservation = await ReservationService.ChangeStatusAsync(id, status);
+            Snackbar.Add($"Reservatie {reservation.Number}: {StatusLabel(status).ToLowerInvariant()}.", Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
         await LoadAsync();
     }
 
