@@ -12,7 +12,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Moshtar.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261009223306_HistoriekReservatie")]
+    [Migration("20261009224115_HistoriekReservatie")]
     partial class HistoriekReservatie
     {
         /// <inheritdoc />
@@ -333,7 +333,6 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Moshtar.Domain.Reservations.ReservationEvent", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("Kind")

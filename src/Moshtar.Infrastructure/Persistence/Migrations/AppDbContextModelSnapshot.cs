@@ -330,7 +330,6 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("Moshtar.Domain.Reservations.ReservationEvent", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
                     b.Property<int>("Kind")

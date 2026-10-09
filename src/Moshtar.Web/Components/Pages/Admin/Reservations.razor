@@ -55,6 +55,13 @@
                 <MudTr>
                     <td colspan="8" class="reservation-history">
                         <MudSimpleTable Dense="true" Elevation="0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Tijdstip</th>
+                                    <th scope="col">Gebeurtenis</th>
+                                    <th scope="col">Door</th>
+                                </tr>
+                            </thead>
                             <tbody>
                                 @foreach (var entry in history)
                                 {
