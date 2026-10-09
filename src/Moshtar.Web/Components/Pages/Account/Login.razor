@@ -1,0 +1,71 @@
+@page "/admin/inloggen"
+@layout AccountLayout
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using Moshtar.Infrastructure.Identity
+@inject SignInManager<User> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Inloggen</PageTitle>
+
+<h1>Inloggen</h1>
+
+@if (_error is not null)
+{
+    <p class="account-error" role="alert">@_error</p>
+}
+
+<EditForm Model="Input" FormName="login" OnValidSubmit="LoginAsync" method="post">
+    <DataAnnotationsValidator />
+    <label>
+        E-mailadres
+        <InputText @bind-Value="Input!.Email" type="email" autocomplete="username" />
+        <ValidationMessage For="() => Input!.Email" />
+    </label>
+    <label>
+        Wachtwoord
+        <InputText @bind-Value="Input!.Password" type="password" autocomplete="current-password" />
+        <ValidationMessage For="() => Input!.Password" />
+    </label>
+    <label class="account-check">
+        <InputCheckbox @bind-Value="Input!.RememberMe" />
+        Onthoud mij
+    </label>
+    <button type="submit">Inloggen</button>
+</EditForm>
+
+@code {
+    private string? _error;
+
+    [SupplyParameterFromForm(FormName = "login")] private LoginInput? Input { get; set; }
+    [SupplyParameterFromQuery] private string? ReturnUrl { get; set; }
+
+    protected override void OnInitialized() => Input ??= new();
+
+    private async Task LoginAsync()
+    {
+        var result = await SignInManager.PasswordSignInAsync(Input!.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
+        if (result.Succeeded)
+        {
+            Navigation.NavigateTo(IsLocal(ReturnUrl) ? ReturnUrl! : "/admin");
+            return;
+        }
+        _error = result.IsLockedOut
+            ? "Je account is tijdelijk geblokkeerd na te veel foute pogingen. Probeer het over 15 minuten opnieuw."
+            : "E-mailadres of wachtwoord klopt niet.";
+    }
+
+    private static bool IsLocal(string? url) =>
+        url is { Length: > 0 } && url.StartsWith('/') && !url.StartsWith("//") && !url.StartsWith("/\\");
+
+    private sealed class LoginInput
+    {
+        [Required(ErrorMessage = "Vul je e-mailadres in.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Vul je wachtwoord in.")]
+        public string Password { get; set; } = "";
+
+        public bool RememberMe { get; set; }
+    }
+}

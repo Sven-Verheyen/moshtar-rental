@@ -8,7 +8,7 @@ aan andere verhuurbedrijven aangeboden te worden.
 - **Reservatiewebsite** (`/`): catalogus met artikelen en pakketten, detailpagina met reservatieformulier.
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat.
 - **Back office** (`/admin`): reservaties bekijken en annuleren, voorraad en prijzen van artikelen aanpassen.
-  Er is nog geen login, dus buiten de ontwikkelomgeving geeft `/admin` voorlopig een 404.
+  Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
 - **Meertalig**: NL (standaard), FR en EN, via een taalkeuze bovenaan de site.
 - **Multi-tenant**: elke tabel heeft een `TenantId`, de verhuurder wordt herkend aan de domeinnaam.
   Moshtar is het platform; Hopsakee.fun (hopsakee.fun) is de eerste verhuurder en de demo-data in de lokale omgeving.
@@ -24,6 +24,7 @@ src/
   Moshtar.Web             Blazor Web App: reservatiewebsite (static SSR) en back office (MudBlazor, interactive server)
 tests/
   Moshtar.Domain.Tests    unit tests voor beschikbaarheid en prijzen
+  Moshtar.Web.Tests       webapp via HTTP tegen een echte PostgreSQL (inloggen, rechten)
 ```
 
 ### Belangrijke keuzes
@@ -46,8 +47,18 @@ dotnet run --project src/Moshtar.Web          # migreert de database en laadt de
 ```
 
 Open daarna http://localhost:5016 (reservatiewebsite) of http://localhost:5016/admin (back office).
+Lokaal log je in als `beheerder@hopsakee.fun` met wachtwoord `hopsakee-demo-wachtwoord`.
 
-Tests: `dotnet test`
+De eerste Beheerder van een verhuurder maak je bij de installatie aan (er is geen registratiepagina):
+
+```bash
+MOSHTAR_WACHTWOORD='...' dotnet run --project src/Moshtar.Web -- beheerder-aanmaken hopsakee sven@hopsakee.fun
+```
+
+Zonder `MOSHTAR_WACHTWOORD` vraagt het commando het wachtwoord (minstens 12 tekens).
+
+Tests: `dotnet test`. De webtests maken per testklasse een eigen database aan op de PostgreSQL uit
+`MOSHTAR_TEST_DB` (standaard de lokale server uit `docker compose`).
 
 Nieuwe migratie:
 
@@ -58,7 +69,6 @@ dotnet ef migrations add <Naam> --project src/Moshtar.Infrastructure --output-di
 
 ## Volgende stappen
 
-- Login voor het back office (ASP.NET Core Identity)
 - Winkelmandje met meerdere artikelen en pakketten per reservatie
 - Beheer van artikelen, pakketten, categorieën en foto's (aanmaken en vertalen)
 - Bevestigingsmails naar klant en verhuurder
