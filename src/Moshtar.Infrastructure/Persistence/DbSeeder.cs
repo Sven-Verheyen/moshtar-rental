@@ -8,9 +8,23 @@ namespace Moshtar.Infrastructure.Persistence;
 /// <summary>Demo-data voor lokale ontwikkeling: de verhuurder Hopsakee.fun met enkele artikelen en een pakket.</summary>
 public static class DbSeeder
 {
+    /// <summary>Een database van vóór de afzenderadressen krijgt ze er alsnog bij, zonder ingevulde waarden te overschrijven.</summary>
+    private static async Task UpdateMailAddressesAsync(AppDbContext db, CancellationToken ct)
+    {
+        var hopsakee = await db.Tenants.FirstOrDefaultAsync(t => t.Slug == "hopsakee", ct);
+        if (hopsakee is null) return;
+        hopsakee.SenderEmail ??= "noreply@hopsakee.fun";
+        hopsakee.ContactEmail ??= "info@hopsakee.fun";
+        await db.SaveChangesAsync(ct);
+    }
+
     public static async Task SeedAsync(AppDbContext db, CancellationToken ct = default)
     {
-        if (await db.Tenants.AnyAsync(ct)) return;
+        if (await db.Tenants.AnyAsync(ct))
+        {
+            await UpdateMailAddressesAsync(db, ct);
+            return;
+        }
 
         var tenant = new Tenant
         {
@@ -19,6 +33,8 @@ public static class DbSeeder
             DefaultCulture = "nl",
             SupportedCultures = "nl,fr,en",
             BufferDaysAfter = 0,
+            SenderEmail = "noreply@hopsakee.fun",
+            ContactEmail = "info@hopsakee.fun",
             Hosts = [new TenantHost { Hostname = "localhost" }, new TenantHost { Hostname = "hopsakee.fun" }, new TenantHost { Hostname = "www.hopsakee.fun" }],
         };
         foreach (var h in tenant.Hosts) h.TenantId = tenant.Id;

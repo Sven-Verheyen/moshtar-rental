@@ -16,6 +16,7 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(t => t.Slug).HasMaxLength(100);
         b.HasIndex(t => t.Slug).IsUnique();
         b.Property(t => t.VatRate).HasPrecision(5, 4);
+        b.Property(t => t.SenderEmail).HasMaxLength(254);
         b.Ignore(t => t.Cultures);
         b.HasMany(t => t.Hosts).WithOne().HasForeignKey(h => h.TenantId);
     }

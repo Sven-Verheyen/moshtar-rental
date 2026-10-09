@@ -40,7 +40,9 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         await using var scope = Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await db.Database.MigrateAsync();
-        db.Tenants.AddRange(NewTenant("Hopsakee.fun", "hopsakee", HopsakeeHost), NewTenant("Andere", "andere", AndereHost));
+        db.Tenants.AddRange(
+            NewTenant("Hopsakee.fun", "hopsakee", HopsakeeHost, "noreply@hopsakee.test", "info@hopsakee.test"),
+            NewTenant("Andere", "andere", AndereHost, "noreply@andere.test", "contact@andere.test"));
         await db.SaveChangesAsync();
     }
 
@@ -82,9 +84,13 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         await DisposeAsync();
     }
 
-    private static Tenant NewTenant(string name, string slug, string host)
+    private static Tenant NewTenant(string name, string slug, string host, string senderEmail, string contactEmail)
     {
-        var tenant = new Tenant { Name = name, Slug = slug, DefaultCulture = "nl", SupportedCultures = "nl,fr,en" };
+        var tenant = new Tenant
+        {
+            Name = name, Slug = slug, DefaultCulture = "nl", SupportedCultures = "nl,fr,en",
+            SenderEmail = senderEmail, ContactEmail = contactEmail,
+        };
         tenant.Hosts = [new TenantHost { Hostname = host, TenantId = tenant.Id }];
         return tenant;
     }
