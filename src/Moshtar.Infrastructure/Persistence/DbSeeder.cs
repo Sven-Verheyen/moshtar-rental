@@ -19,6 +19,8 @@ public static class DbSeeder
             DefaultCulture = "nl",
             SupportedCultures = "nl,fr,en",
             BufferDaysAfter = 0,
+            SenderEmail = "noreply@hopsakee.fun",
+            ContactEmail = "info@hopsakee.fun",
             Hosts = [new TenantHost { Hostname = "localhost" }, new TenantHost { Hostname = "hopsakee.fun" }, new TenantHost { Hostname = "www.hopsakee.fun" }],
         };
         foreach (var h in tenant.Hosts) h.TenantId = tenant.Id;

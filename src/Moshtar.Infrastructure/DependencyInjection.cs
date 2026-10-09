@@ -3,8 +3,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Catalog;
+using Moshtar.Application.Mail;
 using Moshtar.Infrastructure.Reservations;
 using Moshtar.Infrastructure.Catalog;
+using Moshtar.Infrastructure.Mail;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Tenancy;
 
@@ -25,6 +27,19 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();
+
+        var mail = configuration.GetSection("Mail");
+        services.Configure<MailOptions>(mail);
+        services.AddScoped<IMailer, Mailer>();
+        if (string.IsNullOrWhiteSpace(mail[nameof(MailOptions.AzureCommunicationServicesConnectionString)]))
+        {
+            services.AddSingleton<RecordingMailTransport>();
+            services.AddSingleton<IMailTransport>(sp => sp.GetRequiredService<RecordingMailTransport>());
+        }
+        else
+        {
+            services.AddSingleton<IMailTransport, AzureMailTransport>();
+        }
         return services;
     }
 }

@@ -17,6 +17,12 @@ public class Tenant
     public int BufferDaysBefore { get; set; }
     public int BufferDaysAfter { get; set; }
 
+    /// <summary>
+    /// Adres op het eigen domein waarvan mails vertrekken, bv. noreply@hopsakee.fun.
+    /// Het domein moet eerst geverifieerd zijn in Azure Communication Services.
+    /// </summary>
+    public string? SenderEmail { get; set; }
+    /// <summary>Contactadres van de verhuurder; ook het antwoordadres van zijn mails.</summary>
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
     public string? LogoUrl { get; set; }

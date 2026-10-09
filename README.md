@@ -35,6 +35,10 @@ tests/
 - **Geen dubbele reservaties**: reservaties per tenant worden binnen een transactie met een
   PostgreSQL advisory lock na elkaar afgehandeld. Zie `ReservationService`.
 - **Prijzen**: eerste dag aan dagprijs, elke extra dag aan de prijs per extra dag (incl. btw).
+- **E-mail**: mails vertrekken via Azure Communication Services vanaf het eigen domein van de verhuurder
+  (`SenderEmail`, bv. noreply@hopsakee.fun), met zijn contactadres als antwoordadres (zie
+  `docs/adr/0002-verhuurder-mailt-vanaf-eigen-domein.md`). Zonder `Mail:AzureCommunicationServicesConnectionString`
+  wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests.
 - **Vertalingen**: UI-teksten in `Resources/SharedResource.*.resx`, inhoud (namen, beschrijvingen) als JSON in de database.
 
 ## Lokaal draaien
