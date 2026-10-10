@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Catalog;
 using Moshtar.Application.Mail;
+using Moshtar.Application.Tenancy;
 using Moshtar.Infrastructure.Reservations;
 using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Mail;
@@ -28,6 +29,7 @@ public static class DependencyInjection
         services.AddMemoryCache();
         services.Configure<TenancyOptions>(configuration.GetSection("Tenancy"));
         services.AddSingleton<ITenantStore, TenantStore>();
+        services.AddScoped<IBrandingAdministration, BrandingAdministration>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();

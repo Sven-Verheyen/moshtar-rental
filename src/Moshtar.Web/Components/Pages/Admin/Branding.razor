@@ -1,0 +1,99 @@
+@page "/admin/huisstijl"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Application.Tenancy
+@inject IBrandingAdministration BrandingAdmin
+@inject ISnackbar Snackbar
+
+<PageTitle>Huisstijl</PageTitle>
+
+<AdminShell Title="Huisstijl">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Je logo en je kleur komen bovenaan de mails die je klanten krijgen.
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudTextField @bind-Value="_logoUrl" @bind-Value:after="Refresh" Immediate="true" Label="Adres van je logo" Variant="Variant.Outlined"
+                      Placeholder="https://www.jouwsite.be/logo.png" Class="mb-3"
+                      HelperText="Een afbeelding op je eigen website, met een volledig adres dat begint met https://. Laat leeg voor geen logo." />
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+            <input type="color" aria-label="Kies een kleur" value="@(ColorForPicker)" @onchange="PickColor"
+                   style="width: 3rem; height: 3rem; border: none; background: none; cursor: pointer" />
+            <MudTextField @bind-Value="_color" @bind-Value:after="Refresh" Immediate="true" Label="Kleur" Variant="Variant.Outlined"
+                          Placeholder="#e91e63" HelperText="Een hexcode, bv. #e91e63. Laat leeg voor geen kleur." Style="max-width: 16rem" />
+        </MudStack>
+
+        @if (_problems.Count > 0)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">
+                @foreach (var problem in _problems)
+                {
+                    <div>@problem</div>
+                }
+            </MudAlert>
+        }
+
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Opslaan</MudButton>
+    </MudPaper>
+
+    <MudPaper Outlined="true" Class="pa-4">
+        <MudText Typo="Typo.overline">Voorbeeld van de kop van een mail</MudText>
+        @if (_preview.Length > 0)
+        {
+            @* De HTML komt uit de mailopbouw, die alleen een geldig https-adres en een hexkleur gebruikt en alle tekst escapet. *@
+            <div class="mt-2">@((MarkupString)_preview)</div>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mt-2">Zonder logo en kleur krijgen je mails geen kop.</MudText>
+        }
+    </MudPaper>
+</AdminShell>
+
+@code {
+    private string? _logoUrl;
+    private string? _color;
+    private string _preview = "";
+    private IReadOnlyList<string> _problems = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var settings = await BrandingAdmin.GetAsync();
+        (_logoUrl, _color) = (settings.LogoUrl, settings.PrimaryColor);
+        Refresh();
+    }
+
+    private BrandingSettings Settings => new(_logoUrl, _color);
+
+    /// <summary>De kleurkiezer kent alleen #rrggbb.</summary>
+    private string ColorForPicker =>
+        Moshtar.Domain.Tenants.Branding.Color(_color) is { } c
+            ? c.Length == 4 ? $"#{c[1]}{c[1]}{c[2]}{c[2]}{c[3]}{c[3]}" : c
+            : "#000000";
+
+    private void PickColor(ChangeEventArgs e)
+    {
+        _color = e.Value?.ToString();
+        Refresh();
+    }
+
+    private void Refresh() => _preview = BrandingAdmin.PreviewHeader(Settings);
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await BrandingAdmin.SaveAsync(Settings);
+            _problems = [];
+            var saved = await BrandingAdmin.GetAsync();
+            (_logoUrl, _color) = (saved.LogoUrl, saved.PrimaryColor);
+            Refresh();
+            Snackbar.Add("Je huisstijl is bewaard.", Severity.Success);
+        }
+        catch (BrandingException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+}
