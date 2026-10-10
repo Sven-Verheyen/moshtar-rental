@@ -2,8 +2,6 @@
 @inject ITenantContext TenantContext
 @inject SiteLinks Links
 
-<SiteHead />
-
 <header class="site-header">
     <a class="brand" href="@Links.Href(SiteRoute.Home)">@TenantContext.Tenant?.Name</a>
     <nav class="languages">

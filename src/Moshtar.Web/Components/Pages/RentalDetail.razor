@@ -6,6 +6,7 @@
 @inject IReservationService Reservations
 @inject IStringLocalizer<SharedResource> L
 @inject SiteLinks Links
+@inject NavigationManager Navigation
 
 @if (_entry is null)
 {
@@ -15,6 +16,7 @@
 }
 
 <PageTitle>@_entry.Name</PageTitle>
+<SiteHead />
 
 <p><a href="@Links.Href(SiteRoute.Home)">← @L["Back"]</a></p>
 <h1>@_entry.Name</h1>
@@ -107,6 +109,8 @@
     {
         Form ??= new();
         _entry = await Catalog.GetBySlugAsync(Slug, Culture);
+        // Een echte 404, zodat zoekmachines een onbestaand artikel niet indexeren.
+        if (_entry is null) Navigation.NotFound();
     }
 
     private async Task SubmitAsync()

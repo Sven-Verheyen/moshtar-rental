@@ -115,6 +115,20 @@ public sealed class SiteLanguageTests(MoshtarApp app) : IClassFixture<MoshtarApp
     }
 
     [Fact]
+    public async Task An_unknown_page_is_not_found_in_the_language_of_the_url()
+    {
+        var client = app.CreateClient(MoshtarApp.HopsakeeHost);
+
+        var unknownItem = await client.GetAsync("/fr/louer/bestaat-niet");
+        var unknownPage = await client.GetAsync("/fr/onbekend");
+
+        Assert.Equal(HttpStatusCode.NotFound, unknownItem.StatusCode);
+        Assert.DoesNotContain("rel=\"canonical\"", await unknownItem.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.NotFound, unknownPage.StatusCode);
+        Assert.Contains("<html lang=\"fr\">", await unknownPage.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
     public async Task The_back_office_has_no_language_prefix()
     {
         var response = await app.CreateClient(MoshtarApp.HopsakeeHost).GetAsync("/fr/admin/inloggen");
@@ -130,7 +144,17 @@ public sealed class SiteLanguageTests(MoshtarApp app) : IClassFixture<MoshtarApp
         var response = await app.CreateClient("www.hoofd.test").GetAsync("/fr/louer/iets?van=2026-06-12");
 
         Assert.Equal(HttpStatusCode.MovedPermanently, response.StatusCode);
-        Assert.Equal("http://hoofd.test/fr/louer/iets?van=2026-06-12", response.Headers.Location?.OriginalString);
+        Assert.Equal("https://hoofd.test/fr/louer/iets?van=2026-06-12", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task A_form_sent_to_another_domain_keeps_its_data_on_the_way_to_the_primary_domain()
+    {
+        await CreateTenantWithHostsAsync("formulier", "formulier.test", "www.formulier.test");
+
+        var response = await app.CreateClient("www.formulier.test").PostAsync("/huren/iets", new FormUrlEncodedContent([]));
+
+        Assert.Equal(HttpStatusCode.PermanentRedirect, response.StatusCode);
     }
 
     [Fact]

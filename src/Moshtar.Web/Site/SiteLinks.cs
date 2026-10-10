@@ -6,6 +6,7 @@ namespace Moshtar.Web.Site;
 public sealed class SiteLinks(IHttpContextAccessor httpContextAccessor, ITenantContext tenantContext)
 {
     private HttpContext Http => httpContextAccessor.HttpContext ?? throw new InvalidOperationException("Geen request.");
+
     /// <summary>De standaardtaal van de verhuurder: die staat zonder voorvoegsel in de URL.</summary>
     public string DefaultCulture => tenantContext.Tenant?.DefaultCulture ?? "nl";
 
@@ -21,12 +22,14 @@ public sealed class SiteLinks(IHttpContextAccessor httpContextAccessor, ITenantC
     /// <summary>Het pad naar deze pagina in de taal van de huidige pagina, bv. "/fr/louer/springkasteel".</summary>
     public string Href(SiteRoute route) => Href(route, Culture);
 
+    /// <summary>Het pad naar deze pagina in een andere taal, bv. voor de taalkeuze.</summary>
     public string Href(SiteRoute route, string culture) => Href(route, culture, DefaultCulture);
 
     /// <summary>De volledige URL op het hoofddomein, voor canonieke en hreflang-links.</summary>
     public string Absolute(SiteRoute route, string culture) =>
         $"https://{tenantContext.Tenant?.PrimaryHost ?? Http.Request.Host.Value}{Href(route, culture)}";
 
+    /// <summary>De standaardtaal staat zonder voorvoegsel, elke andere taal met "/fr" of "/en" ervoor.</summary>
     internal static string Href(SiteRoute route, string culture, string defaultCulture)
     {
         var path = route.PathIn(culture);

@@ -21,9 +21,11 @@ public abstract record SiteRoute
         };
     }
 
+    /// <summary>De home van de reservatiewebsite.</summary>
     public static readonly SiteRoute Home = new HomeRoute();
 }
 
+/// <summary>De home: "/" in de standaardtaal, "/fr" of "/en" in de andere.</summary>
 public sealed record HomeRoute : SiteRoute
 {
     public override string PathIn(string culture) => "";
@@ -34,5 +36,5 @@ public sealed record RentalRoute(string Slug) : SiteRoute
 {
     internal static readonly Dictionary<string, string> Words = new() { ["nl"] = "huren", ["fr"] = "louer", ["en"] = "rent" };
 
-    public override string PathIn(string culture) => $"{Words.GetValueOrDefault(culture, Words["nl"])}/{Slug}";
+    public override string PathIn(string culture) => $"{Words[culture]}/{Slug}";
 }

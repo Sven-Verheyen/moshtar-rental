@@ -17,6 +17,7 @@ internal static class SiteLanguage
     public static readonly string[] Cultures = ["nl", "fr", "en"];
 
     /// <summary>Het back office is Nederlandstalig en heeft nooit een taalvoorvoegsel.</summary>
+    private const string BackOfficeCulture = "nl";
     private static readonly string[] BackOfficeSegments = ["admin", "_blazor"];
 
     public static IApplicationBuilder UseSiteLanguage(this IApplicationBuilder app) =>
@@ -45,6 +46,7 @@ internal static class SiteLanguage
                     context.Response.Redirect("/" + rest + request.QueryString, permanent: true);
                     return;
                 }
+                // Bewust niet teruggezet na het request: een heruitvoering (404-pagina) leest de taal uit de PathBase.
                 culture = first;
                 request.PathBase = request.PathBase.Add("/" + culture);
                 request.Path = "/" + rest;
@@ -53,7 +55,7 @@ internal static class SiteLanguage
 
             if (culture is null && BackOfficeSegments.Contains(first))
             {
-                Apply(context, "nl", null);
+                UseCulture(context, BackOfficeCulture, null);
                 await next();
                 return;
             }
@@ -66,11 +68,11 @@ internal static class SiteLanguage
                 return;
             }
 
-            Apply(context, culture, route);
+            UseCulture(context, culture, route);
             await next();
         });
 
-    private static void Apply(HttpContext context, string culture, SiteRoute? route)
+    private static void UseCulture(HttpContext context, string culture, SiteRoute? route)
     {
         var info = CultureInfo.GetCultureInfo(culture);
         CultureInfo.CurrentCulture = info;

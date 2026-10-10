@@ -27,6 +27,8 @@ builder.Services.AddBackOfficeIdentity();
 
 builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
 builder.Services.AddScoped<SiteLinks>();
+// Eén antiforgery-cookie voor de hele site, ook als de eerste pagina onder /fr of /en lag.
+builder.Services.Configure<Microsoft.AspNetCore.Antiforgery.AntiforgeryOptions>(o => o.Cookie.Path = "/");
 
 var app = builder.Build();
 

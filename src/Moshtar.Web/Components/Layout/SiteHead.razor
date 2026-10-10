@@ -1,6 +1,7 @@
 @inject SiteLinks Links
 
-@* Canonieke URL op het hoofddomein en hreflang-links naar dezelfde pagina in elke taal (ADR 0004). *@
+@* Canonieke URL op het hoofddomein en hreflang-links naar dezelfde pagina in elke taal (ADR 0004).
+   Elke pagina die geïndexeerd mag worden zet dit zelf, zodat een 404 (onbestaand artikel) het niet krijgt. *@
 @if (Links.Current is { } route)
 {
     <HeadContent>
