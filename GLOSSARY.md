@@ -71,3 +71,9 @@ _Avoid_: onderhoud, uitsluiting
 **Bufferdag** (`BufferDays`):
 Een dag voor of na een huurperiode waarop het exemplaar nog niet vrij is, voor levering, opbouw of poetsen.
 _Avoid_: marge, wachttijd
+
+## Communicatie
+
+**Mailsjabloon** (`MailTemplate`):
+De tekst en het onderwerp van een soort mail die een verhuurder aan zijn klanten stuurt, per taal, met plaatshouders voor de gegevens van de reservatie. Zolang de verhuurder niets aanpast, geldt de standaardtekst van Moshtar.
+_Avoid_: template, e-mailtekst, mailtemplate
