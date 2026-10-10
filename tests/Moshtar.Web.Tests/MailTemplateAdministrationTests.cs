@@ -190,6 +190,23 @@ public sealed class MailTemplateAdministrationTests(MoshtarApp app) : IClassFixt
     }
 
     [Fact]
+    public async Task Formatting_shows_in_the_html_version_and_reads_well_in_the_text_version()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "sjabloon-opmaak@hopsakee.test");
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var text = new MailTemplateText("Je reservatie",
+            "Hallo **{firstName}**, *tot snel*!\n\n{reservationDetails}\n\nLees [onze tips](https://hopsakee.fun/tips) of <script>x</script>");
+
+        await Templates(scope).SendTestAsync(Confirmation, "nl", text, user.Id);
+
+        var mail = Assert.Single(Outbox.Sent, m => m.To == "sjabloon-opmaak@hopsakee.test");
+        Assert.Contains("<p>Hallo <strong>Lotte</strong>, <em>tot snel</em>!</p>", mail.HtmlBody);
+        Assert.Contains("<a href=\"https://hopsakee.fun/tips\">onze tips</a> of &lt;script&gt;x&lt;/script&gt;", mail.HtmlBody);
+        Assert.StartsWith("Hallo Lotte, tot snel!", mail.TextBody);
+        Assert.Contains("Lees onze tips (https://hopsakee.fun/tips) of <script>x</script>", mail.TextBody);
+    }
+
+    [Fact]
     public async Task Administrator_finds_the_mail_templates_in_the_menu()
     {
         var client = await app.LoggedInClientAsync("sjabloon-menu@hopsakee.test", UserRole.Administrator);
