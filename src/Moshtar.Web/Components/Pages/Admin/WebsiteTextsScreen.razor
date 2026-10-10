@@ -112,40 +112,53 @@
         foreach (var culture in Cultures) await LoadAsync(culture);
     }
 
-    /// <summary>Laadt de teksten van één taal opnieuw; de concepten van die taal worden overschreven.</summary>
+    /// <summary>Laadt alle teksten en concepten van één taal.</summary>
     private async Task LoadAsync(string culture)
     {
-        var texts = await Texts.GetAsync(culture);
-        _texts[culture] = texts;
+        var texts = await RefreshAsync(culture);
         _home[culture] = new HomeDraft { Title = texts.HomeTitle.Value, Subtitle = texts.HomeSubtitle.Value };
         foreach (var c in texts.Categories)
             _categories[(culture, c.CategoryId)] = new CategoryDraft { Name = c.Name.Value, Slug = c.Slug.Value, Intro = c.Intro.Value };
         _faq[culture] = texts.Faq.Select(e => new FaqDraft { Question = e.Question, Answer = e.Answer }).ToList();
-        foreach (var key in _problems.Keys.Where(k => k.Item1 == culture).ToList()) _problems.Remove(key);
     }
 
+    /// <summary>Laadt de teksten van één taal opnieuw, zonder de concepten aan te raken: wat elders nog niet bewaard is, blijft staan.</summary>
+    private async Task<WebsiteTexts> RefreshAsync(string culture) => _texts[culture] = await Texts.GetAsync(culture);
+
     private Task SaveHomeAsync(string culture) =>
-        CheckedAsync(culture, "home", async userId =>
-            await Texts.SaveHomeAsync(culture, _home[culture].Title ?? "", _home[culture].Subtitle ?? "", userId));
+        CheckedAsync(culture, "home",
+            userId => Texts.SaveHomeAsync(culture, _home[culture].Title ?? "", _home[culture].Subtitle ?? "", userId),
+            texts => _home[culture] = new HomeDraft { Title = texts.HomeTitle.Value, Subtitle = texts.HomeSubtitle.Value });
 
     private Task SaveCategoryAsync(string culture, Guid categoryId) =>
-        CheckedAsync(culture, $"categorie-{categoryId}", async userId =>
-        {
-            var draft = _categories[(culture, categoryId)];
-            await Texts.SaveCategoryAsync(categoryId, culture, draft.Name ?? "", draft.Slug ?? "", draft.Intro ?? "", userId);
-        });
+        CheckedAsync(culture, $"categorie-{categoryId}",
+            userId =>
+            {
+                var draft = _categories[(culture, categoryId)];
+                return Texts.SaveCategoryAsync(categoryId, culture, draft.Name ?? "", draft.Slug ?? "", draft.Intro ?? "", userId);
+            },
+            texts =>
+            {
+                var c = texts.Categories.Single(c => c.CategoryId == categoryId);
+                _categories[(culture, categoryId)] = new CategoryDraft { Name = c.Name.Value, Slug = c.Slug.Value, Intro = c.Intro.Value };
+            });
 
     private Task SaveFaqAsync(string culture) =>
-        CheckedAsync(culture, "faq", async userId =>
-            await Texts.SaveFaqAsync(culture, _faq[culture].Select(e => new FaqEntry(e.Question ?? "", e.Answer ?? "")).ToList(), userId));
+        CheckedAsync(culture, "faq",
+            userId => Texts.SaveFaqAsync(culture, _faq[culture].Select(e => new FaqEntry(e.Question ?? "", e.Answer ?? "")).ToList(), userId),
+            texts => _faq[culture] = texts.Faq.Select(e => new FaqDraft { Question = e.Question, Answer = e.Answer }).ToList());
 
-    /// <summary>Bewaart, en toont de problemen bij het onderdeel als het niet in orde is.</summary>
-    private async Task CheckedAsync(string culture, string section, Func<Guid, Task> save)
+    /// <summary>
+    /// Bewaart één onderdeel en zet alleen het concept van dat onderdeel op wat bewaard is; toont de problemen bij het
+    /// onderdeel als het niet in orde is.
+    /// </summary>
+    private async Task CheckedAsync(string culture, string section, Func<Guid, Task> save, Action<WebsiteTexts> refreshDraft)
     {
         try
         {
             await save((await AuthenticationState).User.Id());
-            await LoadAsync(culture);
+            refreshDraft(await RefreshAsync(culture));
+            _problems.Remove((culture, section));
             Snackbar.Add($"Bewaard in het {LanguageName(culture)}.", Severity.Success);
         }
         catch (WebsiteTextException e)
@@ -154,17 +167,31 @@
         }
     }
 
+    /// <summary>Zet één tekst terug naar de standaard; alleen dat veld in het concept verandert mee.</summary>
     private async Task ResetAsync(string culture, WebsiteTextKey key, Guid? categoryId = null)
     {
+        var section = key == WebsiteTextKey.Faq ? "faq" : categoryId is { } id ? $"categorie-{id}" : "home";
         try
         {
             await Texts.ResetAsync(culture, key, categoryId);
-            await LoadAsync(culture);
+            var texts = await RefreshAsync(culture);
+            var category = texts.Categories.FirstOrDefault(c => c.CategoryId == categoryId);
+            var draft = categoryId is { } cid ? _categories[(culture, cid)] : null;
+            switch (key)
+            {
+                case WebsiteTextKey.HomeTitle: _home[culture].Title = texts.HomeTitle.Value; break;
+                case WebsiteTextKey.HomeSubtitle: _home[culture].Subtitle = texts.HomeSubtitle.Value; break;
+                case WebsiteTextKey.Faq: _faq[culture] = texts.Faq.Select(e => new FaqDraft { Question = e.Question, Answer = e.Answer }).ToList(); break;
+                case WebsiteTextKey.CategoryName when draft is not null && category is not null: draft.Name = category.Name.Value; break;
+                case WebsiteTextKey.CategorySlug when draft is not null && category is not null: draft.Slug = category.Slug.Value; break;
+                case WebsiteTextKey.CategoryIntro when draft is not null && category is not null: draft.Intro = category.Intro.Value; break;
+            }
+            _problems.Remove((culture, section));
             Snackbar.Add($"De standaardtekst geldt weer in het {LanguageName(culture)}.", Severity.Success);
         }
         catch (WebsiteTextException e)
         {
-            _problems[(culture, categoryId is { } id ? $"categorie-{id}" : "home")] = e.Problems;
+            _problems[(culture, section)] = e.Problems;
         }
     }
 

@@ -114,6 +114,46 @@ public sealed class WebsiteTextTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         }
     }
 
+    [Fact]
+    public async Task Two_categories_whose_names_give_the_same_slug_still_get_different_slugs()
+    {
+        var (scope, _) = await NewTenantAsync("teksten-dubbel");
+        await using (scope)
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.Categories.Add(new Category { Slug = "extra-spellen", SortOrder = 3, Translations = [T("nl", "Spellen!")] });
+            await db.SaveChangesAsync();
+
+            var slugs = (await Texts(scope).GetAsync("nl")).Categories.Select(c => c.Slug.Value);
+
+            Assert.Equal(["springkastelen", "spellen", "extra-spellen"], slugs);
+        }
+    }
+
+    [Fact]
+    public async Task Two_administrators_saving_the_same_slug_at_once_cannot_both_win()
+    {
+        var (scope, user) = await NewTenantAsync("teksten-tegelijk");
+        await using (scope)
+        {
+            var categories = (await Texts(scope).GetAsync("nl")).Categories;
+            await using var other = await app.TenantScopeAsync("teksten-tegelijk");
+
+            var results = await Task.WhenAll(
+                Attempt(Texts(scope).SaveCategoryAsync(categories[0].CategoryId, "nl", "Een", "feest", "", user)),
+                Attempt(Texts(other).SaveCategoryAsync(categories[1].CategoryId, "nl", "Twee", "feest", "", user)));
+
+            Assert.Equal(1, results.Count(saved => saved));
+            Assert.Single((await Texts(scope).GetAsync("nl")).Categories, c => c.Slug.Value == "feest");
+        }
+
+        static async Task<bool> Attempt(Task save)
+        {
+            try { await save; return true; }
+            catch (WebsiteTextException) { return false; }
+        }
+    }
+
     [Theory]
     [InlineData("Spring kastelen", "mag alleen kleine letters")]
     [InlineData("contact", "heeft al een andere betekenis")]
@@ -137,6 +177,9 @@ public sealed class WebsiteTextTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         foreach (var route in new SiteRoute[] { SiteRoute.Contact, SiteRoute.Faq, new RentalRoute("x") })
             foreach (var culture in new[] { "nl", "fr", "en" })
                 Assert.Contains(route.PathIn(culture).Split('/')[0], CategorySlug.Reserved);
+        // De pagina's die Blazor zelf toont.
+        Assert.Contains("not-found", CategorySlug.Reserved);
+        Assert.Contains("error", CategorySlug.Reserved);
     }
 
     [Fact]

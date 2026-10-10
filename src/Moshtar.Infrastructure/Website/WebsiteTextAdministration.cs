@@ -22,7 +22,7 @@ internal sealed class WebsiteTextAdministration(AppDbContext db, ITenantContext 
     public async Task<WebsiteTexts> GetAsync(string culture, CancellationToken ct = default)
     {
         var customizations = await db.WebsiteTextCustomizations.AsNoTracking().Where(t => t.Culture == culture).ToListAsync(ct);
-        var categories = await db.Categories.AsNoTracking().OrderBy(c => c.SortOrder).ToListAsync(ct);
+        var categories = await db.Categories.AsNoTracking().OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
         return Texts(culture, customizations, categories);
     }
 
@@ -44,21 +44,23 @@ internal sealed class WebsiteTextAdministration(AppDbContext db, ITenantContext 
     public async Task SaveCategoryAsync(Guid categoryId, string culture, string name, string slug, string intro, Guid userId, CancellationToken ct = default)
     {
         CheckCulture(culture);
-        var category = await db.Categories.AsNoTracking().SingleOrDefaultAsync(c => c.Id == categoryId, ct)
-            ?? throw new WebsiteTextException(["Deze categorie bestaat niet."]);
+        if (!await db.Categories.AnyAsync(c => c.Id == categoryId, ct))
+            throw new WebsiteTextException(["Deze categorie bestaat niet."]);
         (name, slug, intro) = (name.Trim(), slug.Trim(), intro.Trim().ReplaceLineEndings("\n"));
         var problems = new List<string>();
         Required(problems, name, "De naam", MaxCategoryNameLength);
         if (CategorySlug.Problem(slug) is { } slugProblem) problems.Add(slugProblem);
         if (intro.Length > MaxIntroLength) problems.Add($"De inleiding is langer dan {MaxIntroLength} tekens.");
         Throw(problems);
-        await CheckUniqueSlugAsync(culture, categoryId, slug, ct);
 
-        var standardName = StandardName(category, culture);
-        await SetAsync(culture, WebsiteTextKey.CategoryName, categoryId, name, standardName, userId, ct);
-        await SetAsync(culture, WebsiteTextKey.CategorySlug, categoryId, slug, StandardSlug(category, culture), userId, ct);
-        await SetAsync(culture, WebsiteTextKey.CategoryIntro, categoryId, intro, "", userId, ct);
+        await using var transaction = await LockSlugsAsync(ct);
+        await CheckUniqueSlugAsync(culture, categoryId, slug, ct);
+        var standard = (await GetStandardAsync(culture, ct)).Categories.Single(c => c.CategoryId == categoryId);
+        await SetAsync(culture, WebsiteTextKey.CategoryName, categoryId, name, standard.Name.Value, userId, ct);
+        await SetAsync(culture, WebsiteTextKey.CategorySlug, categoryId, slug, standard.Slug.Value, userId, ct);
+        await SetAsync(culture, WebsiteTextKey.CategoryIntro, categoryId, intro, standard.Intro.Value, userId, ct);
         await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
     }
 
     public async Task SaveFaqAsync(string culture, IReadOnlyList<FaqEntry> faq, Guid userId, CancellationToken ct = default)
@@ -81,17 +83,32 @@ internal sealed class WebsiteTextAdministration(AppDbContext db, ITenantContext 
 
     public async Task ResetAsync(string culture, WebsiteTextKey key, Guid? categoryId = null, CancellationToken ct = default)
     {
+        await using var transaction = await LockSlugsAsync(ct);
         if (key == WebsiteTextKey.CategorySlug && categoryId is { } id
-            && await db.Categories.AsNoTracking().SingleOrDefaultAsync(c => c.Id == id, ct) is { } category)
-            await CheckUniqueSlugAsync(culture, id, StandardSlug(category, culture), ct);
+            && (await GetStandardAsync(culture, ct)).Categories.FirstOrDefault(c => c.CategoryId == id) is { } standard)
+            await CheckUniqueSlugAsync(culture, id, standard.Slug.Value, ct);
         await db.WebsiteTextCustomizations
             .Where(t => t.Culture == culture && t.Key == key && t.CategoryId == categoryId)
             .ExecuteDeleteAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    /// <summary>
+    /// Een transactie die zolang ze loopt als enige de slugs van deze verhuurder wijzigt, zodat twee beheerders niet
+    /// tegelijk dezelfde slug aan twee categorieën geven. De databank kan dat niet afdwingen: een standaardslug staat
+    /// niet in de databank.
+    /// </summary>
+    private async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction> LockSlugsAsync(CancellationToken ct)
+    {
+        var transaction = await db.Database.BeginTransactionAsync(ct);
+        var key = $"websiteteksten-slugs-{Tenant.Id}";
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
+        return transaction;
     }
 
     /// <summary>De teksten zonder aanpassingen, om te zien of een bewaarde tekst gelijk is aan de standaard.</summary>
     private async Task<WebsiteTexts> GetStandardAsync(string culture, CancellationToken ct) =>
-        Texts(culture, [], await db.Categories.AsNoTracking().OrderBy(c => c.SortOrder).ToListAsync(ct));
+        Texts(culture, [], await db.Categories.AsNoTracking().OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct));
 
     private WebsiteTexts Texts(string culture, IReadOnlyList<WebsiteTextCustomization> customizations, IReadOnlyList<Category> categories)
     {
@@ -99,6 +116,19 @@ internal sealed class WebsiteTextAdministration(AppDbContext db, ITenantContext 
             customizations.FirstOrDefault(c => c.Key == key && c.CategoryId == categoryId) is { } c
                 ? new WebsiteText(c.Value, true)
                 : new WebsiteText(standard, false);
+
+        // Twee namen kunnen dezelfde standaardslug geven ("Spellen" en "Spellen!"); dan krijgt de latere categorie
+        // haar vaste slug, en anders een volgnummer, zodat elke slug in deze taal maar bij één categorie hoort.
+        var used = customizations.Where(c => c.Key == WebsiteTextKey.CategorySlug).Select(c => c.Value).ToHashSet();
+        var standardSlugs = new Dictionary<Guid, string>();
+        foreach (var category in categories.Where(c => !customizations.Any(x => x.Key == WebsiteTextKey.CategorySlug && x.CategoryId == c.Id)))
+        {
+            var slug = StandardSlug(category, culture);
+            if (used.Contains(slug) && CategorySlug.Problem(category.Slug) is null) slug = category.Slug;
+            for (var n = 2; used.Contains(slug); n++) slug = $"{StandardSlug(category, culture)}-{n}";
+            used.Add(slug);
+            standardSlugs[category.Id] = slug;
+        }
 
         var faq = customizations.FirstOrDefault(c => c.Key == WebsiteTextKey.Faq && c.CategoryId == null);
         return new WebsiteTexts(
@@ -110,7 +140,7 @@ internal sealed class WebsiteTextAdministration(AppDbContext db, ITenantContext 
             categories.Select(c => new CategoryTexts(
                 c.Id,
                 Text(WebsiteTextKey.CategoryName, c.Id, StandardName(c, culture)),
-                Text(WebsiteTextKey.CategorySlug, c.Id, StandardSlug(c, culture)),
+                Text(WebsiteTextKey.CategorySlug, c.Id, standardSlugs.GetValueOrDefault(c.Id) ?? StandardSlug(c, culture)),
                 Text(WebsiteTextKey.CategoryIntro, c.Id, ""))).ToList());
     }
 

@@ -17,7 +17,7 @@ public static partial class CategorySlug
     public static readonly IReadOnlySet<string> Reserved = new HashSet<string>
     {
         "nl", "fr", "en", "admin", "huren", "louer", "rent", "contact",
-        "veelgestelde-vragen", "questions-frequentes", "faq",
+        "veelgestelde-vragen", "questions-frequentes", "faq", "not-found", "error",
     };
 
     public const int MaxLength = 100;
