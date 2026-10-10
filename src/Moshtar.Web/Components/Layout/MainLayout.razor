@@ -2,6 +2,7 @@
 @inject ITenantContext TenantContext
 @inject SiteLinks Links
 @inject IStringLocalizer<SharedResource> L
+@using Moshtar.Domain.Tenants
 
 @* Het standaardsjabloon van de reservatiewebsite. Een ander sjabloon is later een andere layout met een eigen stylesheet. *@
 <a class="skip-link" href="#inhoud">@L["SkipToContent"]</a>
@@ -20,7 +21,7 @@
         </a>
         <nav class="site-nav" aria-label="@L["MainMenu"]">
             <a href="@OfferHref">@L["Catalog"]</a>
-            <a href="#contact">@L["Contact"]</a>
+            <a href="@Links.Href(SiteRoute.Contact)" aria-current="@(Links.Current is ContactRoute ? "page" : null)">@L["Contact"]</a>
         </nav>
         <nav class="languages" aria-label="@L["ChooseLanguage"]">
             @foreach (var culture in Links.Cultures)
@@ -38,25 +39,58 @@
     @Body
 </main>
 
-<footer id="contact" class="site-footer">
+<footer class="site-footer">
     <div class="site-footer-inner">
-        <p><strong>@Tenant?.Name</strong></p>
-        <p>
-            @if (Tenant?.ContactEmail is { } email)
+        <address>
+            <strong>@Tenant?.Name</strong>
+            @if (Tenant?.Street is { } street)
+            {
+                <span>@street</span>
+            }
+            @if (PostalCodeAndCity is { Length: > 0 } place)
+            {
+                <span>@place</span>
+            }
+            @if (BusinessDetails.Email(Tenant?.ContactEmail) is { } email)
             {
                 <a href="mailto:@email">@email</a>
             }
-            @if (Tenant?.ContactPhone is { } phone)
+            @if (BusinessDetails.Phone(Tenant?.ContactPhone) is { } phone)
             {
-                <a href="tel:@SiteText.PhoneLink(phone)">@phone</a>
+                <a href="tel:@BusinessDetails.TelLink(phone)">@phone</a>
             }
-        </p>
+            @if (Tenant?.VatNumber is { } vat)
+            {
+                <span>@L["VatNumber"] @vat</span>
+            }
+        </address>
+        @if (SocialLinks.Count > 0)
+        {
+            <nav class="social" aria-label="@L["FollowUs"]">
+                @foreach (var (name, url) in SocialLinks)
+                {
+                    <a href="@url" rel="me noopener" target="_blank">@name</a>
+                }
+            </nav>
+        }
+        @if (BusinessDetails.Link(Tenant?.GoogleBusinessUrl) is { } google)
+        {
+            <p><a href="@google" rel="noopener" target="_blank">@L["GoogleReviews"]</a></p>
+        }
         <p class="muted">© @DateTime.Today.Year @Tenant?.Name</p>
     </div>
 </footer>
 
 @code {
     private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
+    private string? PostalCodeAndCity => $"{Tenant?.PostalCode} {Tenant?.City}".Trim();
+
+    private IReadOnlyList<(string Name, string Url)> SocialLinks =>
+        new[] { ("Facebook", Tenant?.FacebookUrl), ("Instagram", Tenant?.InstagramUrl), ("TikTok", Tenant?.TikTokUrl) }
+            .Where(s => BusinessDetails.Link(s.Item2) is not null)
+            .Select(s => (s.Item1, BusinessDetails.Link(s.Item2)!))
+            .ToList();
+
     private string OfferHref => Links.Href(SiteRoute.Home) + "#aanbod";
 
     /// <summary>Op de pagina van een artikel springt de knop naar het reservatieformulier, elders naar het aanbod.</summary>

@@ -25,6 +25,21 @@ public class Tenant
     /// <summary>Contactadres van de verhuurder; ook het antwoordadres van zijn mails.</summary>
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
+
+    // Bedrijfsgegevens, zoals klanten ze op de reservatiewebsite zien.
+    public string? Street { get; set; }
+    public string? PostalCode { get; set; }
+    public string? City { get; set; }
+    public string? WhatsAppPhone { get; set; }
+    public string? VatNumber { get; set; }
+    public string? FacebookUrl { get; set; }
+    public string? InstagramUrl { get; set; }
+    public string? TikTokUrl { get; set; }
+    /// <summary>Het Google-bedrijfsprofiel, waar klanten de reviews lezen.</summary>
+    public string? GoogleBusinessUrl { get; set; }
+    /// <summary>Het werkgebied: de gemeenten waar de verhuurder levert.</summary>
+    public List<string> ServiceArea { get; set; } = [];
+
     public string? LogoUrl { get; set; }
     public string? PrimaryColor { get; set; }
     /// <summary>Adres van de sfeerfoto, groot bovenaan de home van de reservatiewebsite.</summary>

@@ -35,6 +35,16 @@ public static class DbSeeder
             BufferDaysAfter = 0,
             SenderEmail = "noreply@hopsakee.fun",
             ContactEmail = "info@hopsakee.fun",
+            // Voorbeeldgegevens; de beheerder vult de echte in op het scherm Bedrijfsgegevens.
+            ContactPhone = "+32 470 00 00 00",
+            WhatsAppPhone = "+32 470 00 00 00",
+            Street = "Voorbeeldstraat 1",
+            PostalCode = "2000",
+            City = "Antwerpen",
+            VatNumber = "BE 0000.000.000",
+            FacebookUrl = "https://www.facebook.com/hopsakee.fun",
+            InstagramUrl = "https://www.instagram.com/hopsakee.fun",
+            ServiceArea = ["Antwerpen", "Mortsel", "Edegem", "Kontich", "Boechout"],
             Hosts = [new TenantHost { Hostname = "localhost" }, new TenantHost { Hostname = "hopsakee.fun", IsPrimary = true }, new TenantHost { Hostname = "www.hopsakee.fun" }],
         };
         foreach (var h in tenant.Hosts) h.TenantId = tenant.Id;

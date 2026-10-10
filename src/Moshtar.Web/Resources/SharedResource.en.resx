@@ -41,4 +41,12 @@
   <data name="MainMenu" xml:space="preserve"><value>Main menu</value></data>
   <data name="ChooseLanguage" xml:space="preserve"><value>Choose language</value></data>
   <data name="Contact" xml:space="preserve"><value>Contact</value></data>
+  <data name="Call" xml:space="preserve"><value>Call</value></data>
+  <data name="SendMail" xml:space="preserve"><value>Email us</value></data>
+  <data name="VatNumber" xml:space="preserve"><value>VAT</value></data>
+  <data name="GoogleReviews" xml:space="preserve"><value>Read our reviews on Google</value></data>
+  <data name="FollowUs" xml:space="preserve"><value>Follow us</value></data>
+  <data name="ServiceAreaTitle" xml:space="preserve"><value>Where we deliver</value></data>
+  <data name="ContactIntro" xml:space="preserve"><value>Questions about a reservation or a party? Call, email or send a WhatsApp message.</value></data>
+  <data name="ContactDescription" xml:space="preserve"><value>Contact {0} by phone, email or WhatsApp.</value></data>
 </root>

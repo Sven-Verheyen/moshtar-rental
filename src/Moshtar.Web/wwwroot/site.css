@@ -195,3 +195,15 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .site-footer-inner { max-width: var(--width); margin: 0 auto; padding: 2rem var(--gutter); display: flex; flex-wrap: wrap; gap: .5rem 2rem; align-items: baseline; }
 .site-footer p { margin: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
 .site-footer a { padding: .5rem 0; }
+.site-footer address { font-style: normal; display: flex; flex-direction: column; gap: .15rem; flex: 1 1 16rem; }
+.site-footer address a { padding: .35rem 0; }
+.site-footer .social { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+
+/* Contactpagina */
+.lead { font-size: 1.15rem; color: var(--muted); max-width: 40rem; }
+.contact-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.5rem 0 2rem; }
+.contact-actions .button { flex-direction: column; min-width: min(14rem, 100%); padding: .75rem 1.5rem; border-radius: var(--radius); }
+.button-detail { font-weight: 500; font-size: .9rem; overflow-wrap: anywhere; }
+.contact-address { font-style: normal; display: flex; flex-direction: column; margin-bottom: 2rem; }
+.service-area ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
+.service-area li { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: .35rem .9rem; }

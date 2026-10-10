@@ -1,0 +1,56 @@
+@page "/contact"
+@using Moshtar.Domain.Tenants
+@inject ITenantContext TenantContext
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>@Tenant?.Name · @L["Contact"]</PageTitle>
+<SiteHead Description="@L["ContactDescription", Tenant?.Name ?? ""]" />
+
+<div class="page contact">
+    <h1>@L["Contact"]</h1>
+    <p class="lead">@L["ContactIntro"]</p>
+
+    <div class="contact-actions">
+        @if (BusinessDetails.Phone(Tenant?.ContactPhone) is { } phone)
+        {
+            <a class="button" href="tel:@BusinessDetails.TelLink(phone)">@L["Call"] <span class="button-detail">@phone</span></a>
+        }
+        @if (BusinessDetails.Email(Tenant?.ContactEmail) is { } email)
+        {
+            <a class="button" href="mailto:@email">@L["SendMail"] <span class="button-detail">@email</span></a>
+        }
+        @if (BusinessDetails.Phone(Tenant?.WhatsAppPhone) is { } whatsApp)
+        {
+            <a class="button" href="@BusinessDetails.WhatsAppLink(whatsApp)" rel="noopener" target="_blank">WhatsApp <span class="button-detail">@whatsApp</span></a>
+        }
+    </div>
+
+    @if (Tenant?.Street is not null || Tenant?.City is not null)
+    {
+        <address class="contact-address">
+            <strong>@Tenant.Name</strong>
+            @if (Tenant.Street is { } street)
+            {
+                <span>@street</span>
+            }
+            <span>@($"{Tenant.PostalCode} {Tenant.City}".Trim())</span>
+        </address>
+    }
+
+    @if (Tenant?.ServiceArea is { Count: > 0 } municipalities)
+    {
+        <section class="service-area" aria-labelledby="werkgebied">
+            <h2 id="werkgebied">@L["ServiceAreaTitle"]</h2>
+            <ul>
+                @foreach (var municipality in municipalities)
+                {
+                    <li>@municipality</li>
+                }
+            </ul>
+        </section>
+    }
+</div>
+
+@code {
+    private Tenant? Tenant => TenantContext.Tenant;
+}

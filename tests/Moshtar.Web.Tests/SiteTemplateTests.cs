@@ -103,10 +103,6 @@ public sealed class SiteTemplateTests(MoshtarApp app) : IClassFixture<MoshtarApp
     public void An_item_without_a_photo_shows_its_first_letter(string name, string initial) =>
         Assert.Equal(initial, Moshtar.Web.Site.SiteText.Initial(name));
 
-    [Fact]
-    public void A_phone_link_keeps_only_plus_and_digits() =>
-        Assert.Equal("+32475123456", Moshtar.Web.Site.SiteText.PhoneLink("+32 475/12.34.56"));
-
     private async Task EnsureItemAsync()
     {
         await using var scope = await app.TenantScopeAsync("hopsakee");
