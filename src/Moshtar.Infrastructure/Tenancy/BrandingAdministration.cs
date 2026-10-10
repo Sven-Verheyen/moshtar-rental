@@ -25,7 +25,9 @@ internal sealed class BrandingAdministration(AppDbContext db, ITenantContext ten
         tenant.LogoUrl = Branding.LogoUrl(settings.LogoUrl);
         tenant.PrimaryColor = Branding.Color(settings.PrimaryColor);
         await db.SaveChangesAsync(ct);
-        // Anders gebruiken mails nog even de oude huisstijl uit de cache.
+        // Ook wat in dit scherm (dezelfde Blazor-circuit) en in de cache van verhuurders zit, gebruikt meteen de nieuwe huisstijl.
+        Tenant.LogoUrl = tenant.LogoUrl;
+        Tenant.PrimaryColor = tenant.PrimaryColor;
         store.Forget(id);
     }
 

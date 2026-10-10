@@ -67,6 +67,18 @@ public sealed class BrandingAdministrationTests(MoshtarApp app) : IClassFixture<
     }
 
     [Fact]
+    public async Task Mails_from_the_same_screen_use_the_new_branding_right_away()
+    {
+        await app.CreateTenantAsync("huisstijl-scherm", "huisstijl-scherm.test");
+        await using var scope = await app.TenantScopeAsync("huisstijl-scherm");
+
+        await Branding(scope).SaveAsync(new BrandingSettings("https://merk.test/logo.png", "#e91e63"));
+
+        var tenant = scope.ServiceProvider.GetRequiredService<ITenantContext>().Tenant!;
+        Assert.Equal(("https://merk.test/logo.png", "#e91e63"), (tenant.LogoUrl, tenant.PrimaryColor));
+    }
+
+    [Fact]
     public async Task The_preview_shows_the_header_as_in_the_mail()
     {
         await using var scope = await app.TenantScopeAsync("hopsakee");
