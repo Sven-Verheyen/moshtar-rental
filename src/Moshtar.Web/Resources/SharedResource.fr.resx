@@ -40,4 +40,5 @@
   <data name="SkipToContent" xml:space="preserve"><value>Aller au contenu</value></data>
   <data name="MainMenu" xml:space="preserve"><value>Menu principal</value></data>
   <data name="ChooseLanguage" xml:space="preserve"><value>Choisir la langue</value></data>
+  <data name="Contact" xml:space="preserve"><value>Contact</value></data>
 </root>

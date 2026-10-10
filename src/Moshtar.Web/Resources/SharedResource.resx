@@ -40,4 +40,5 @@
   <data name="SkipToContent" xml:space="preserve"><value>Naar de inhoud</value></data>
   <data name="MainMenu" xml:space="preserve"><value>Hoofdmenu</value></data>
   <data name="ChooseLanguage" xml:space="preserve"><value>Taal kiezen</value></data>
+  <data name="Contact" xml:space="preserve"><value>Contact</value></data>
 </root>

@@ -41,7 +41,7 @@ public sealed class SiteTemplateTests(MoshtarApp app) : IClassFixture<MoshtarApp
         Assert.Contains("--brand: #1f2933; --on-brand: #ffffff;", html);
         Assert.Contains("class=\"hero hero-plain\"", html);
         Assert.DoesNotContain("hero-image", html);
-        Assert.Contains("<a class=\"brand\" href=\"/\">sjabloon-neutraal</a>", html.Replace("\n", "").Replace("  ", ""));
+        Assert.Matches(@"<a class=""brand"" href=""/"">\s*sjabloon-neutraal\s*</a>", html);
     }
 
     [Theory]
@@ -69,7 +69,9 @@ public sealed class SiteTemplateTests(MoshtarApp app) : IClassFixture<MoshtarApp
 
         Assert.DoesNotContain("MudBlazor", html);
         Assert.DoesNotContain("<script", html);
-        Assert.Contains("site", html[..html.IndexOf("</head>")]);
+        // Zonder <base> wijzen ankers als #reserveren naar de pagina zelf.
+        Assert.DoesNotContain("<base", html);
+        Assert.Matches(@"<link rel=""stylesheet"" href=""/site\.[a-z0-9]+\.css""", html);
     }
 
     [Fact]
@@ -82,6 +84,28 @@ public sealed class SiteTemplateTests(MoshtarApp app) : IClassFixture<MoshtarApp
         Assert.Contains("MudBlazor.min", html);
         Assert.Contains("blazor.web", html);
     }
+
+    [Fact]
+    public async Task An_unknown_back_office_page_is_not_found()
+    {
+        var client = await app.LoggedInClientAsync("sjabloon-onbekend@hopsakee.test", UserRole.Administrator);
+
+        var response = await client.GetAsync("/admin/bestaat-niet");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("Kasteel", "K")]
+    [InlineData("éénhoorn", "É")]
+    [InlineData("🎈 Ballon", "🎈")]
+    [InlineData("", "")]
+    public void An_item_without_a_photo_shows_its_first_letter(string name, string initial) =>
+        Assert.Equal(initial, Moshtar.Web.Site.SiteText.Initial(name));
+
+    [Fact]
+    public void A_phone_link_keeps_only_plus_and_digits() =>
+        Assert.Equal("+32475123456", Moshtar.Web.Site.SiteText.PhoneLink("+32 475/12.34.56"));
 
     private async Task EnsureItemAsync()
     {

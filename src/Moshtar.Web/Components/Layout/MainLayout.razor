@@ -9,9 +9,9 @@
 <header class="site-header">
     <div class="site-header-inner">
         <a class="brand" href="@Links.Href(SiteRoute.Home)">
-            @if (Tenant?.LogoUrl is { } logo)
+            @if (Moshtar.Domain.Tenants.Branding.LogoUrl(Tenant?.LogoUrl) is { } logo)
             {
-                <img src="@logo" alt="@Tenant.Name" height="48" />
+                <img src="@logo" alt="@Tenant!.Name" height="48" />
             }
             else
             {
@@ -20,13 +20,14 @@
         </a>
         <nav class="site-nav" aria-label="@L["MainMenu"]">
             <a href="@OfferHref">@L["Catalog"]</a>
+            <a href="#contact">@L["Contact"]</a>
         </nav>
         <nav class="languages" aria-label="@L["ChooseLanguage"]">
             @foreach (var culture in Links.Cultures)
             {
                 <a href="@Links.Href(Links.Current ?? SiteRoute.Home, culture)" hreflang="@culture" lang="@culture"
                    title="@CultureInfo.GetCultureInfo(culture).NativeName"
-                   aria-current="@(culture == Links.Culture ? "true" : null)">@culture.ToUpperInvariant()</a>
+                   aria-current="@(culture == Links.Culture ? "page" : null)">@culture.ToUpperInvariant()</a>
             }
         </nav>
         <a class="button cta" href="@ChooseDateHref">@L["ChooseDate"]</a>
@@ -37,7 +38,7 @@
     @Body
 </main>
 
-<footer class="site-footer">
+<footer id="contact" class="site-footer">
     <div class="site-footer-inner">
         <p><strong>@Tenant?.Name</strong></p>
         <p>
@@ -47,7 +48,7 @@
             }
             @if (Tenant?.ContactPhone is { } phone)
             {
-                <a href="tel:@phone.Replace(" ", "")">@phone</a>
+                <a href="tel:@SiteText.PhoneLink(phone)">@phone</a>
             }
         </p>
         <p class="muted">© @DateTime.Today.Year @Tenant?.Name</p>

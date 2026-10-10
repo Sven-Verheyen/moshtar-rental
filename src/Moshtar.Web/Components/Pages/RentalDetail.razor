@@ -30,7 +30,7 @@
         }
         else
         {
-            <div class="image-placeholder" aria-hidden="true">@_entry.Name[..1]</div>
+            <div class="image-placeholder" aria-hidden="true">@SiteText.Initial(_entry.Name)</div>
         }
         @if (_entry.Description is not null)
         {
@@ -54,15 +54,15 @@
 
         @if (_confirmation is not null)
         {
-            <p class="alert success">@_confirmation</p>
+            <p class="alert success" role="status">@_confirmation</p>
         }
         else
         {
             @if (_error is not null)
             {
-                <p class="alert error">@_error</p>
+                <p class="alert error" role="alert">@_error</p>
             }
-            <EditForm Model="Form" FormName="reservation" OnValidSubmit="SubmitAsync">
+            <EditForm Model="Form" FormName="reservation" OnValidSubmit="SubmitAsync" action="#reserveren">
                 <DataAnnotationsValidator />
                 <ValidationSummary />
                 <div class="row">

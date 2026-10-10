@@ -4,9 +4,9 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
     @if (IsBackOffice)
     {
+        <base href="/" />
         <ResourcePreloader />
         <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
         <link rel="stylesheet" href="@Assets["app.css"]" />
@@ -15,8 +15,9 @@
     }
     else
     {
-        @* De reservatiewebsite: statische pagina's zonder JavaScript en met alleen de stijl van het sjabloon, voor de snelheid. *@
-        <link rel="stylesheet" href="@Assets["site.css"]" />
+        @* De reservatiewebsite: statische pagina's zonder JavaScript en met alleen de stijl van het sjabloon, voor de snelheid.
+           Geen <base>: dan wijzen ankers als #reserveren naar de pagina zelf, ook onder /fr of /en. *@
+        <link rel="stylesheet" href="/@Assets["site.css"]" />
         @* Het logo als icoontje; zonder logo geen icoontje, en dus ook geen vergeefse vraag naar /favicon.ico. *@
         <link rel="icon" href="@(Moshtar.Domain.Tenants.Branding.LogoUrl(TenantContext.Tenant?.LogoUrl) ?? "data:,")" />
         @* Kleur uit de huisstijl; Branding laat alleen een hexcode door, dus hier kan niets anders in de CSS komen. *@

@@ -26,7 +26,8 @@
                 <MudNavLink Href="admin/mailsjablonen" Icon="@Icons.Material.Filled.Email">Mailsjablonen</MudNavLink>
                 <MudNavLink Href="admin/huisstijl" Icon="@Icons.Material.Filled.Palette">Huisstijl</MudNavLink>
             </AuthorizeView>
-            <MudNavLink Href="/" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Storefront">Reservatiewebsite</MudNavLink>
+            @* Volledig laden: de reservatiewebsite draait zonder de JavaScript van het back office. *@
+            <MudNavLink Href="/" data-enhance-nav="false" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Storefront">Reservatiewebsite</MudNavLink>
         </MudNavMenu>
     </MudDrawer>
     <MudMainContent>
