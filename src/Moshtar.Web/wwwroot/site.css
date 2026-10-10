@@ -1,0 +1,197 @@
+/*
+ * Standaardsjabloon van de reservatiewebsite. Mobile first, zonder webfonts of JavaScript.
+ * --brand en --on-brand komen uit de huisstijl van de verhuurder (MainLayout); de rest is neutraal,
+ * zodat elke kleur werkt. De huisstijlkleur is altijd een achtergrond met --on-brand als tekstkleur.
+ */
+:root {
+    --brand: #1f2933;
+    --on-brand: #ffffff;
+    --text: #1f2933;
+    --muted: #52606d;
+    --surface: #ffffff;
+    --background: #f7f5f2;
+    --line: #e4e7eb;
+    --radius: 1rem;
+    --shadow: 0 1px 2px rgba(15, 23, 42, .06), 0 8px 24px rgba(15, 23, 42, .08);
+    --gutter: clamp(1rem, 4vw, 2.5rem);
+    --width: 72rem;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.55;
+    color: var(--text);
+    background: var(--background);
+}
+
+img { max-width: 100%; height: auto; display: block; }
+a { color: inherit; }
+h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
+:focus-visible { outline: 3px solid var(--text); outline-offset: 2px; }
+
+.skip-link { position: absolute; left: -999px; top: .5rem; background: var(--surface); padding: .5rem 1rem; border-radius: .5rem; z-index: 10; }
+.skip-link:focus { left: .5rem; }
+
+.muted { color: var(--muted); font-weight: normal; }
+
+/* Knoppen: de huisstijlkleur met de tekstkleur die er het best op leesbaar is. */
+.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.75rem;
+    padding: .6rem 1.25rem;
+    border: 0;
+    border-radius: 999px;
+    background: var(--brand);
+    color: var(--on-brand);
+    font: inherit;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: transform .15s ease, box-shadow .15s ease;
+}
+.button:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.button-large { min-height: 3.25rem; padding: .8rem 1.75rem; font-size: 1.125rem; }
+
+/* Header: logo, menu, talen en altijd de knop "Kies je datum", ook op gsm. */
+.site-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: rgba(255, 255, 255, .96);
+    border-bottom: 1px solid var(--line);
+}
+.site-header-inner {
+    max-width: var(--width);
+    margin: 0 auto;
+    padding: .6rem var(--gutter);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .5rem 1.25rem;
+}
+.brand { font-weight: 800; font-size: 1.3rem; text-decoration: none; margin-right: auto; display: flex; align-items: center; }
+.brand img { height: 3rem; width: auto; }
+.site-nav { display: flex; gap: 1rem; }
+.site-nav a, .languages a { text-decoration: none; font-weight: 600; padding: .5rem .25rem; }
+.site-nav a:hover { text-decoration: underline; }
+.languages { display: flex; gap: .25rem; }
+.languages a { color: var(--muted); font-size: .9rem; padding: .5rem .4rem; }
+.languages a[aria-current] { color: var(--text); text-decoration: underline; text-underline-offset: .3em; }
+
+@media (max-width: 40rem) {
+    /* Gsm: logo en knop bovenaan, menu en talen eronder, alles zonder te scrollen. */
+    .site-header-inner { gap: .25rem .75rem; }
+    .brand { flex: 1 1 auto; min-width: 0; font-size: 1.15rem; }
+    .cta { order: 2; min-height: 2.5rem; padding: .45rem 1rem; font-size: .95rem; }
+    .site-nav { order: 3; flex: 1 1 auto; }
+    .languages { order: 4; }
+    .brand img { height: 2.5rem; }
+}
+
+.site-main { min-height: 60vh; }
+.page, .offer { max-width: var(--width); margin: 0 auto; padding: 1.5rem var(--gutter) 3rem; }
+
+/* Hero: de sfeerfoto groot bovenaan, of een vlak in de huisstijlkleur. */
+.hero {
+    position: relative;
+    display: grid;
+    min-height: clamp(22rem, 60vh, 36rem);
+    color: #ffffff;
+    background: var(--text);
+    overflow: hidden;
+}
+.hero-image { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hero::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0, 0, 0, .15), rgba(0, 0, 0, .6)); }
+.hero-plain { background: var(--brand); color: var(--on-brand); min-height: clamp(18rem, 45vh, 28rem); }
+.hero-plain::after { display: none; }
+.hero-content {
+    position: relative;
+    z-index: 1;
+    align-self: end;
+    width: 100%;
+    max-width: var(--width);
+    margin: 0 auto;
+    padding: 3rem var(--gutter);
+}
+.hero h1 { font-size: clamp(2.25rem, 6vw, 4rem); letter-spacing: -.02em; max-width: 18ch; }
+.hero p { font-size: clamp(1.1rem, 2.2vw, 1.35rem); max-width: 40ch; margin: 0 0 1.5rem; }
+.hero:not(.hero-plain) .button { background: #ffffff; color: var(--text); }
+.hero-plain .button { background: var(--on-brand); color: var(--brand); }
+
+/* Aanbod */
+.offer h2 { font-size: 1.6rem; margin-top: 2rem; }
+.catalog-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.catalog-card {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+.catalog-card img, .catalog-card .image-placeholder { aspect-ratio: 4 / 3; width: 100%; object-fit: cover; }
+.catalog-card-body { padding: 1rem 1.25rem 1.25rem; display: flex; flex-direction: column; gap: .4rem; flex: 1; }
+.catalog-card h3 { font-size: 1.2rem; margin: 0; }
+.catalog-card h3 a { text-decoration: none; }
+.catalog-card h3 a:hover { text-decoration: underline; }
+.catalog-card p { margin: 0; }
+.catalog-card .button { margin-top: auto; align-self: flex-start; }
+.image-placeholder {
+    display: grid;
+    place-items: center;
+    /* Een lichte tint van de huisstijlkleur, zodat een artikel zonder foto niet schreeuwt. */
+    background: color-mix(in srgb, var(--brand) 14%, #ffffff);
+    color: var(--text);
+    font-size: 3rem;
+    font-weight: 800;
+}
+.price { font-weight: 800; font-size: 1.15rem; margin: .5rem 0 .75rem; }
+.price-large { font-size: 1.5rem; }
+.price .muted { font-size: 1rem; font-weight: 500; }
+
+/* Artikelpagina */
+.back a { color: var(--muted); text-decoration: none; }
+.page h1 { font-size: clamp(1.9rem, 4vw, 2.75rem); }
+.detail { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); align-items: start; }
+.detail-info img, .detail-info .image-placeholder { border-radius: var(--radius); aspect-ratio: 4 / 3; width: 100%; object-fit: cover; }
+.reservation {
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+    scroll-margin-top: 6rem;
+}
+.reservation h2 { font-size: 1.5rem; }
+.reservation form { display: flex; flex-direction: column; gap: .9rem; }
+.reservation label { display: flex; flex-direction: column; gap: .3rem; flex: 1; font-weight: 600; font-size: .95rem; }
+.reservation input, .reservation textarea {
+    font: inherit;
+    font-weight: normal;
+    min-height: 2.75rem;
+    padding: .55rem .75rem;
+    border: 1px solid #9aa5b1;
+    border-radius: .6rem;
+    background: #ffffff;
+}
+.reservation fieldset { border: 0; padding: 0; margin: 0; }
+.reservation legend { font-weight: 600; font-size: .95rem; margin-bottom: .3rem; }
+.reservation fieldset label { flex-direction: row; align-items: center; gap: .5rem; font-weight: normal; min-height: 2.75rem; }
+.reservation fieldset input { min-height: auto; width: 1.25rem; height: 1.25rem; }
+.row { display: flex; gap: .75rem; flex-wrap: wrap; }
+.row > label { min-width: 9rem; }
+.validation-message, .validation-errors { color: #a61b1b; }
+.alert { padding: .9rem 1rem; border-radius: .75rem; }
+.alert.success { background: #e3f9e5; color: #05400a; }
+.alert.error { background: #ffe3e3; color: #610404; }
+
+/* Footer */
+.site-footer { background: var(--surface); border-top: 1px solid var(--line); margin-top: 3rem; }
+.site-footer-inner { max-width: var(--width); margin: 0 auto; padding: 2rem var(--gutter); display: flex; flex-wrap: wrap; gap: .5rem 2rem; align-items: baseline; }
+.site-footer p { margin: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+.site-footer a { padding: .5rem 0; }

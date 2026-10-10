@@ -35,4 +35,10 @@
   <data name="MaxPersons" xml:space="preserve"><value>Max. personen</value></data>
   <data name="RequiresPower" xml:space="preserve"><value>Stroom nodig</value></data>
   <data name="Years" xml:space="preserve"><value>jaar</value></data>
+  <data name="ChooseDate" xml:space="preserve"><value>Kies je datum</value></data>
+  <data name="HeroSubtitle" xml:space="preserve"><value>Springkastelen en spellen huren voor je feest, gewoon online reserveren.</value></data>
+  <data name="SkipToContent" xml:space="preserve"><value>Naar de inhoud</value></data>
+  <data name="MainMenu" xml:space="preserve"><value>Hoofdmenu</value></data>
+  <data name="ChooseLanguage" xml:space="preserve"><value>Taal kiezen</value></data>
+  <data name="Contact" xml:space="preserve"><value>Contact</value></data>
 </root>

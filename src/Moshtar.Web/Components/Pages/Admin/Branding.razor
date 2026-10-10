@@ -10,7 +10,8 @@
 
 <AdminShell Title="Huisstijl">
     <MudText Typo="Typo.body1" Class="mb-4">
-        Je logo en je kleur komen bovenaan de mails die je klanten krijgen.
+        Je logo en je kleur komen bovenaan de mails die je klanten krijgen en op je reservatiewebsite.
+        De sfeerfoto staat groot bovenaan de home van je reservatiewebsite.
     </MudText>
 
     <MudPaper Class="pa-4 mb-4" Elevation="1">
@@ -23,6 +24,14 @@
             <MudTextField @bind-Value="_color" @bind-Value:after="Refresh" Immediate="true" Label="Kleur" Variant="Variant.Outlined"
                           Placeholder="#e91e63" HelperText="Een hexcode, bv. #e91e63. Laat leeg voor geen kleur." Style="max-width: 16rem" />
         </MudStack>
+
+        <MudTextField @bind-Value="_heroImageUrl" Immediate="true" Label="Adres van je sfeerfoto" Variant="Variant.Outlined"
+                      Placeholder="https://www.jouwsite.be/feest.jpg" Class="mb-3"
+                      HelperText="Een liggende foto op je eigen website, met een volledig adres dat begint met https://. Laat leeg voor een vlak in je kleur." />
+        @if (Moshtar.Domain.Tenants.Branding.HeroImageUrl(_heroImageUrl) is { } hero)
+        {
+            <img src="@hero" alt="Voorbeeld van je sfeerfoto" style="display: block; max-width: 100%; max-height: 12rem; border-radius: .5rem" class="mb-3" />
+        }
 
         @if (_problems.Count > 0)
         {
@@ -54,17 +63,18 @@
 @code {
     private string? _logoUrl;
     private string? _color;
+    private string? _heroImageUrl;
     private string _preview = "";
     private IReadOnlyList<string> _problems = [];
 
     protected override async Task OnInitializedAsync()
     {
         var settings = await BrandingAdmin.GetAsync();
-        (_logoUrl, _color) = (settings.LogoUrl, settings.PrimaryColor);
+        (_logoUrl, _color, _heroImageUrl) = (settings.LogoUrl, settings.PrimaryColor, settings.HeroImageUrl);
         Refresh();
     }
 
-    private BrandingSettings Settings => new(_logoUrl, _color);
+    private BrandingSettings Settings => new(_logoUrl, _color, _heroImageUrl);
 
     /// <summary>De kleurkiezer kent alleen #rrggbb.</summary>
     private string ColorForPicker =>
@@ -87,7 +97,7 @@
             await BrandingAdmin.SaveAsync(Settings);
             _problems = [];
             var saved = await BrandingAdmin.GetAsync();
-            (_logoUrl, _color) = (saved.LogoUrl, saved.PrimaryColor);
+            (_logoUrl, _color, _heroImageUrl) = (saved.LogoUrl, saved.PrimaryColor, saved.HeroImageUrl);
             Refresh();
             Snackbar.Add("Je huisstijl is bewaard.", Severity.Success);
         }

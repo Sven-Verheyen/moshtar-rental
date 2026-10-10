@@ -12,22 +12,24 @@ internal sealed class BrandingAdministration(AppDbContext db, ITenantContext ten
     {
         var id = Tenant.Id;
         return await db.Tenants.AsNoTracking().Where(t => t.Id == id)
-            .Select(t => new BrandingSettings(t.LogoUrl, t.PrimaryColor)).SingleAsync(ct);
+            .Select(t => new BrandingSettings(t.LogoUrl, t.PrimaryColor, t.HeroImageUrl)).SingleAsync(ct);
     }
 
     public async Task SaveAsync(BrandingSettings settings, CancellationToken ct = default)
     {
-        if (Branding.Problems(settings.LogoUrl, settings.PrimaryColor) is { Count: > 0 } problems)
+        if (Branding.Problems(settings.LogoUrl, settings.PrimaryColor, settings.HeroImageUrl) is { Count: > 0 } problems)
             throw new BrandingException(problems);
 
         var id = Tenant.Id;
         var tenant = await db.Tenants.SingleAsync(t => t.Id == id, ct);
         tenant.LogoUrl = Branding.LogoUrl(settings.LogoUrl);
         tenant.PrimaryColor = Branding.Color(settings.PrimaryColor);
+        tenant.HeroImageUrl = Branding.HeroImageUrl(settings.HeroImageUrl);
         await db.SaveChangesAsync(ct);
         // Ook wat in dit scherm (dezelfde Blazor-circuit) en in de cache van verhuurders zit, gebruikt meteen de nieuwe huisstijl.
         Tenant.LogoUrl = tenant.LogoUrl;
         Tenant.PrimaryColor = tenant.PrimaryColor;
+        Tenant.HeroImageUrl = tenant.HeroImageUrl;
         store.Forget(id);
     }
 

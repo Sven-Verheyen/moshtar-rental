@@ -4,20 +4,49 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <base href="/" />
-    <ResourcePreloader />
-    <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
-    <link rel="stylesheet" href="@Assets["app.css"]" />
-    <link rel="stylesheet" href="@Assets["Moshtar.Web.styles.css"]" />
-    <ImportMap />
+    @if (IsBackOffice)
+    {
+        <base href="/" />
+        <ResourcePreloader />
+        <link rel="stylesheet" href="@Assets["_content/MudBlazor/MudBlazor.min.css"]" />
+        <link rel="stylesheet" href="@Assets["app.css"]" />
+        <link rel="stylesheet" href="@Assets["Moshtar.Web.styles.css"]" />
+        <ImportMap />
+    }
+    else
+    {
+        @* De reservatiewebsite: statische pagina's zonder JavaScript en met alleen de stijl van het sjabloon, voor de snelheid.
+           Geen <base>: dan wijzen ankers als #reserveren naar de pagina zelf, ook onder /fr of /en. *@
+        <link rel="stylesheet" href="/@Assets["site.css"]" />
+        @* Het logo als icoontje; zonder logo geen icoontje, en dus ook geen vergeefse vraag naar /favicon.ico. *@
+        <link rel="icon" href="@(Moshtar.Domain.Tenants.Branding.LogoUrl(TenantContext.Tenant?.LogoUrl) ?? "data:,")" />
+        @* Kleur uit de huisstijl; Branding laat alleen een hexcode door, dus hier kan niets anders in de CSS komen. *@
+        <style>:root { --brand: @Brand; --on-brand: @Moshtar.Domain.Tenants.Branding.TextColorOn(Brand); }</style>
+    }
     <HeadOutlet />
 </head>
 
 <body>
     <Routes />
-    <ReconnectModal />
-    <script src="@Assets["_framework/blazor.web.js"]"></script>
-    <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>
+    @if (IsBackOffice)
+    {
+        <ReconnectModal />
+        <script src="@Assets["_framework/blazor.web.js"]"></script>
+        <script src="@Assets["_content/MudBlazor/MudBlazor.min.js"]"></script>
+    }
 </body>
 
 </html>
+
+@code {
+    /// <summary>Zonder huisstijlkleur een neutrale, donkere standaardkleur.</summary>
+    private const string NeutralBrand = "#1f2933";
+
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+    [Inject] private ITenantContext TenantContext { get; set; } = default!;
+
+    private string Brand => Moshtar.Domain.Tenants.Branding.Color(TenantContext.Tenant?.PrimaryColor) ?? NeutralBrand;
+
+    /// <summary>Het back office (ook inloggen) gebruikt MudBlazor en interactieve pagina's; de reservatiewebsite niet.</summary>
+    private bool IsBackOffice => HttpContext?.Request.Path.StartsWithSegments("/admin") ?? true;
+}

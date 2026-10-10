@@ -27,6 +27,23 @@ public sealed class BrandingAdministrationTests(MoshtarApp app) : IClassFixture<
     }
 
     [Fact]
+    public async Task The_hero_image_is_saved_and_cleared_like_the_logo()
+    {
+        await app.CreateTenantAsync("huisstijl-sfeerfoto", "huisstijl-sfeerfoto.test");
+        await using var scope = await app.TenantScopeAsync("huisstijl-sfeerfoto");
+        var branding = Branding(scope);
+
+        await branding.SaveAsync(new BrandingSettings(null, null, " https://merk.test/feest.jpg "));
+        Assert.Equal(new BrandingSettings(null, null, "https://merk.test/feest.jpg"), await branding.GetAsync());
+
+        var refused = await Assert.ThrowsAsync<BrandingException>(() => branding.SaveAsync(new BrandingSettings(null, null, "http://merk.test/feest.jpg")));
+        Assert.Equal(["De sfeerfoto moet een volledig adres zijn dat begint met https://."], refused.Problems);
+
+        await branding.SaveAsync(new BrandingSettings(null, null, ""));
+        Assert.Equal(new BrandingSettings(null, null), await branding.GetAsync());
+    }
+
+    [Fact]
     public async Task An_invalid_logo_or_colour_is_refused_and_not_saved()
     {
         await app.CreateTenantAsync("huisstijl-ongeldig", "huisstijl-ongeldig.test");
