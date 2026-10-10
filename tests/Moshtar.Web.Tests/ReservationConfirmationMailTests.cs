@@ -160,6 +160,7 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
     [Theory]
     [InlineData("#1b5e20", "#ffffff")]
     [InlineData("#ff0", "#000000")]
+    [InlineData("#00ff00", "#000000")]
     public async Task Without_a_logo_the_header_shows_the_name_in_the_colour(string color, string textColor)
     {
         var mail = await BrandedConfirmationAsync($"merk-kleur-{color[1..]}", null, color);

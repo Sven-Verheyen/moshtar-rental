@@ -37,14 +37,20 @@ internal static partial class MailHeader
     private static string? Color(string? color) =>
         color?.Trim() is { } c && HexColor().IsMatch(c) ? c.ToLowerInvariant() : null;
 
-    /// <summary>Zwarte of witte tekst, naargelang wat het best leesbaar is op de achtergrond.</summary>
+    /// <summary>Zwarte of witte tekst: wat het meeste contrast geeft op de achtergrond, volgens WCAG.</summary>
     private static string TextColorOn(string background)
     {
         var hex = background[1..];
         if (hex.Length == 3) hex = string.Concat(hex.Select(ch => $"{ch}{ch}"));
-        double Channel(int i) => int.Parse(hex.Substring(i * 2, 2), NumberStyles.HexNumber) / 255.0;
-        var luminance = 0.299 * Channel(0) + 0.587 * Channel(1) + 0.114 * Channel(2);
-        return luminance > 0.6 ? "#000000" : "#ffffff";
+        double Channel(int i)
+        {
+            var c = int.Parse(hex.Substring(i * 2, 2), NumberStyles.HexNumber) / 255.0;
+            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
+        }
+        var luminance = 0.2126 * Channel(0) + 0.7152 * Channel(1) + 0.0722 * Channel(2);
+        var contrastWithWhite = 1.05 / (luminance + 0.05);
+        var contrastWithBlack = (luminance + 0.05) / 0.05;
+        return contrastWithBlack >= contrastWithWhite ? "#000000" : "#ffffff";
     }
 
     private static string E(string value) => WebUtility.HtmlEncode(value);
