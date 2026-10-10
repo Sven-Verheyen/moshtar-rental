@@ -6,6 +6,7 @@
 @using Moshtar.Domain.Mail
 @inject IMailTemplateAdministration Templates
 @inject ISnackbar Snackbar
+@inject ILogger<MailTemplates> Logger
 
 <PageTitle>Mailsjablonen</PageTitle>
 
@@ -129,7 +130,14 @@
             }
             catch (InvalidOperationException e)
             {
+                // Onze eigen meldingen, bv. een verhuurder zonder afzenderadres.
                 Snackbar.Add($"Testmail niet verstuurd: {e.Message}", Severity.Error);
+            }
+            catch (Exception e) when (e is not MailTemplateException)
+            {
+                // Een fout van de mailserver mag het scherm niet doen crashen, en hoort niet bij de beheerder.
+                Logger.LogError(e, "Testmail voor {Kind} in {Culture} kon niet vertrekken.", kind.Kind, culture);
+                Snackbar.Add("Testmail niet verstuurd: de mailserver gaf een fout. Probeer het later opnieuw.", Severity.Error);
             }
         });
 
