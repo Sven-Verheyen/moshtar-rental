@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moshtar.Application.Mail;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Availability;
@@ -6,11 +8,13 @@ using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Reservations;
 
-internal sealed class ReservationService(AppDbContext db, ITenantContext tenantContext, TimeProvider clock) : IReservationService
+internal sealed class ReservationService(
+    AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<ReservationService> logger) : IReservationService
 {
     private static readonly ReservationStatus[] OccupyingStatuses =
         [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned];
@@ -57,7 +61,27 @@ internal sealed class ReservationService(AppDbContext db, ITenantContext tenantC
         db.Reservations.Add(reservation);
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+
+        await SendConfirmationAsync(reservation, tenant);
         return new ReservationResult(reservation, []);
+    }
+
+    /// <summary>
+    /// Bevestigt de reservatie per mail aan de klant. Pas na de commit, en een mislukte mail maakt de reservatie
+    /// niet ongedaan: die staat vast, de verhuurder kan de klant nog altijd zelf contacteren.
+    /// Daarom ook geen CancellationToken: een afgebroken request mag de mail niet tegenhouden,
+    /// en ReserveAsync mag niet mislukken voor een reservatie die al bewaard is.
+    /// </summary>
+    private async Task SendConfirmationAsync(Reservation reservation, Tenant tenant)
+    {
+        try
+        {
+            await mailer.SendAsync(ReservationConfirmation.Create(reservation, tenant), CancellationToken.None);
+        }
+        catch (Exception e)
+        {
+            logger.LogError(e, "Bevestigingsmail voor reservatie {Number} van verhuurder {Tenant} kon niet vertrekken.", reservation.Number, tenant.Slug);
+        }
     }
 
     public async Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, ReservationActor actor, CancellationToken ct = default)
