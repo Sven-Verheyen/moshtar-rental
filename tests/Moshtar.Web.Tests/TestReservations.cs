@@ -9,6 +9,9 @@ namespace Moshtar.Web.Tests;
 
 internal static class TestReservations
 {
+    /// <summary>Een dag ruim in de toekomst, zodat de test niet veroudert: reservaties in het verleden worden geweigerd.</summary>
+    public static DateOnly FutureDay(int offset = 0) => DateOnly.FromDateTime(DateTime.Today).AddYears(1).AddDays(offset);
+
     /// <summary>Reserveert het enige exemplaar van een artikel (aangemaakt bij eerste gebruik) op één dag.</summary>
     public static async Task<Guid> ReserveAsync(MoshtarApp app, string itemSlug, DateOnly day)
     {

@@ -24,7 +24,7 @@ public sealed class ManualReservationTests(MoshtarApp app) : IClassFixture<Mosht
         await using var scope = await app.TenantScopeAsync("hopsakee");
         var reservations = scope.ServiceProvider.GetRequiredService<IReservationService>();
         var result = await reservations.ReserveAsync(
-            Request(new DateOnly(2027, 9, 1), new ReservationLineRequest(item, null, 1), new ReservationLineRequest(null, bundle, 1)),
+            Request(TestReservations.FutureDay(249), new ReservationLineRequest(item, null, 1), new ReservationLineRequest(null, bundle, 1)),
             ReservationActor.User(user.Id));
 
         var reservation = Assert.IsType<Reservation>(result.Reservation);
@@ -40,7 +40,7 @@ public sealed class ManualReservationTests(MoshtarApp app) : IClassFixture<Mosht
     {
         var user = await app.CreateUserAsync("hopsakee", "tekort@hopsakee.test", UserRole.Staff);
         var (item, _) = await CreateItemAndBundleAsync("tekort", stock: 1);
-        var day = new DateOnly(2027, 9, 10);
+        var day = TestReservations.FutureDay(258);
 
         await using var scope = await app.TenantScopeAsync("hopsakee");
         var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(
@@ -96,7 +96,7 @@ public sealed class ManualReservationTests(MoshtarApp app) : IClassFixture<Mosht
     {
         await using var scope = await app.TenantScopeAsync("hopsakee");
         return await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(
-            Request(new DateOnly(2027, 9, 20), new ReservationLineRequest(item, null, 1)), ReservationActor.User(userId));
+            Request(TestReservations.FutureDay(268), new ReservationLineRequest(item, null, 1)), ReservationActor.User(userId));
     }
 
     private static ReservationRequest Request(DateOnly day, params ReservationLineRequest[] lines) => new(
