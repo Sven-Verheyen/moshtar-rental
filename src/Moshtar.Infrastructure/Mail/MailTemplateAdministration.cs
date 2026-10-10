@@ -3,10 +3,11 @@ using Moshtar.Application.Mail;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Mail;
 using Moshtar.Infrastructure.Persistence;
+using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Mail;
 
-internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock) : IMailTemplateAdministration
+internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer) : IMailTemplateAdministration
 {
     private const int MaxSubjectLength = 300;
 
@@ -31,13 +32,7 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
     public async Task SaveAsync(MailKind kind, string culture, MailTemplateText text, Guid userId, CancellationToken ct = default)
     {
         var definition = MailKinds.For(kind);
-        if (!Tenant.Cultures.Contains(culture))
-            throw new MailTemplateException([$"Je biedt de taal '{culture}' niet aan."]);
-        text = new MailTemplateText(text.Subject.Trim(), text.Body.Trim().ReplaceLineEndings("\n"));
-        var problems = definition.Problems(text).ToList();
-        if (text.Subject.Length == 0) problems.Insert(0, "Het onderwerp is leeg.");
-        if (text.Subject.Length > MaxSubjectLength) problems.Insert(0, $"Het onderwerp is langer dan {MaxSubjectLength} tekens.");
-        if (problems.Count > 0) throw new MailTemplateException(problems);
+        text = Checked(definition, culture, text);
 
         // Dezelfde tekst als de standaard is geen aanpassing: zo krijgt de verhuurder later een verbeterde standaardtekst.
         var standard = definition.Standard(culture);
@@ -57,8 +52,43 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
         await db.SaveChangesAsync(ct);
     }
 
+    public Task<MailMessage> PreviewAsync(MailKind kind, string culture, MailTemplateText text, CancellationToken ct = default) =>
+        Task.FromResult(Preview(kind, culture, text, to: ""));
+
+    public async Task SendTestAsync(MailKind kind, string culture, MailTemplateText text, Guid userId, CancellationToken ct = default)
+    {
+        var email = await db.Users.Where(u => u.Id == userId).Select(u => u.Email).SingleOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException("Geen e-mailadres gekend voor deze gebruiker.");
+        var mail = Preview(kind, culture, text, email);
+        await mailer.SendAsync(mail with { Subject = $"[Testmail] {mail.Subject}" }, ct);
+    }
+
     public Task ResetAsync(MailKind kind, string culture, CancellationToken ct = default) =>
         db.MailTemplateCustomizations.Where(t => t.Kind == kind && t.Culture == culture).ExecuteDeleteAsync(ct);
+
+    private MailMessage Preview(MailKind kind, string culture, MailTemplateText text, string to)
+    {
+        text = Checked(MailKinds.For(kind), culture, text);
+        var example = kind switch
+        {
+            MailKind.ReservationConfirmation => ReservationConfirmation.Example(culture, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
+        };
+        return ReservationConfirmation.Create(example, Tenant, text) with { To = to };
+    }
+
+    /// <summary>De tekst zoals hij bewaard en verstuurd wordt, of een <see cref="MailTemplateException"/> met wat er mis is.</summary>
+    private MailTemplateText Checked(MailKindDefinition definition, string culture, MailTemplateText text)
+    {
+        if (!Tenant.Cultures.Contains(culture))
+            throw new MailTemplateException([$"Je biedt de taal '{culture}' niet aan."]);
+        text = new MailTemplateText(text.Subject.Trim(), text.Body.Trim().ReplaceLineEndings("\n"));
+        var problems = definition.Problems(text).ToList();
+        if (text.Subject.Length == 0) problems.Insert(0, "Het onderwerp is leeg.");
+        if (text.Subject.Length > MaxSubjectLength) problems.Insert(0, $"Het onderwerp is langer dan {MaxSubjectLength} tekens.");
+        if (problems.Count > 0) throw new MailTemplateException(problems);
+        return text;
+    }
 
     private Domain.Tenants.Tenant Tenant => tenantContext.Tenant ?? throw new InvalidOperationException("Geen verhuurder gekend.");
 }

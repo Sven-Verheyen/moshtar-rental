@@ -31,4 +31,13 @@ public interface IMailTemplateAdministration
 
     /// <summary>Verwijdert de aanpassing in deze taal, zodat de standaardtekst weer geldt.</summary>
     Task ResetAsync(MailKind kind, string culture, CancellationToken ct = default);
+
+    /// <summary>
+    /// De mail zoals een klant hem zou krijgen met deze (nog niet bewaarde) tekst, ingevuld met een fictieve reservatie.
+    /// Gooit een <see cref="MailTemplateException"/> bij dezelfde problemen als <see cref="SaveAsync"/>.
+    /// </summary>
+    Task<MailMessage> PreviewAsync(MailKind kind, string culture, MailTemplateText text, CancellationToken ct = default);
+
+    /// <summary>Stuurt het voorbeeld als testmail naar de gebruiker zelf, vanaf het domein van de verhuurder.</summary>
+    Task SendTestAsync(MailKind kind, string culture, MailTemplateText text, Guid userId, CancellationToken ct = default);
 }

@@ -137,6 +137,59 @@ public sealed class MailTemplateAdministrationTests(MoshtarApp app) : IClassFixt
     }
 
     [Fact]
+    public async Task Preview_fills_the_text_on_screen_with_an_example_reservation_in_that_language()
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+
+        var preview = await Templates(scope).PreviewAsync(Confirmation, "fr", Custom);
+
+        Assert.Equal($"Hoera Camille, reservatie {DateTime.UtcNow.Year}-0042 staat vast", preview.Subject);
+        Assert.StartsWith("Dag Camille Dubois,", preview.TextBody);
+        Assert.Contains("Château gonflable Pirate", preview.TextBody);
+        Assert.Contains("Total:", preview.TextBody);
+        Assert.Contains("<p>Tot binnenkort!</p>", preview.HtmlBody);
+    }
+
+    [Fact]
+    public async Task Preview_follows_the_same_checks_as_saving()
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+
+        var error = await Assert.ThrowsAsync<MailTemplateException>(() =>
+            Templates(scope).PreviewAsync(Confirmation, "nl", new MailTemplateText("Hallo {firstNam}", "{reservationDetails}")));
+
+        Assert.Equal(["Onbekende plaatshouder {firstNam}."], error.Problems);
+    }
+
+    [Fact]
+    public async Task Test_mail_goes_to_the_administrator_from_the_rental_company_without_making_a_reservation()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "sjabloon-test@hopsakee.test");
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var reservations = scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.Count();
+
+        await Templates(scope).SendTestAsync(Confirmation, "en", Custom, user.Id);
+
+        var mail = Assert.Single(Outbox.Sent, m => m.To == "sjabloon-test@hopsakee.test");
+        Assert.Equal("noreply@hopsakee.test", mail.FromAddress);
+        Assert.Equal($"[Testmail] Hoera Alex, reservatie {DateTime.UtcNow.Year}-0042 staat vast", mail.Subject);
+        Assert.Contains("Bouncy castle Pirate", mail.TextBody);
+        Assert.Equal(reservations, scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.Count());
+    }
+
+    [Fact]
+    public async Task No_test_mail_leaves_while_the_text_has_a_problem()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "sjabloon-test-fout@hopsakee.test");
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+
+        await Assert.ThrowsAsync<MailTemplateException>(() =>
+            Templates(scope).SendTestAsync(Confirmation, "nl", new MailTemplateText("Hallo", "Geen overzicht"), user.Id));
+
+        Assert.DoesNotContain(Outbox.Sent, m => m.To == "sjabloon-test-fout@hopsakee.test");
+    }
+
+    [Fact]
     public async Task Administrator_finds_the_mail_templates_in_the_menu()
     {
         var client = await app.LoggedInClientAsync("sjabloon-menu@hopsakee.test", UserRole.Administrator);

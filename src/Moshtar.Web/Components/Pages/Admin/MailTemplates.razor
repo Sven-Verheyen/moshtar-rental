@@ -6,6 +6,7 @@
 @using Moshtar.Domain.Mail
 @inject IMailTemplateAdministration Templates
 @inject ISnackbar Snackbar
+@inject ILogger<MailTemplates> Logger
 
 <PageTitle>Mailsjablonen</PageTitle>
 
@@ -54,10 +55,22 @@
                                     }
                                 </MudAlert>
                             }
-                            <MudStack Row="true" Class="mt-4">
+                            <MudStack Row="true" Class="mt-4" Wrap="Wrap.Wrap">
                                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SaveAsync(kind, version.Culture)">Opslaan</MudButton>
                                 <MudButton Variant="Variant.Outlined" Disabled="!version.IsCustomized" OnClick="() => ResetAsync(kind, version.Culture)">Terug naar standaard</MudButton>
+                                <MudButton Variant="Variant.Text" OnClick="() => PreviewAsync(kind, version.Culture)">Voorbeeld</MudButton>
+                                <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Send" OnClick="() => SendTestAsync(kind, version.Culture)">Stuur testmail naar mij</MudButton>
                             </MudStack>
+                            @if (_previews.GetValueOrDefault((kind.Kind, version.Culture)) is { } preview)
+                            {
+                                <MudPaper Outlined="true" Class="pa-4 mt-4">
+                                    <MudText Typo="Typo.overline">Voorbeeld met een fictieve reservatie</MudText>
+                                    <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>@preview.Subject</strong></MudText>
+                                    <MudDivider Class="mb-2" />
+                                    @* De HTML komt uit de mailopbouw, waar alle tekst ge-escaped wordt (ADR 0003). *@
+                                    <div class="mail-preview">@((MarkupString)preview.HtmlBody)</div>
+                                </MudPaper>
+                            }
                         </MudTabPanel>
                     }
                 </MudTabs>
@@ -79,6 +92,7 @@
     private readonly Dictionary<MailKind, IReadOnlyList<MailTemplateVersion>> _versions = [];
     private readonly Dictionary<(MailKind, string), Draft> _drafts = [];
     private readonly Dictionary<(MailKind, string), IReadOnlyList<string>> _problems = [];
+    private readonly Dictionary<(MailKind, string), MailMessage> _previews = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -95,27 +109,61 @@
                 _drafts[(kind, version.Culture)] = new Draft { Subject = version.Text.Subject, Body = version.Text.Body };
     }
 
-    private async Task SaveAsync(MailKindDefinition kind, string culture)
+    private Task SaveAsync(MailKindDefinition kind, string culture) =>
+        CheckedAsync(kind, culture, async text =>
+        {
+            await Templates.SaveAsync(kind.Kind, culture, text, await UserIdAsync());
+            Snackbar.Add($"{kind.Name} in het {LanguageName(culture)} is bewaard.", Severity.Success);
+            await LoadAsync(kind.Kind, culture);
+        });
+
+    private Task PreviewAsync(MailKindDefinition kind, string culture) =>
+        CheckedAsync(kind, culture, async text => _previews[(kind.Kind, culture)] = await Templates.PreviewAsync(kind.Kind, culture, text));
+
+    private Task SendTestAsync(MailKindDefinition kind, string culture) =>
+        CheckedAsync(kind, culture, async text =>
+        {
+            try
+            {
+                await Templates.SendTestAsync(kind.Kind, culture, text, await UserIdAsync());
+                Snackbar.Add("Testmail verstuurd naar je eigen adres.", Severity.Success);
+            }
+            catch (InvalidOperationException e)
+            {
+                // Onze eigen meldingen, bv. een verhuurder zonder afzenderadres.
+                Snackbar.Add($"Testmail niet verstuurd: {e.Message}", Severity.Error);
+            }
+            catch (Exception e) when (e is not MailTemplateException)
+            {
+                // Een fout van de mailserver mag het scherm niet doen crashen, en hoort niet bij de beheerder.
+                Logger.LogError(e, "Testmail voor {Kind} in {Culture} kon niet vertrekken.", kind.Kind, culture);
+                Snackbar.Add("Testmail niet verstuurd: de mailserver gaf een fout. Probeer het later opnieuw.", Severity.Error);
+            }
+        });
+
+    /// <summary>Voert een actie uit met de tekst uit het scherm, en toont de problemen als die niet in orde is.</summary>
+    private async Task CheckedAsync(MailKindDefinition kind, string culture, Func<MailTemplateText, Task> action)
     {
         var draft = _drafts[(kind.Kind, culture)];
         try
         {
-            var user = (await AuthenticationState).User.Id();
-            await Templates.SaveAsync(kind.Kind, culture, new MailTemplateText(draft.Subject ?? "", draft.Body ?? ""), user);
+            await action(new MailTemplateText(draft.Subject ?? "", draft.Body ?? ""));
             _problems.Remove((kind.Kind, culture));
-            Snackbar.Add($"{kind.Name} in het {LanguageName(culture)} is bewaard.", Severity.Success);
-            await LoadAsync(kind.Kind, culture);
         }
         catch (MailTemplateException e)
         {
             _problems[(kind.Kind, culture)] = e.Problems;
+            _previews.Remove((kind.Kind, culture));
         }
     }
+
+    private async Task<Guid> UserIdAsync() => (await AuthenticationState).User.Id();
 
     private async Task ResetAsync(MailKindDefinition kind, string culture)
     {
         await Templates.ResetAsync(kind.Kind, culture);
         _problems.Remove((kind.Kind, culture));
+        _previews.Remove((kind.Kind, culture));
         Snackbar.Add($"{kind.Name} in het {LanguageName(culture)} gebruikt weer de standaardtekst.", Severity.Success);
         await LoadAsync(kind.Kind, culture);
     }
