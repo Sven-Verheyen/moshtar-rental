@@ -8,7 +8,8 @@ aan andere verhuurbedrijven aangeboden te worden.
 - **Reservatiewebsite** (`/`): catalogus met artikelen en pakketten, detailpagina met reservatieformulier.
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat.
 - **Back office** (`/admin`): reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie
-  (wie wat deed en wanneer). Voorraad en prijzen van artikelen aanpassen.
+  (wie wat deed en wanneer). Zelf een reservatie invoeren, bv. voor een klant die belt (`/admin/reservaties/nieuw`),
+  met dezelfde voorraadcontrole als de reservatiewebsite. Voorraad en prijzen van artikelen aanpassen.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

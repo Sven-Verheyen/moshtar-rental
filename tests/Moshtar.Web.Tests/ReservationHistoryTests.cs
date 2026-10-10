@@ -13,7 +13,7 @@ public sealed class ReservationHistoryTests(MoshtarApp app) : IClassFixture<Mosh
     public async Task Reservation_on_the_website_is_created_via_website()
     {
         var before = DateTime.UtcNow;
-        var id = await TestReservations.ReserveAsync(app, "via-website", new DateOnly(2027, 8, 1));
+        var id = await TestReservations.ReserveAsync(app, "via-website", TestReservations.FutureDay(218));
 
         var history = await HistoryAsync("hopsakee", id);
 
@@ -28,7 +28,7 @@ public sealed class ReservationHistoryTests(MoshtarApp app) : IClassFixture<Mosh
     {
         var anna = await app.CreateUserAsync("hopsakee", "anna@hopsakee.test", UserRole.Staff);
         var ben = await app.CreateUserAsync("hopsakee", "ben@hopsakee.test", UserRole.Staff);
-        var id = await TestReservations.ReserveAsync(app, "gewijzigd", new DateOnly(2027, 8, 2));
+        var id = await TestReservations.ReserveAsync(app, "gewijzigd", TestReservations.FutureDay(219));
 
         await ChangeStatusAsync(id, ReservationStatus.Delivered, ReservationActor.User(anna.Id));
         await ChangeStatusAsync(id, ReservationStatus.Cancelled, ReservationActor.User(ben.Id));
@@ -48,7 +48,7 @@ public sealed class ReservationHistoryTests(MoshtarApp app) : IClassFixture<Mosh
     public async Task A_refused_change_leaves_no_trace_in_the_history()
     {
         var user = await app.CreateUserAsync("hopsakee", "geweigerd@hopsakee.test", UserRole.Staff);
-        var id = await TestReservations.ReserveAsync(app, "geweigerd", new DateOnly(2027, 8, 3));
+        var id = await TestReservations.ReserveAsync(app, "geweigerd", TestReservations.FutureDay(220));
         await ChangeStatusAsync(id, ReservationStatus.Cancelled, ReservationActor.User(user.Id));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => ChangeStatusAsync(id, ReservationStatus.Confirmed, ReservationActor.User(user.Id)));
@@ -60,7 +60,7 @@ public sealed class ReservationHistoryTests(MoshtarApp app) : IClassFixture<Mosh
     public async Task A_disabled_user_stays_visible_in_the_history()
     {
         var user = await app.CreateUserAsync("hopsakee", "vertrokken@hopsakee.test", UserRole.Staff);
-        var id = await TestReservations.ReserveAsync(app, "vertrokken", new DateOnly(2027, 8, 4));
+        var id = await TestReservations.ReserveAsync(app, "vertrokken", TestReservations.FutureDay(221));
         await ChangeStatusAsync(id, ReservationStatus.Delivered, ReservationActor.User(user.Id));
         await using (var scope = await app.TenantScopeAsync("hopsakee"))
             await scope.ServiceProvider.GetRequiredService<UserAdministration>().DisableAsync(user.Id);
@@ -73,7 +73,7 @@ public sealed class ReservationHistoryTests(MoshtarApp app) : IClassFixture<Mosh
     [Fact]
     public async Task Another_rental_company_does_not_see_the_history()
     {
-        var id = await TestReservations.ReserveAsync(app, "andermans-historiek", new DateOnly(2027, 8, 5));
+        var id = await TestReservations.ReserveAsync(app, "andermans-historiek", TestReservations.FutureDay(222));
 
         Assert.Empty(await HistoryAsync("andere", id));
     }
