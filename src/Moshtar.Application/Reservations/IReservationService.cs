@@ -14,11 +14,20 @@ public interface IReservationService
     /// Gelijktijdige reservaties voor dezelfde tenant worden na elkaar afgehandeld,
     /// zodat het laatste exemplaar nooit twee keer verhuurd wordt.
     /// </summary>
-    Task<ReservationResult> ReserveAsync(ReservationRequest request, CancellationToken ct = default);
+    Task<ReservationResult> ReserveAsync(ReservationRequest request, ReservationActor actor, CancellationToken ct = default);
 
-    /// <summary>Zet een reservatie in een nieuwe status, ook annuleren. Geeft de bijgewerkte reservatie terug.</summary>
-    Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, CancellationToken ct = default);
+    /// <summary>
+    /// Zet een reservatie in een nieuwe status, ook annuleren, en noteert dat in de historiek.
+    /// Geeft de bijgewerkte reservatie terug.
+    /// </summary>
+    Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, ReservationActor actor, CancellationToken ct = default);
+
+    /// <summary>De historiek van een reservatie, nieuwste bovenaan.</summary>
+    Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default);
 }
+
+/// <summary>Een gebeurtenis uit de historiek. Zonder e-mailadres deed de klant het zelf via de reservatiewebsite.</summary>
+public record ReservationHistoryEntry(DateTime OccurredAtUtc, ReservationEventKind Kind, ReservationStatus Status, string? UserEmail);
 
 public record ReservationLineRequest(Guid? RentalItemId, Guid? BundleId, int Quantity);
 

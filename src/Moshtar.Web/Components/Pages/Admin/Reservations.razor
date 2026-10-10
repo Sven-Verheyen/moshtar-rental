@@ -2,6 +2,7 @@
 @page "/admin/reservaties"
 @layout AdminLayout
 @rendermode InteractiveServer
+@using System.Security.Claims
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Infrastructure.Persistence
 @inject IDbContextFactory<AppDbContext> DbFactory
@@ -31,6 +32,8 @@
             <MudTd>@context.TotalPrice.ToString("C", Money)</MudTd>
             <MudTd><MudChip T="string" Size="Size.Small" Color="StatusColor(context.Status)">@StatusLabel(context.Status)</MudChip></MudTd>
             <MudTd>
+                <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.History"
+                           OnClick="() => ToggleHistoryAsync(context.Id)">Historiek</MudButton>
                 @if (context.Status != ReservationStatus.Cancelled)
                 {
                     <MudMenu Label="Status" Size="Size.Small" Dense="true" EndIcon="@Icons.Material.Filled.ArrowDropDown">
@@ -46,13 +49,45 @@
                 }
             </MudTd>
         </RowTemplate>
+        <ChildRowContent>
+            @if (_history.TryGetValue(context.Id, out var history))
+            {
+                <MudTr>
+                    <td colspan="8" class="reservation-history">
+                        <MudSimpleTable Dense="true" Elevation="0">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Tijdstip</th>
+                                    <th scope="col">Gebeurtenis</th>
+                                    <th scope="col">Door</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var entry in history)
+                                {
+                                    <tr>
+                                        <td>@LocalTime(entry.OccurredAtUtc)</td>
+                                        <td>@EventLabel(entry)</td>
+                                        <td>@(entry.UserEmail ?? "via website")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                    </td>
+                </MudTr>
+            }
+        </ChildRowContent>
         <NoRecordsContent>Nog geen reservaties.</NoRecordsContent>
     </MudTable>
 </AdminShell>
 
 @code {
     private static readonly System.Globalization.CultureInfo Money = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
+    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
     private List<Reservation>? _reservations;
+    private readonly Dictionary<Guid, IReadOnlyList<ReservationHistoryEntry>> _history = [];
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -71,7 +106,7 @@
     {
         try
         {
-            var reservation = await ReservationService.ChangeStatusAsync(id, status);
+            var reservation = await ReservationService.ChangeStatusAsync(id, status, await CurrentUserAsync());
             Snackbar.Add($"Reservatie {reservation.Number}: {StatusLabel(status).ToLowerInvariant()}.", Severity.Info);
         }
         catch (InvalidOperationException e)
@@ -79,7 +114,31 @@
             Snackbar.Add(e.Message, Severity.Error);
         }
         await LoadAsync();
+        if (_history.ContainsKey(id))
+            _history[id] = await ReservationService.GetHistoryAsync(id);
     }
+
+    private async Task ToggleHistoryAsync(Guid id)
+    {
+        if (!_history.Remove(id))
+            _history[id] = await ReservationService.GetHistoryAsync(id);
+    }
+
+    private async Task<ReservationActor> CurrentUserAsync()
+    {
+        var user = (await AuthenticationState).User;
+        return ReservationActor.User(Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!));
+    }
+
+    private static string LocalTime(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(utc, BelgianTime).ToString("dd/MM/yyyy HH:mm");
+
+    private static string EventLabel(ReservationHistoryEntry entry) => entry.Kind switch
+    {
+        ReservationEventKind.Created => "Aangemaakt",
+        ReservationEventKind.Cancelled => "Geannuleerd",
+        _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",
+    };
 
     private static string StatusLabel(ReservationStatus s) => s switch
     {

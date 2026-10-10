@@ -22,7 +22,7 @@ internal sealed class ReservationService(AppDbContext db, ITenantContext tenantC
         return shortages;
     }
 
-    public async Task<ReservationResult> ReserveAsync(ReservationRequest request, CancellationToken ct = default)
+    public async Task<ReservationResult> ReserveAsync(ReservationRequest request, ReservationActor actor, CancellationToken ct = default)
     {
         Validate(request);
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
@@ -52,6 +52,7 @@ internal sealed class ReservationService(AppDbContext db, ITenantContext tenantC
             Lines = request.Lines.Select(l => CreateLine(l, items, bundles, days, request.Culture, tenant.DefaultCulture)).ToList(),
         };
         reservation.TotalPrice = reservation.Lines.Sum(l => l.LineTotal);
+        reservation.RecordCreated(actor, reservation.CreatedAtUtc);
 
         db.Reservations.Add(reservation);
         await db.SaveChangesAsync(ct);
@@ -59,17 +60,28 @@ internal sealed class ReservationService(AppDbContext db, ITenantContext tenantC
         return new ReservationResult(reservation, []);
     }
 
-    public async Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, CancellationToken ct = default)
+    public async Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, ReservationActor actor, CancellationToken ct = default)
     {
         // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen,
         // zodat een wijziging door een collega intussen niet over het hoofd gezien wordt.
         db.ChangeTracker.Clear();
         var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId, ct)
             ?? throw new InvalidOperationException("Reservatie niet gevonden.");
-        reservation.ChangeStatus(status);
+        reservation.ChangeStatus(status, actor, clock.GetUtcNow().UtcDateTime);
+        // De nieuwe status en de gebeurtenis in de historiek gaan samen in één SaveChanges, dus één transactie.
         await db.SaveChangesAsync(ct);
         return reservation;
     }
+
+    public async Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default) =>
+        await (from e in db.ReservationEvents.AsNoTracking()
+               where e.ReservationId == reservationId
+               // Ook uitgeschakelde gebruikers blijven met hun e-mailadres zichtbaar.
+               join u in db.Users on e.UserId equals u.Id into users
+               from u in users.DefaultIfEmpty()
+               orderby e.OccurredAtUtc descending, e.Kind descending
+               select new ReservationHistoryEntry(e.OccurredAtUtc, e.Kind, e.Status, u.Email))
+            .ToListAsync(ct);
 
     private async Task<(IReadOnlyList<StockShortage> Shortages, Dictionary<Guid, RentalItem> Items, Dictionary<Guid, Bundle> Bundles)> EvaluateAsync(
         DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct)

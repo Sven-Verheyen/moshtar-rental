@@ -13,7 +13,7 @@ public class ReservationStatusTests
     {
         var reservation = new Reservation();
 
-        reservation.ChangeStatus(status);
+        reservation.ChangeStatus(status, ReservationActor.Website, DateTime.UtcNow);
 
         Assert.Equal(status, reservation.Status);
     }
@@ -22,8 +22,8 @@ public class ReservationStatusTests
     public void Cancelled_reservation_cannot_be_revived_because_its_stock_may_be_gone()
     {
         var reservation = new Reservation();
-        reservation.ChangeStatus(ReservationStatus.Cancelled);
+        reservation.ChangeStatus(ReservationStatus.Cancelled, ReservationActor.Website, DateTime.UtcNow);
 
-        Assert.Throws<InvalidOperationException>(() => reservation.ChangeStatus(ReservationStatus.Confirmed));
+        Assert.Throws<InvalidOperationException>(() => reservation.ChangeStatus(ReservationStatus.Confirmed, ReservationActor.Website, DateTime.UtcNow));
     }
 }

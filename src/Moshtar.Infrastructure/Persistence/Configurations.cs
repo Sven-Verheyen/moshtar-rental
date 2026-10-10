@@ -112,6 +112,20 @@ internal class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
     }
 }
 
+internal class ReservationEventConfiguration : IEntityTypeConfiguration<ReservationEvent>
+{
+    public void Configure(EntityTypeBuilder<ReservationEvent> b)
+    {
+        b.ToTable("ReservationEvents");
+        // Gebeurtenissen krijgen hun Id in de code; zo ziet EF ze als nieuw wanneer ze aan History toegevoegd worden.
+        b.Property(e => e.Id).ValueGeneratedNever();
+        b.HasOne<Reservation>().WithMany(r => r.History).HasForeignKey(e => e.ReservationId).OnDelete(DeleteBehavior.Cascade);
+        // Gebruikers worden uitgeschakeld, nooit verwijderd: de historiek blijft naar hen verwijzen.
+        b.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(e => new { e.ReservationId, e.OccurredAtUtc });
+    }
+}
+
 internal class BlockoutConfiguration : IEntityTypeConfiguration<Blockout>
 {
     public void Configure(EntityTypeBuilder<Blockout> b)
