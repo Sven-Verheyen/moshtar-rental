@@ -31,14 +31,17 @@ internal static class ReservationConfirmation
         ["en"] = new("en-BE", "Reservation number", "Rental period", "What you are renting", "Total", "Delivery to {0}", "Pickup", "Notes"),
     };
 
-    public static MailMessage Create(Reservation reservation, Tenant tenant)
+    /// <summary>De taal van de mail: die van de reservatie, anders de standaardtaal van de verhuurder, anders Nederlands.</summary>
+    public static string LanguageOf(Reservation reservation, Tenant tenant) =>
+        ByCulture.ContainsKey(reservation.Culture) ? reservation.Culture
+        : ByCulture.ContainsKey(tenant.DefaultCulture) ? tenant.DefaultCulture
+        : "nl";
+
+    /// <param name="template">Het mailsjabloon in de taal van <see cref="LanguageOf"/>: de aanpassing van de verhuurder of de standaardtekst.</param>
+    public static MailMessage Create(Reservation reservation, Tenant tenant, MailTemplateText template)
     {
         var customer = reservation.Customer ?? throw new InvalidOperationException("Reservatie zonder klant.");
-        var language = ByCulture.ContainsKey(reservation.Culture) ? reservation.Culture
-            : ByCulture.ContainsKey(tenant.DefaultCulture) ? tenant.DefaultCulture
-            : "nl";
-        var t = ByCulture[language];
-        var template = MailKinds.ReservationConfirmation.Standard(language);
+        var t = ByCulture[LanguageOf(reservation, tenant)];
         var culture = CultureInfo.GetCultureInfo(t.CultureName);
 
         var period = reservation.StartDate == reservation.EndDate

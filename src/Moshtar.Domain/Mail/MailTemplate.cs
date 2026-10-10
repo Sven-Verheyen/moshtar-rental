@@ -20,12 +20,15 @@ public enum MailKind
 /// </summary>
 public sealed partial class MailKindDefinition(
     MailKind kind,
+    string name,
     IReadOnlyList<string> placeholders,
     IReadOnlyList<string> requiredInBody,
     IReadOnlyList<string> blocks,
     IReadOnlyDictionary<string, MailTemplateText> standardByCulture)
 {
     public MailKind Kind { get; } = kind;
+    /// <summary>Naam voor de beheerder, bv. "Reservatiebevestiging".</summary>
+    public string Name { get; } = name;
     public IReadOnlyList<string> Placeholders { get; } = placeholders;
     public IReadOnlyList<string> Blocks { get; } = blocks;
 
@@ -68,6 +71,7 @@ public static class MailKinds
 
     public static readonly MailKindDefinition ReservationConfirmation = new(
         MailKind.ReservationConfirmation,
+        "Reservatiebevestiging",
         placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", ReservationDetails],
         requiredInBody: [ReservationDetails],
         blocks: [ReservationDetails],
@@ -113,4 +117,8 @@ public static class MailKinds
                 {companyName}
                 """),
         });
+
+    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation];
+
+    public static MailKindDefinition For(MailKind kind) => All.Single(d => d.Kind == kind);
 }
