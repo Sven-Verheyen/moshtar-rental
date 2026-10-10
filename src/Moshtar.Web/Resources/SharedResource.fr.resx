@@ -35,4 +35,9 @@
   <data name="MaxPersons" xml:space="preserve"><value>Personnes max.</value></data>
   <data name="RequiresPower" xml:space="preserve"><value>Électricité nécessaire</value></data>
   <data name="Years" xml:space="preserve"><value>ans</value></data>
+  <data name="ChooseDate" xml:space="preserve"><value>Choisissez votre date</value></data>
+  <data name="HeroSubtitle" xml:space="preserve"><value>Louez châteaux gonflables et jeux pour votre fête, réservation en ligne.</value></data>
+  <data name="SkipToContent" xml:space="preserve"><value>Aller au contenu</value></data>
+  <data name="MainMenu" xml:space="preserve"><value>Menu principal</value></data>
+  <data name="ChooseLanguage" xml:space="preserve"><value>Choisir la langue</value></data>
 </root>

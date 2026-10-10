@@ -27,6 +27,8 @@ public class Tenant
     public string? ContactPhone { get; set; }
     public string? LogoUrl { get; set; }
     public string? PrimaryColor { get; set; }
+    /// <summary>Adres van de sfeerfoto, groot bovenaan de home van de reservatiewebsite.</summary>
+    public string? HeroImageUrl { get; set; }
 
     public List<TenantHost> Hosts { get; set; } = [];
 

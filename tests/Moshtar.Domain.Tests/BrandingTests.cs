@@ -15,6 +15,20 @@ public class BrandingTests
         Assert.Equal(expected, Branding.LogoUrl(input));
 
     [Theory]
+    [InlineData("https://hopsakee.fun/feest.jpg", "https://hopsakee.fun/feest.jpg")]
+    [InlineData("http://hopsakee.fun/feest.jpg", null)]
+    [InlineData("data:image/png;base64,AAAA", null)]
+    public void Only_a_full_https_address_is_a_hero_image(string? input, string? expected) =>
+        Assert.Equal(expected, Branding.HeroImageUrl(input));
+
+    [Theory]
+    [InlineData("#1b5e20", "#ffffff")]
+    [InlineData("#ff0", "#000000")]
+    [InlineData("#0d47a1", "#ffffff")]
+    public void Text_on_a_colour_is_black_or_white_whichever_contrasts_most(string color, string expected) =>
+        Assert.Equal(expected, Branding.TextColorOn(color));
+
+    [Theory]
     [InlineData("#E91E63", "#e91e63")]
     [InlineData(" #f60 ", "#f60")]
     [InlineData("#e91e6", null)]
@@ -31,5 +45,6 @@ public class BrandingTests
         Assert.Equal(
             ["Het logo moet een volledig adres zijn dat begint met https://.", "De kleur moet een hexcode zijn, bv. #e91e63."],
             Branding.Problems("www.hopsakee.fun/logo.png", "roze"));
+        Assert.Equal(["De sfeerfoto moet een volledig adres zijn dat begint met https://."], Branding.Problems(null, null, "feest.jpg"));
     }
 }

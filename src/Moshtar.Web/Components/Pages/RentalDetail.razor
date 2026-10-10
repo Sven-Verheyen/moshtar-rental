@@ -16,16 +16,21 @@
 }
 
 <PageTitle>@_entry.Name</PageTitle>
-<SiteHead />
+<SiteHead Description="@(_entry.Description ?? _entry.Name)" />
 
-<p><a href="@Links.Href(SiteRoute.Home)">← @L["Back"]</a></p>
+<div class="page">
+<p class="back"><a href="@(Links.Href(SiteRoute.Home) + "#aanbod")">← @L["Back"]</a></p>
 <h1>@_entry.Name</h1>
 
 <div class="detail">
-    <section>
+    <section class="detail-info">
         @if (_entry.ImageUrl is not null)
         {
-            <img src="@_entry.ImageUrl" alt="@_entry.Name" />
+            <img src="@_entry.ImageUrl" alt="@_entry.Name" width="960" height="720" />
+        }
+        else
+        {
+            <div class="image-placeholder" aria-hidden="true">@_entry.Name[..1]</div>
         }
         @if (_entry.Description is not null)
         {
@@ -35,8 +40,8 @@
         {
             <p>@L["BundleContains"]: @string.Join(", ", _entry.Contents)</p>
         }
-        <p class="price">
-            @_entry.DayPrice.ToString("C", Money) @L["PerDay"]
+        <p class="price price-large">
+            @_entry.DayPrice.ToString("C", Money) <span class="muted">@L["PerDay"]</span>
             @if (_entry.ExtraDayPrice is { } extra)
             {
                 <span class="muted"> · @extra.ToString("C", Money) @L["PerExtraDay"]</span>
@@ -44,7 +49,7 @@
         </p>
     </section>
 
-    <section class="reservation">
+    <section id="reserveren" class="reservation">
         <h2>@L["ReserveThis"]</h2>
 
         @if (_confirmation is not null)
@@ -57,7 +62,7 @@
             {
                 <p class="alert error">@_error</p>
             }
-            <EditForm Model="Form" FormName="reservation" OnValidSubmit="SubmitAsync" Enhance>
+            <EditForm Model="Form" FormName="reservation" OnValidSubmit="SubmitAsync">
                 <DataAnnotationsValidator />
                 <ValidationSummary />
                 <div class="row">
@@ -86,10 +91,11 @@
                     </InputRadioGroup>
                 </fieldset>
                 <label>@L["Notes"] <InputTextArea @bind-Value="Form!.Notes" rows="3" /></label>
-                <button type="submit" class="button">@L["Submit"]</button>
+                <button type="submit" class="button button-large">@L["Submit"]</button>
             </EditForm>
         }
     </section>
+</div>
 </div>
 
 @code {

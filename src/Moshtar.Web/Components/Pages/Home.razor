@@ -1,50 +1,69 @@
 @page "/"
 @inject ICatalogService Catalog
+@inject ITenantContext TenantContext
 @inject IStringLocalizer<SharedResource> L
 @inject SiteLinks Links
 
-<PageTitle>@L["Catalog"]</PageTitle>
-<SiteHead />
+<PageTitle>@Tenant?.Name · @L["Catalog"]</PageTitle>
+<SiteHead Description="@L["HeroSubtitle"]" />
 
-<h1>@L["Catalog"]</h1>
-
-@if (_entries is null)
-{
-    <p>…</p>
-}
-else
-{
-    @foreach (var group in _entries.GroupBy(e => e.Kind == CatalogEntryKind.Bundle ? L["Bundle"].Value : e.Category ?? ""))
+<section class="hero @(HeroImage is null ? "hero-plain" : null)">
+    @if (HeroImage is not null)
     {
-        <h2>@group.Key</h2>
-        <div class="catalog-grid">
-            @foreach (var entry in group)
-            {
-                <article class="catalog-card">
-                    @if (entry.ImageUrl is not null)
-                    {
-                        <img src="@entry.ImageUrl" alt="@entry.Name" loading="lazy" />
-                    }
-                    <h3>@entry.Name</h3>
-                    @if (entry.Description is not null)
-                    {
-                        <p>@entry.Description</p>
-                    }
-                    @if (entry.Contents.Count > 0)
-                    {
-                        <p class="muted">@L["BundleContains"]: @string.Join(", ", entry.Contents)</p>
-                    }
-                    <p class="price">@entry.DayPrice.ToString("C", Money) @L["PerDay"]</p>
-                    <a class="button" href="@Links.Href(new RentalRoute(entry.Slug))">@L["MoreInfo"]</a>
-                </article>
-            }
-        </div>
+        <img class="hero-image" src="@HeroImage" alt="" fetchpriority="high" width="1600" height="900" />
     }
-}
+    <div class="hero-content">
+        <h1>@Tenant?.Name</h1>
+        <p>@L["HeroSubtitle"]</p>
+        <a class="button button-large" href="#aanbod">@L["ChooseDate"]</a>
+    </div>
+</section>
+
+<section id="aanbod" class="offer" aria-label="@L["Catalog"]">
+    @if (_entries is not null)
+    {
+        @foreach (var group in _entries.GroupBy(e => e.Kind == CatalogEntryKind.Bundle ? L["Bundle"].Value : e.Category ?? ""))
+        {
+            <h2>@group.Key</h2>
+            <div class="catalog-grid">
+                @foreach (var entry in group)
+                {
+                    var href = Links.Href(new RentalRoute(entry.Slug));
+                    <article class="catalog-card">
+                        @if (entry.ImageUrl is not null)
+                        {
+                            <img src="@entry.ImageUrl" alt="@entry.Name" loading="lazy" width="640" height="480" />
+                        }
+                        else
+                        {
+                            <div class="image-placeholder" aria-hidden="true">@entry.Name[..1]</div>
+                        }
+                        <div class="catalog-card-body">
+                            <h3><a href="@href">@entry.Name</a></h3>
+                            @if (entry.Description is not null)
+                            {
+                                <p>@entry.Description</p>
+                            }
+                            @if (entry.Contents.Count > 0)
+                            {
+                                <p class="muted">@L["BundleContains"]: @string.Join(", ", entry.Contents)</p>
+                            }
+                            <p class="price">@entry.DayPrice.ToString("C", Money) <span class="muted">@L["PerDay"]</span></p>
+                            <a class="button" href="@href" aria-hidden="true" tabindex="-1">@L["MoreInfo"]</a>
+                        </div>
+                    </article>
+                }
+            </div>
+        }
+    }
+</section>
 
 @code {
     private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
     private IReadOnlyList<CatalogEntry>? _entries;
+
+    private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
+    private string? HeroImage => Moshtar.Domain.Tenants.Branding.HeroImageUrl(Tenant?.HeroImageUrl);
 
     protected override async Task OnInitializedAsync() =>
         _entries = await Catalog.GetCatalogAsync(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);

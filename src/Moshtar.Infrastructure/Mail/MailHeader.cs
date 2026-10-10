@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using Moshtar.Domain.Tenants;
 
@@ -25,24 +24,8 @@ internal static class MailHeader
         var background = color ?? NeutralColor;
         var content = logo is not null
             ? $"<img src=\"{E(logo)}\" alt=\"{E(name)}\" style=\"display:inline-block;max-height:64px;max-width:240px;border:0\">"
-            : $"<span style=\"font-size:20px;font-weight:bold;color:{TextColorOn(background)}\">{E(name)}</span>";
+            : $"<span style=\"font-size:20px;font-weight:bold;color:{Branding.TextColorOn(background)}\">{E(name)}</span>";
         return $"<div style=\"background-color:{background};padding:16px 24px;margin-bottom:16px;text-align:center\">{content}</div>";
-    }
-
-    /// <summary>Zwarte of witte tekst: wat het meeste contrast geeft op de achtergrond, volgens WCAG.</summary>
-    private static string TextColorOn(string background)
-    {
-        var hex = background[1..];
-        if (hex.Length == 3) hex = string.Concat(hex.Select(ch => $"{ch}{ch}"));
-        double Channel(int i)
-        {
-            var c = int.Parse(hex.Substring(i * 2, 2), NumberStyles.HexNumber) / 255.0;
-            return c <= 0.04045 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
-        }
-        var luminance = 0.2126 * Channel(0) + 0.7152 * Channel(1) + 0.0722 * Channel(2);
-        var contrastWithWhite = 1.05 / (luminance + 0.05);
-        var contrastWithBlack = (luminance + 0.05) / 0.05;
-        return contrastWithBlack >= contrastWithWhite ? "#000000" : "#ffffff";
     }
 
     private static string E(string value) => WebUtility.HtmlEncode(value);
