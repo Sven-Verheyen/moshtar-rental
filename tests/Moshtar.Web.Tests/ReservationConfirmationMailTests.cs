@@ -136,6 +136,82 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
         Assert.True(check.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.Any(r => r.Id == result.Reservation!.Id));
     }
 
+    [Fact]
+    public async Task Logo_and_colour_of_the_rental_company_head_the_html_version()
+    {
+        var mail = await BrandedConfirmationAsync("merk-logo-kleur", " https://merk.test/logo.png ", "#E91E63");
+
+        Assert.StartsWith(
+            "<div style=\"background-color:#e91e63;padding:16px 24px;margin-bottom:16px;text-align:center\">"
+            + "<img src=\"https://merk.test/logo.png\" alt=\"merk-logo-kleur\"", mail.HtmlBody);
+        Assert.StartsWith("Hallo Klant,", mail.TextBody);
+        Assert.DoesNotContain("logo.png", mail.TextBody);
+    }
+
+    [Fact]
+    public async Task Without_a_colour_the_logo_gets_a_neutral_header()
+    {
+        var mail = await BrandedConfirmationAsync("merk-logo", "https://merk.test/logo.png", null);
+
+        Assert.StartsWith("<div style=\"background-color:#f4f4f5;", mail.HtmlBody);
+        Assert.Contains("<img src=\"https://merk.test/logo.png\" alt=\"merk-logo\"", mail.HtmlBody);
+    }
+
+    [Theory]
+    [InlineData("#1b5e20", "#ffffff")]
+    [InlineData("#ff0", "#000000")]
+    public async Task Without_a_logo_the_header_shows_the_name_in_the_colour(string color, string textColor)
+    {
+        var mail = await BrandedConfirmationAsync($"merk-kleur-{color[1..]}", null, color);
+
+        Assert.StartsWith($"<div style=\"background-color:{color};", mail.HtmlBody);
+        Assert.Contains($"<span style=\"font-size:20px;font-weight:bold;color:{textColor}\">merk-kleur-{color[1..]}</span>", mail.HtmlBody);
+        Assert.DoesNotContain("<img", mail.HtmlBody);
+    }
+
+    [Theory]
+    [InlineData("merk-niets", null, null)]
+    [InlineData("merk-leeg", "", " ")]
+    [InlineData("merk-ongeldig", "/logo.png", "red;background:url(https://kwaad.test)")]
+    [InlineData("merk-html", "javascript:alert(1)", "\"><script>alert(1)</script>")]
+    public async Task Without_a_valid_logo_or_colour_there_is_no_header(string slug, string? logo, string? color)
+    {
+        var mail = await BrandedConfirmationAsync(slug, logo, color);
+
+        Assert.StartsWith("<p>Hallo Klant,</p>", mail.HtmlBody);
+        Assert.DoesNotContain("<img", mail.HtmlBody);
+        Assert.DoesNotContain("alert", mail.HtmlBody);
+        Assert.DoesNotContain("kwaad", mail.HtmlBody);
+    }
+
+    [Fact]
+    public async Task An_invalid_colour_never_reaches_the_html_next_to_a_logo()
+    {
+        var mail = await BrandedConfirmationAsync("merk-logo-ongeldig", "https://merk.test/logo.png", "#123;background:url(https://kwaad.test)");
+
+        Assert.StartsWith("<div style=\"background-color:#f4f4f5;", mail.HtmlBody);
+        Assert.DoesNotContain("kwaad", mail.HtmlBody);
+    }
+
+    /// <summary>De bevestiging van een reservatie bij een nieuwe verhuurder met dit logo en deze kleur.</summary>
+    private async Task<OutgoingMail> BrandedConfirmationAsync(string slug, string? logo, string? color)
+    {
+        await app.CreateTenantAsync(slug, $"{slug}.test");
+        await using (var scope = app.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var tenant = db.Tenants.Single(t => t.Slug == slug);
+            tenant.LogoUrl = logo;
+            tenant.PrimaryColor = color;
+            await db.SaveChangesAsync();
+        }
+        var item = await CreateItemAsync(slug, $"{slug}-artikel", stock: 1, name: "Springkasteel");
+
+        await ReserveAsync(slug, $"{slug}@example.test", "nl", ReservationActor.Website, DeliveryMethod.Pickup, new ReservationLineRequest(item, null, 1));
+
+        return Assert.Single(Outbox.Sent, m => m.To == $"{slug}@example.test");
+    }
+
     private static readonly DateOnly Day = TestReservations.FutureDay(310);
 
     private Task<ReservationResult> ReserveAsync(string tenant, string email, string culture, ReservationActor actor,
