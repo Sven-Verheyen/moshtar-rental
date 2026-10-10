@@ -1,13 +1,14 @@
 @inherits LayoutComponentBase
 @inject ITenantContext TenantContext
-@inject NavigationManager Navigation
+@inject SiteLinks Links
 
 <header class="site-header">
-    <a class="brand" href="/">@TenantContext.Tenant?.Name</a>
+    <a class="brand" href="@Links.Href(SiteRoute.Home)">@TenantContext.Tenant?.Name</a>
     <nav class="languages">
-        @foreach (var culture in TenantContext.Tenant?.Cultures ?? [])
+        @foreach (var culture in Links.Cultures)
         {
-            <a href="@CultureLink(culture)" class="@(culture == CurrentCulture ? "active" : null)">@culture.ToUpperInvariant()</a>
+            <a href="@Links.Href(Links.Current ?? SiteRoute.Home, culture)" hreflang="@culture" lang="@culture"
+               class="@(culture == Links.Culture ? "active" : null)">@culture.ToUpperInvariant()</a>
         }
     </nav>
 </header>
@@ -29,10 +30,3 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
-
-@code {
-    private static string CurrentCulture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-
-    private string CultureLink(string culture) =>
-        $"culture/{culture}?redirectUri={Uri.EscapeDataString("/" + Navigation.ToBaseRelativePath(Navigation.Uri))}";
-}

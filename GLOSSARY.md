@@ -24,6 +24,18 @@ _Avoid_: admin, eigenaar
 Een gebruiker die reservaties opvolgt, maar geen prijzen, voorraad, instellingen of gebruikers beheert.
 _Avoid_: personeel, operator
 
+**Bedrijfsgegevens** (`BusinessDetails`):
+Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien.
+_Avoid_: profiel, contactgegevens
+
+**Werkgebied** (`ServiceArea`):
+De lijst van gemeenten waar een verhuurder levert.
+_Avoid_: regio, leveringszone
+
+**Hoofddomein** (`PrimaryHost`):
+Het ene domein waarop de reservatiewebsite van een verhuurder getoond wordt. Zijn andere domeinen sturen door naar het hoofddomein.
+_Avoid_: hoofdsite, standaarddomein
+
 **Klant** (`Customer`):
 Een persoon of organisatie die bij een verhuurder huurt via de reservatiewebsite. Een klant is nooit een gebruiker.
 _Avoid_: huurder, gebruiker, client
@@ -37,6 +49,10 @@ _Avoid_: product, item
 **Voorraad** (`Stock`):
 Het aantal exemplaren van een artikel dat een verhuurder bezit.
 _Avoid_: stock, aantal
+
+**Categorie** (`Category`):
+Een groep artikelen van dezelfde soort, zoals springkastelen of spellen, met een eigen pagina op de reservatiewebsite.
+_Avoid_: soort, type, rubriek
 
 **Pakket** (`Bundle`):
 Een vaste combinatie van artikelen met een eigen prijs, die als één geheel gereserveerd wordt.
@@ -79,5 +95,5 @@ De tekst en het onderwerp van een soort mail die een verhuurder aan zijn klanten
 _Avoid_: template, e-mailtekst, mailtemplate
 
 **Huisstijl** (`Branding`):
-Het logo en de kleur van een verhuurder, die automatisch bovenaan zijn klantmails komen. Het logo is een adres van een afbeelding op de eigen website van de verhuurder.
+Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto zijn adressen van afbeeldingen op de eigen website van de verhuurder.
 _Avoid_: branding, thema, look

@@ -14,7 +14,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).
-- **Meertalig**: NL (standaard), FR en EN, via een taalkeuze bovenaan de site.
+- **Meertalig**: NL (standaard), FR en EN. De taal staat in de URL: de standaardtaal van de verhuurder zonder voorvoegsel,
+  de andere met `/fr/` of `/en/` (bv. `/fr/louer/springkasteel-jungle`), met hreflang-links tussen de versies (zie
+  `docs/adr/0004-taal-staat-in-de-url-van-de-reservatiewebsite.md`). Elke verhuurder heeft één hoofddomein; zijn
+  andere domeinen sturen daarheen door.
 - **Multi-tenant**: elke tabel heeft een `TenantId`, de verhuurder wordt herkend aan de domeinnaam.
   Moshtar is het platform; Hopsakee.fun (hopsakee.fun) is de eerste verhuurder en de demo-data in de lokale omgeving.
   Zie `GLOSSARY.md` voor de afgesproken termen.
