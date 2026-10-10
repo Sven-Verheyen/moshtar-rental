@@ -77,3 +77,7 @@ _Avoid_: marge, wachttijd
 **Mailsjabloon** (`MailTemplate`):
 De tekst en het onderwerp van een soort mail die een verhuurder aan zijn klanten stuurt, per taal, met plaatshouders voor de gegevens van de reservatie. Zolang de verhuurder niets aanpast, geldt de standaardtekst van Moshtar.
 _Avoid_: template, e-mailtekst, mailtemplate
+
+**Huisstijl** (`Branding`):
+Het logo en de kleur van een verhuurder, die automatisch bovenaan zijn klantmails komen. Het logo is een adres van een afbeelding op de eigen website van de verhuurder.
+_Avoid_: branding, thema, look
