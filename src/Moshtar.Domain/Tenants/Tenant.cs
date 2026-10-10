@@ -32,6 +32,9 @@ public class Tenant
 
     public IReadOnlyList<string> Cultures =>
         SupportedCultures.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>Het hoofddomein: het enige domein waarop de reservatiewebsite getoond wordt, of null als er geen gekozen is.</summary>
+    public string? PrimaryHost => Hosts.FirstOrDefault(h => h.IsPrimary)?.Hostname;
 }
 
 /// <summary>Domeinnaam waarop een tenant herkend wordt (bv. "hopsakee.fun").</summary>
@@ -40,4 +43,7 @@ public class TenantHost
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid TenantId { get; set; }
     public string Hostname { get; set; } = "";
+
+    /// <summary>Of dit het hoofddomein van de verhuurder is. Zijn andere domeinen sturen door naar het hoofddomein.</summary>
+    public bool IsPrimary { get; set; }
 }

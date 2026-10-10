@@ -1,7 +1,11 @@
+@* Eén slug in alle talen, met het padwoord van de taal (ADR 0004); SiteLanguage stuurt een verkeerd padwoord door. *@
 @page "/huren/{Slug}"
+@page "/louer/{Slug}"
+@page "/rent/{Slug}"
 @inject ICatalogService Catalog
 @inject IReservationService Reservations
 @inject IStringLocalizer<SharedResource> L
+@inject SiteLinks Links
 
 @if (_entry is null)
 {
@@ -12,7 +16,7 @@
 
 <PageTitle>@_entry.Name</PageTitle>
 
-<p><a href="/">← @L["Back"]</a></p>
+<p><a href="@Links.Href(SiteRoute.Home)">← @L["Back"]</a></p>
 <h1>@_entry.Name</h1>
 
 <div class="detail">

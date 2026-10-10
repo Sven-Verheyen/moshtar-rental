@@ -1,6 +1,5 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Tenancy;
@@ -9,6 +8,7 @@ using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Web.Components;
 using Moshtar.Web.Identity;
+using Moshtar.Web.Site;
 using Moshtar.Web.Tenancy;
 using MudBlazor.Services;
 
@@ -26,12 +26,7 @@ builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HostTenan
 builder.Services.AddBackOfficeIdentity();
 
 builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
-string[] cultures = ["nl", "fr", "en"];
-builder.Services.Configure<RequestLocalizationOptions>(o =>
-{
-    o.SetDefaultCulture("nl").AddSupportedCultures(cultures).AddSupportedUICultures(cultures);
-    o.ApplyCurrentCultureToResponseHeaders = true;
-});
+builder.Services.AddScoped<SiteLinks>();
 
 var app = builder.Build();
 
@@ -77,8 +72,11 @@ else
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
-app.UseRequestLocalization();
 app.UseTenantResolution();
+app.UsePrimaryHostRedirect();
+// De taal staat in de URL (ADR 0004); daarna pas routeren, want het taalvoorvoegsel wordt de PathBase.
+app.UseSiteLanguage();
+app.UseRouting();
 
 app.UseAuthentication();
 app.UseAuthorization();
@@ -88,18 +86,6 @@ app.MapPost(IdentitySetup.LogoutPath, async (SignInManager<User> signInManager, 
 {
     await signInManager.SignOutAsync();
     return Results.LocalRedirect(IdentitySetup.LoginPath);
-});
-
-app.MapGet("/culture/{culture}", (string culture, string? redirectUri, HttpContext context) =>
-{
-    if (cultures.Contains(culture))
-    {
-        context.Response.Cookies.Append(
-            CookieRequestCultureProvider.DefaultCookieName,
-            CookieRequestCultureProvider.MakeCookieValue(new RequestCulture(culture)),
-            new CookieOptions { Expires = DateTimeOffset.UtcNow.AddYears(1), IsEssential = true, SameSite = SameSiteMode.Lax });
-    }
-    return Results.LocalRedirect(redirectUri is { Length: > 0 } && redirectUri.StartsWith('/') && !redirectUri.StartsWith("//") ? redirectUri : "/");
 });
 
 app.MapStaticAssets();

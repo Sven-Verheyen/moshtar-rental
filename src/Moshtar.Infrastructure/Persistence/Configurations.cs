@@ -29,6 +29,9 @@ internal class TenantHostConfiguration : IEntityTypeConfiguration<TenantHost>
     {
         b.Property(h => h.Hostname).HasMaxLength(253);
         b.HasIndex(h => h.Hostname).IsUnique();
+        b.HasIndex(h => h.TenantId);
+        // Hoogstens één hoofddomein per verhuurder.
+        b.HasIndex(h => h.TenantId, "IX_TenantHosts_PrimaryHost").IsUnique().HasFilter("\"IsPrimary\"");
     }
 }
 

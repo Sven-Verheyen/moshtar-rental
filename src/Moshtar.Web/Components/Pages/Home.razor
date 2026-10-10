@@ -1,6 +1,7 @@
 @page "/"
 @inject ICatalogService Catalog
 @inject IStringLocalizer<SharedResource> L
+@inject SiteLinks Links
 
 <PageTitle>@L["Catalog"]</PageTitle>
 
@@ -33,7 +34,7 @@ else
                         <p class="muted">@L["BundleContains"]: @string.Join(", ", entry.Contents)</p>
                     }
                     <p class="price">@entry.DayPrice.ToString("C", Money) @L["PerDay"]</p>
-                    <a class="button" href="huren/@entry.Slug">@L["MoreInfo"]</a>
+                    <a class="button" href="@Links.Href(new RentalRoute(entry.Slug))">@L["MoreInfo"]</a>
                 </article>
             }
         </div>
