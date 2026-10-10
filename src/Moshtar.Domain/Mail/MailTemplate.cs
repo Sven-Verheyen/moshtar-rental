@@ -56,7 +56,8 @@ public sealed partial class MailKindDefinition(
     private static IEnumerable<string> PlaceholdersIn(string text) =>
         PlaceholderPattern().Matches(text).Select(m => m.Groups[1].Value);
 
-    [GeneratedRegex(@"\{([A-Za-z]+)\}")]
+    // Alles zonder spaties tussen accolades is een plaatshouder, zodat ook een tikfout als {first_name} opvalt.
+    [GeneratedRegex(@"\{([^\s{}]+)\}")]
     private static partial Regex PlaceholderPattern();
 }
 

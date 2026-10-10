@@ -41,6 +41,14 @@ public class MailTemplateTests
         Assert.Equal(["{reservationDetails} kan niet in het onderwerp."], problems);
     }
 
+    [Theory]
+    [InlineData("{first_name}")]
+    [InlineData("{firstName1}")]
+    [InlineData("{first-name}")]
+    public void Typos_with_other_characters_are_unknown_placeholders(string typo) =>
+        Assert.Equal([$"Onbekende plaatshouder {typo}."],
+            Confirmation.Problems(new MailTemplateText("Hallo " + typo, "{reservationDetails}")));
+
     [Fact]
     public void Placeholders_are_case_sensitive() =>
         Assert.Equal(["Onbekende plaatshouder {FirstName}."],
