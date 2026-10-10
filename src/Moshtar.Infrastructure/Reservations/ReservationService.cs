@@ -62,21 +62,23 @@ internal sealed class ReservationService(
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        await SendConfirmationAsync(reservation, tenant, ct);
+        await SendConfirmationAsync(reservation, tenant);
         return new ReservationResult(reservation, []);
     }
 
     /// <summary>
     /// Bevestigt de reservatie per mail aan de klant. Pas na de commit, en een mislukte mail maakt de reservatie
     /// niet ongedaan: die staat vast, de verhuurder kan de klant nog altijd zelf contacteren.
+    /// Daarom ook geen CancellationToken: een afgebroken request mag de mail niet tegenhouden,
+    /// en ReserveAsync mag niet mislukken voor een reservatie die al bewaard is.
     /// </summary>
-    private async Task SendConfirmationAsync(Reservation reservation, Tenant tenant, CancellationToken ct)
+    private async Task SendConfirmationAsync(Reservation reservation, Tenant tenant)
     {
         try
         {
-            await mailer.SendAsync(ReservationConfirmation.Create(reservation, tenant), ct);
+            await mailer.SendAsync(ReservationConfirmation.Create(reservation, tenant), CancellationToken.None);
         }
-        catch (Exception e) when (e is not OperationCanceledException)
+        catch (Exception e)
         {
             logger.LogError(e, "Bevestigingsmail voor reservatie {Number} van verhuurder {Tenant} kon niet vertrekken.", reservation.Number, tenant.Slug);
         }

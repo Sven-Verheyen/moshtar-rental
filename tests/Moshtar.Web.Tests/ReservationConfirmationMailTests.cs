@@ -59,37 +59,45 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
     {
         var user = await app.CreateUserAsync("hopsakee", "mail-invoer@hopsakee.test", UserRole.Staff);
         var item = await CreateItemAsync("hopsakee", "mail-backoffice", stock: 1, name: "Ballenbad");
+        var bundle = await CreateBundleAsync("hopsakee", "mail-pakket", name: "Kinderfeest XL");
 
-        var result = await ReserveAsync("hopsakee", item, "jan@example.test", "nl", ReservationActor.User(user.Id), DeliveryMethod.Delivery);
+        var result = await ReserveAsync("hopsakee", "jan@example.test", "nl", ReservationActor.User(user.Id), DeliveryMethod.Delivery,
+            new ReservationLineRequest(item, null, 1), new ReservationLineRequest(null, bundle, 2));
 
         Assert.True(result.Succeeded);
         var mail = Assert.Single(Outbox.Sent, m => m.To == "jan@example.test");
         Assert.Contains(result.Reservation!.Number, mail.Subject);
+        Assert.Contains("1 × Ballenbad – € 100,00", mail.TextBody);
+        Assert.Contains("2 × Kinderfeest XL – € 300,00", mail.TextBody);
+        Assert.Contains("Totaal: € 400,00", mail.TextBody);
         Assert.Contains("Levering op Markt 1, 9000 Gent", mail.TextBody);
     }
 
     [Theory]
-    [InlineData("fr", "Confirmation de votre réservation", "Retrait")]
-    [InlineData("en", "Confirmation of your reservation", "Pickup")]
-    [InlineData("nl", "Bevestiging van je reservatie", "Afhalen")]
-    public async Task Confirmation_is_in_the_language_of_the_customer(string culture, string subject, string pickup)
+    [InlineData("fr", "fr-BE", "Confirmation de votre réservation", "Retrait", "Total: 100,00 €")]
+    [InlineData("en", "en-BE", "Confirmation of your reservation", "Pickup", "Total: €100.00")]
+    [InlineData("nl", "nl-BE", "Bevestiging van je reservatie", "Afhalen", "Totaal: € 100,00")]
+    public async Task Confirmation_is_in_the_language_of_the_customer(string culture, string cultureName, string subject, string pickup, string total)
     {
         var item = await CreateItemAsync("hopsakee", $"mail-taal-{culture}", stock: 1, name: $"Taal {culture}");
 
-        await ReserveAsync("hopsakee", item, $"taal-{culture}@example.test", culture, ReservationActor.Website, DeliveryMethod.Pickup);
+        await ReserveAsync("hopsakee", $"taal-{culture}@example.test", culture, ReservationActor.Website, DeliveryMethod.Pickup,
+            new ReservationLineRequest(item, null, 1));
 
         var mail = Assert.Single(Outbox.Sent, m => m.To == $"taal-{culture}@example.test");
         Assert.StartsWith(subject, mail.Subject);
         Assert.Contains(pickup, mail.TextBody);
+        Assert.Contains(total, mail.TextBody);
+        Assert.Contains(Day.ToString("d MMMM yyyy", new System.Globalization.CultureInfo(cultureName)), mail.TextBody);
     }
 
     [Fact]
     public async Task A_refused_reservation_sends_no_mail()
     {
         var item = await CreateItemAsync("hopsakee", "mail-geweigerd", stock: 1, name: "Geweigerd");
-        await ReserveAsync("hopsakee", item, "eerste@example.test", "nl", ReservationActor.Website);
+        await ReserveAsync("hopsakee", "eerste@example.test", "nl", ReservationActor.Website, DeliveryMethod.Pickup, new ReservationLineRequest(item, null, 1));
 
-        var refused = await ReserveAsync("hopsakee", item, "tweede@example.test", "nl", ReservationActor.Website);
+        var refused = await ReserveAsync("hopsakee", "tweede@example.test", "nl", ReservationActor.Website, DeliveryMethod.Pickup, new ReservationLineRequest(item, null, 1));
 
         Assert.False(refused.Succeeded);
         Assert.DoesNotContain(Outbox.Sent, m => m.To == "tweede@example.test");
@@ -106,7 +114,7 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
         }
         var item = await CreateItemAsync("kan-niet-mailen", "mail-mislukt", stock: 1, name: "Mislukt");
 
-        var result = await ReserveAsync("kan-niet-mailen", item, "geen-mail@example.test", "nl", ReservationActor.Website);
+        var result = await ReserveAsync("kan-niet-mailen", "geen-mail@example.test", "nl", ReservationActor.Website, DeliveryMethod.Pickup, new ReservationLineRequest(item, null, 1));
 
         Assert.True(result.Succeeded);
         Assert.DoesNotContain(Outbox.Sent, m => m.To == "geen-mail@example.test");
@@ -114,16 +122,34 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
         Assert.True(check.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.Any(r => r.Id == result.Reservation!.Id));
     }
 
-    private async Task<ReservationResult> ReserveAsync(string tenant, Guid item, string email, string culture, ReservationActor actor,
-        DeliveryMethod delivery = DeliveryMethod.Pickup)
+    private static readonly DateOnly Day = TestReservations.FutureDay(310);
+
+    private async Task<ReservationResult> ReserveAsync(string tenant, string email, string culture, ReservationActor actor,
+        DeliveryMethod delivery, params ReservationLineRequest[] lines)
     {
         await using var scope = await app.TenantScopeAsync(tenant);
         var address = new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" };
         return await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
-            new DateRange(TestReservations.FutureDay(310), TestReservations.FutureDay(310)),
-            [new ReservationLineRequest(item, null, 1)],
+            new DateRange(Day, Day), lines,
             new ReservationCustomer("Klant", "Test", email, null, address),
             delivery, address, null, culture), actor);
+    }
+
+    /// <summary>Een pakket van 150 euro per dag met een eigen artikel erin.</summary>
+    private async Task<Guid> CreateBundleAsync(string tenant, string slug, string name)
+    {
+        var content = await CreateItemAsync(tenant, slug + "-inhoud", stock: 5, name: name + " inhoud");
+        await using var scope = await app.TenantScopeAsync(tenant);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var bundle = new Bundle
+        {
+            Slug = slug, Pricing = new Pricing { DayPrice = 150 },
+            Translations = [new Translation { Culture = "nl", Name = name }],
+            Items = [new BundleItem { RentalItemId = content }],
+        };
+        db.Bundles.Add(bundle);
+        await db.SaveChangesAsync();
+        return bundle.Id;
     }
 
     private async Task<Guid> CreateItemAsync(string tenant, string slug, int stock, string name)
