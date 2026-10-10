@@ -7,6 +7,7 @@ using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
+using Moshtar.Infrastructure.Mail;
 
 namespace Moshtar.Infrastructure.Reservations;
 
@@ -113,7 +114,7 @@ internal static class ReservationConfirmation
 
         // Elke alinea van het sjabloon wordt een <p>; {reservationDetails} wordt het vaste blok, ook midden in een alinea.
         var text = new List<string>();
-        var html = new StringBuilder();
+        var html = new StringBuilder(MailHeader.Html(tenant));
         foreach (var paragraph in Paragraphs(template.Body))
         {
             var parts = paragraph.Split($"{{{MailKinds.ReservationDetails}}}");
