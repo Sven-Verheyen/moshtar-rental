@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using Moshtar.Application.Mail;
+using Moshtar.Domain.Common;
+using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
@@ -30,6 +32,35 @@ internal static class ReservationConfirmation
         ["fr"] = new("fr-BE", "Numéro de réservation", "Période de location", "Votre location", "Total", "Livraison à {0}", "Retrait sur place", "Remarques"),
         ["en"] = new("en-BE", "Reservation number", "Rental period", "What you are renting", "Total", "Delivery to {0}", "Pickup", "Notes"),
     };
+
+    private sealed record ExampleTexts(string FirstName, string LastName, string Item, string Notes);
+
+    private static readonly Dictionary<string, ExampleTexts> Examples = new()
+    {
+        ["nl"] = new("Lotte", "Peeters", "Springkasteel Piraat", "Graag levering voor 10 uur."),
+        ["fr"] = new("Camille", "Dubois", "Château gonflable Pirate", "Livraison avant 10 heures, s'il vous plaît."),
+        ["en"] = new("Alex", "Smith", "Bouncy castle Pirate", "Please deliver before 10 am."),
+    };
+
+    /// <summary>Een fictieve reservatie in deze taal, voor het voorbeeld en de testmail van een mailsjabloon. Wordt nooit bewaard.</summary>
+    public static Reservation Example(string language, DateOnly today)
+    {
+        var e = Examples.GetValueOrDefault(language) ?? Examples["nl"];
+        var start = today.AddDays(14);
+        return new Reservation
+        {
+            Number = $"{today.Year}-0042",
+            Culture = language,
+            StartDate = start,
+            EndDate = start.AddDays(1),
+            DeliveryMethod = DeliveryMethod.Delivery,
+            DeliveryAddress = new Address { Street = "Kerkstraat 1", PostalCode = "9000", City = "Gent" },
+            Notes = e.Notes,
+            TotalPrice = 225,
+            Customer = new Customer { FirstName = e.FirstName, LastName = e.LastName, Email = "klant@example.com" },
+            Lines = [new ReservationLine { Quantity = 1, Description = e.Item, UnitPrice = 225 }],
+        };
+    }
 
     /// <summary>De taal van de mail: die van de reservatie, anders de standaardtaal van de verhuurder, anders Nederlands.</summary>
     public static string LanguageOf(Reservation reservation, Tenant tenant) =>
