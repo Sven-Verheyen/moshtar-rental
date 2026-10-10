@@ -2,7 +2,6 @@
 @page "/admin/reservaties"
 @layout AdminLayout
 @rendermode InteractiveServer
-@using System.Security.Claims
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Infrastructure.Persistence
 @inject IDbContextFactory<AppDbContext> DbFactory
@@ -12,6 +11,9 @@
 <PageTitle>Reservaties</PageTitle>
 
 <AdminShell Title="Reservaties">
+    <MudButton Href="admin/reservaties/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mb-4">
+        Nieuwe reservatie
+    </MudButton>
     <MudTable Items="_reservations" Loading="_reservations is null" Hover="true" Dense="true">
         <HeaderContent>
             <MudTh>Nummer</MudTh>
@@ -124,11 +126,7 @@
             _history[id] = await ReservationService.GetHistoryAsync(id);
     }
 
-    private async Task<ReservationActor> CurrentUserAsync()
-    {
-        var user = (await AuthenticationState).User;
-        return ReservationActor.User(Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier)!));
-    }
+    private async Task<ReservationActor> CurrentUserAsync() => (await AuthenticationState).User.AsReservationActor();
 
     private static string LocalTime(DateTime utc) =>
         TimeZoneInfo.ConvertTimeFromUtc(utc, BelgianTime).ToString("dd/MM/yyyy HH:mm");

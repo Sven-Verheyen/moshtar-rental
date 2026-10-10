@@ -1,0 +1,185 @@
+@page "/admin/reservaties/nieuw"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Microsoft.EntityFrameworkCore
+@using Moshtar.Domain.Availability
+@using Moshtar.Domain.Common
+@using Moshtar.Infrastructure.Persistence
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IReservationService ReservationService
+@inject ITenantContext TenantContext
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Nieuwe reservatie</PageTitle>
+
+<AdminShell Title="Nieuwe reservatie">
+    <EditForm Model="_form" OnValidSubmit="ReserveAsync">
+        <DataAnnotationsValidator />
+        <MudGrid>
+            <MudItem xs="12" md="7">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Wat en wanneer</MudText>
+                    @foreach (var line in _form.Lines)
+                    {
+                        <div class="d-flex gap-2 align-center">
+                            <MudSelect T="string" @bind-Value="line.Choice" Label="Artikel of pakket" Variant="Variant.Outlined" Margin="Margin.Dense" Class="flex-grow-1">
+                                @foreach (var choice in _choices)
+                                {
+                                    <MudSelectItem Value="@choice.Key">@choice.Label</MudSelectItem>
+                                }
+                            </MudSelect>
+                            <MudNumericField @bind-Value="line.Quantity" Label="Aantal" Min="1" Max="20" Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 6rem" />
+                            @if (_form.Lines.Count > 1)
+                            {
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Regel verwijderen" OnClick="() => _form.Lines.Remove(line)" />
+                            }
+                        </div>
+                    }
+                    <MudButton StartIcon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="() => _form.Lines.Add(new())" Class="mb-3">Nog een artikel of pakket</MudButton>
+                    <div class="d-flex gap-2">
+                        <MudDatePicker Editable="true" @bind-Date="_form.StartDate" Label="Van" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy" For="() => _form.StartDate" />
+                        <MudDatePicker Editable="true" @bind-Date="_form.EndDate" Label="Tot en met" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy" For="() => _form.EndDate" />
+                    </div>
+                    <MudRadioGroup T="DeliveryMethod" @bind-Value="_form.DeliveryMethod" Class="mt-2">
+                        <MudRadio Value="DeliveryMethod.Delivery">Leveren</MudRadio>
+                        <MudRadio Value="DeliveryMethod.Pickup">Afhalen</MudRadio>
+                    </MudRadioGroup>
+                    <MudTextField @bind-Value="_form.Notes" Label="Opmerkingen" Lines="3" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Notes" />
+                </MudPaper>
+            </MudItem>
+            <MudItem xs="12" md="5">
+                <MudPaper Class="pa-4 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-2">Klant</MudText>
+                    <div class="d-flex gap-2">
+                        <MudTextField @bind-Value="_form.FirstName" Label="Voornaam" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.FirstName" />
+                        <MudTextField @bind-Value="_form.LastName" Label="Achternaam" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.LastName" />
+                    </div>
+                    <MudTextField @bind-Value="_form.Email" Label="E-mailadres" InputType="InputType.Email" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Email" />
+                    <MudTextField @bind-Value="_form.Phone" Label="Telefoon" InputType="InputType.Telephone" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Phone" />
+                    <MudTextField @bind-Value="_form.Street" Label="Straat en huisnummer" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Street" />
+                    <div class="d-flex gap-2">
+                        <MudTextField @bind-Value="_form.PostalCode" Label="Postcode" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.PostalCode" Style="max-width: 8rem" />
+                        <MudTextField @bind-Value="_form.City" Label="Gemeente" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.City" />
+                    </div>
+                    <MudSelect T="string" @bind-Value="_form.Culture" Label="Taal van de klant" Variant="Variant.Outlined" Margin="Margin.Dense">
+                        @foreach (var culture in TenantContext.Tenant?.Cultures ?? ["nl"])
+                        {
+                            <MudSelectItem Value="@culture">@LanguageName(culture)</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudPaper>
+            </MudItem>
+        </MudGrid>
+
+        @if (_errors.Count > 0)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-4">
+                @foreach (var error in _errors)
+                {
+                    <div>@error</div>
+                }
+            </MudAlert>
+        }
+
+        <div class="d-flex gap-2">
+            <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy">Reserveren</MudButton>
+            <MudButton Href="admin/reservaties" Variant="Variant.Text">Annuleren</MudButton>
+        </div>
+    </EditForm>
+</AdminShell>
+
+@code {
+    private readonly ManualReservationForm _form = new();
+    private List<(string Key, string Label)> _choices = [];
+    private Dictionary<Guid, string> _itemNames = [];
+    private List<string> _errors = [];
+    private bool _busy;
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _form.Culture = TenantContext.Tenant?.DefaultCulture ?? "nl";
+        await using var db = await DbFactory.CreateDbContextAsync();
+        var items = await db.RentalItems.AsNoTracking().ToListAsync();
+        var bundles = await db.Bundles.AsNoTracking().Where(b => b.IsActive).ToListAsync();
+        _itemNames = items.ToDictionary(i => i.Id, i => Name(i.Translations, i.Slug));
+        _choices = items.Where(i => i.IsActive).Select(i => ($"item:{i.Id}", _itemNames[i.Id]))
+            .Concat(bundles.Select(b => ($"bundle:{b.Id}", $"Pakket: {Name(b.Translations, b.Slug)}")))
+            .OrderBy(c => c.Item2.StartsWith("Pakket: ")).ThenBy(c => c.Item2)
+            .ToList();
+    }
+
+    private async Task ReserveAsync()
+    {
+        _errors = Validate();
+        if (_errors.Count > 0) return;
+
+        _busy = true;
+        try
+        {
+            var address = new Address { Street = _form.Street, PostalCode = _form.PostalCode, City = _form.City };
+            var result = await ReservationService.ReserveAsync(new ReservationRequest(
+                new Moshtar.Domain.Common.DateRange(DateOnly.FromDateTime(_form.StartDate!.Value), DateOnly.FromDateTime(_form.EndDate!.Value)),
+                _form.Lines.Select(ToRequest).ToList(),
+                new ReservationCustomer(_form.FirstName, _form.LastName, _form.Email, _form.Phone, address),
+                _form.DeliveryMethod,
+                address,
+                _form.Notes,
+                _form.Culture),
+                (await AuthenticationState).User.AsReservationActor());
+
+            if (result.Reservation is { } reservation)
+            {
+                Snackbar.Add($"Reservatie {reservation.Number} is bevestigd.", Severity.Success);
+                Navigation.NavigateTo("admin/reservaties");
+                return;
+            }
+            _errors = result.Shortages.Select(Describe).ToList();
+        }
+        catch (ArgumentException e)
+        {
+            _errors = [e.Message];
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private List<string> Validate()
+    {
+        var errors = new List<string>();
+        if (_form.Lines.Any(l => l.Choice is null))
+            errors.Add("Kies op elke regel een artikel of pakket.");
+        if (_form.Lines.Any(l => l.Quantity < 1))
+            errors.Add("Het aantal moet minstens 1 zijn.");
+        if (_form.EndDate < _form.StartDate)
+            errors.Add("De einddatum ligt voor de begindatum.");
+        return errors;
+    }
+
+    private static ReservationLineRequest ToRequest(ManualReservationLine line)
+    {
+        var id = Guid.Parse(line.Choice!.Split(':')[1]);
+        return line.Choice.StartsWith("bundle:")
+            ? new ReservationLineRequest(null, id, line.Quantity)
+            : new ReservationLineRequest(id, null, line.Quantity);
+    }
+
+    private string Describe(StockShortage shortage) =>
+        $"Te weinig voorraad van {_itemNames.GetValueOrDefault(shortage.RentalItemId, "een artikel")} op {shortage.Day:dd/MM/yyyy}: " +
+        $"er zijn er {shortage.Stock}, samen met de andere reservaties zijn er {shortage.Required} nodig.";
+
+    private string Name(List<Translation> translations, string fallback) =>
+        translations.For("nl", TenantContext.Tenant?.DefaultCulture ?? "nl")?.Name ?? fallback;
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+}
