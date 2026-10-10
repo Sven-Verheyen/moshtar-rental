@@ -47,6 +47,6 @@
   <data name="GoogleReviews" xml:space="preserve"><value>Lees onze reviews op Google</value></data>
   <data name="FollowUs" xml:space="preserve"><value>Volg ons</value></data>
   <data name="ServiceAreaTitle" xml:space="preserve"><value>Hier leveren we</value></data>
-  <data name="ContactIntro" xml:space="preserve"><value>Vragen over een reservatie of een feest? Bel, mail of stuur een WhatsApp-bericht.</value></data>
-  <data name="ContactDescription" xml:space="preserve"><value>Neem contact op met {0}: bellen, mailen of WhatsApp.</value></data>
+  <data name="ContactIntro" xml:space="preserve"><value>Vragen over een reservatie of een feest? Neem gerust contact met ons op.</value></data>
+  <data name="ContactDescription" xml:space="preserve"><value>De contactgegevens en het werkgebied van {0}.</value></data>
 </root>

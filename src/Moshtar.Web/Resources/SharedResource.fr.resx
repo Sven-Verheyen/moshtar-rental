@@ -47,6 +47,6 @@
   <data name="GoogleReviews" xml:space="preserve"><value>Lisez nos avis sur Google</value></data>
   <data name="FollowUs" xml:space="preserve"><value>Suivez-nous</value></data>
   <data name="ServiceAreaTitle" xml:space="preserve"><value>Nous livrons à</value></data>
-  <data name="ContactIntro" xml:space="preserve"><value>Une question sur une réservation ou une fête ? Appelez-nous, envoyez un e-mail ou un message WhatsApp.</value></data>
-  <data name="ContactDescription" xml:space="preserve"><value>Contactez {0} par téléphone, e-mail ou WhatsApp.</value></data>
+  <data name="ContactIntro" xml:space="preserve"><value>Une question sur une réservation ou une fête ? N'hésitez pas à nous contacter.</value></data>
+  <data name="ContactDescription" xml:space="preserve"><value>Les coordonnées et la zone de livraison de {0}.</value></data>
 </root>

@@ -25,15 +25,18 @@
         }
     </div>
 
-    @if (Tenant?.Street is not null || Tenant?.City is not null)
+    @if (Tenant?.Street is not null || PostalCodeAndCity.Length > 0)
     {
         <address class="contact-address">
-            <strong>@Tenant.Name</strong>
+            <strong>@Tenant!.Name</strong>
             @if (Tenant.Street is { } street)
             {
                 <span>@street</span>
             }
-            <span>@($"{Tenant.PostalCode} {Tenant.City}".Trim())</span>
+            @if (PostalCodeAndCity.Length > 0)
+            {
+                <span>@PostalCodeAndCity</span>
+            }
         </address>
     }
 
@@ -53,4 +56,5 @@
 
 @code {
     private Tenant? Tenant => TenantContext.Tenant;
+    private string PostalCodeAndCity => $"{Tenant?.PostalCode} {Tenant?.City}".Trim();
 }

@@ -56,6 +56,30 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
     }
 
     [Fact]
+    public async Task A_value_longer_than_allowed_is_refused_instead_of_failing_in_the_database()
+    {
+        await app.CreateTenantAsync("gegevens-lang", "gegevens-lang.test");
+        await using var scope = await app.TenantScopeAsync("gegevens-lang");
+
+        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() =>
+            Admin(scope).SaveAsync(Full with { Street = new string('a', 201), FacebookUrl = "https://www.facebook.com/" + new string('a', 480) }));
+
+        Assert.Equal(["De straat mag hoogstens 200 tekens lang zijn.", "De link naar je Facebook mag hoogstens 500 tekens lang zijn."], refused.Problems);
+    }
+
+    [Fact]
+    public async Task The_contact_page_shows_a_postal_code_without_a_street()
+    {
+        await app.CreateTenantAsync("gegevens-postcode", "gegevens-postcode.test");
+        await using (var scope = await app.TenantScopeAsync("gegevens-postcode"))
+            await Admin(scope).SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", PostalCode = "2640" });
+
+        var html = await app.CreateClient("gegevens-postcode.test").GetStringAsync("/contact");
+
+        Assert.Contains("<span>2640</span>", html[..html.IndexOf("<footer", StringComparison.Ordinal)]);
+    }
+
+    [Fact]
     public async Task The_email_address_cannot_be_cleared_because_mails_need_it()
     {
         await app.CreateTenantAsync("gegevens-mail", "gegevens-mail.test");
