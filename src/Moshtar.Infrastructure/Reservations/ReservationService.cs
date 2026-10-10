@@ -7,6 +7,7 @@ using Moshtar.Domain.Availability;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
+using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Persistence;
@@ -76,7 +77,11 @@ internal sealed class ReservationService(
     {
         try
         {
-            await mailer.SendAsync(ReservationConfirmation.Create(reservation, tenant), CancellationToken.None);
+            var language = ReservationConfirmation.LanguageOf(reservation, tenant);
+            var customization = await db.MailTemplateCustomizations.AsNoTracking().SingleOrDefaultAsync(
+                t => t.Kind == MailKind.ReservationConfirmation && t.Culture == language, CancellationToken.None);
+            var template = customization?.Text ?? MailKinds.ReservationConfirmation.Standard(language);
+            await mailer.SendAsync(ReservationConfirmation.Create(reservation, tenant, template), CancellationToken.None);
         }
         catch (Exception e)
         {

@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Customers;
+using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Identity;
@@ -131,6 +132,20 @@ internal class BlockoutConfiguration : IEntityTypeConfiguration<Blockout>
     public void Configure(EntityTypeBuilder<Blockout> b)
     {
         b.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+internal class MailTemplateCustomizationConfiguration : IEntityTypeConfiguration<MailTemplateCustomization>
+{
+    public void Configure(EntityTypeBuilder<MailTemplateCustomization> b)
+    {
+        b.Property(t => t.Kind).HasConversion<string>().HasMaxLength(40);
+        b.Property(t => t.Culture).HasMaxLength(10);
+        b.Property(t => t.Subject).HasMaxLength(300);
+        b.Ignore(t => t.Text);
+        b.HasIndex(t => new { t.TenantId, t.Kind, t.Culture }).IsUnique();
+        // Gebruikers worden uitgeschakeld, nooit verwijderd.
+        b.HasOne<User>().WithMany().HasForeignKey(t => t.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

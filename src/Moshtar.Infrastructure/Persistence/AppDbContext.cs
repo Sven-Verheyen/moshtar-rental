@@ -5,6 +5,7 @@ using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
+using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Identity;
@@ -22,6 +23,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<Blockout> Blockouts => Set<Blockout>();
     public DbSet<ReservationEvent> ReservationEvents => Set<ReservationEvent>();
+    public DbSet<MailTemplateCustomization> MailTemplateCustomizations => Set<MailTemplateCustomization>();
 
     /// <summary>Wordt per query geëvalueerd door de globale tenantfilter.</summary>
     internal Guid CurrentTenantId => tenantContext.TenantId;

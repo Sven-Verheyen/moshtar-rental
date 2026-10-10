@@ -35,6 +35,7 @@ public static class DependencyInjection
         var mail = configuration.GetSection("Mail");
         services.Configure<MailOptions>(mail);
         services.AddScoped<IMailer, Mailer>();
+        services.AddScoped<IMailTemplateAdministration, MailTemplateAdministration>();
         if (!sendRealMail || string.IsNullOrWhiteSpace(mail[nameof(MailOptions.AzureCommunicationServicesConnectionString)]))
         {
             services.AddSingleton(sp => new RecordingMailTransport(

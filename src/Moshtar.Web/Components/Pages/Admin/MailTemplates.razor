@@ -1,0 +1,132 @@
+@page "/admin/mailsjablonen"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Application.Mail
+@using Moshtar.Domain.Mail
+@inject IMailTemplateAdministration Templates
+@inject ISnackbar Snackbar
+
+<PageTitle>Mailsjablonen</PageTitle>
+
+<AdminShell Title="Mailsjablonen">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Pas de mails aan die je klanten krijgen, in elke taal die je aanbiedt. Zolang je niets aanpast, geldt de standaardtekst van Moshtar.
+    </MudText>
+
+    @foreach (var kind in MailKinds.All)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">@kind.Name</MudText>
+            @if (_versions.GetValueOrDefault(kind.Kind) is { } versions)
+            {
+                <MudTabs Elevation="0" Rounded="true" TabPanelsClass="pt-4">
+                    @foreach (var version in versions)
+                    {
+                        var draft = _drafts[(kind.Kind, version.Culture)];
+                        <MudTabPanel Text="@LanguageName(version.Culture)">
+                            <MudText Typo="Typo.body2" Class="mb-2">
+                                @if (version.IsCustomized)
+                                {
+                                    <span>Aangepast door @(version.UpdatedByEmail ?? "een onbekende gebruiker") op @Local(version.UpdatedAtUtc!.Value).</span>
+                                }
+                                else
+                                {
+                                    <span>Standaardtekst van Moshtar.</span>
+                                }
+                            </MudText>
+                            <MudTextField @bind-Value="draft.Subject" Label="Onderwerp" Variant="Variant.Outlined" Class="mb-3" />
+                            <MudTextField @bind-Value="draft.Body" Label="Tekst" Variant="Variant.Outlined" Lines="14"
+                                          HelperText="Laat een lege regel tussen twee alinea's." />
+                            <MudText Typo="Typo.body2" Class="mt-3">
+                                Plaatshouders: @string.Join(", ", kind.Placeholders.Select(p => $"{{{p}}}")).
+                                @foreach (var block in kind.Blocks)
+                                {
+                                    <span> {@block} voegt het vaste overzicht van de reservatie in en moet in de tekst staan.</span>
+                                }
+                            </MudText>
+                            @if (_problems.GetValueOrDefault((kind.Kind, version.Culture)) is { Count: > 0 } problems)
+                            {
+                                <MudAlert Severity="Severity.Error" Class="mt-3">
+                                    @foreach (var problem in problems)
+                                    {
+                                        <div>@problem</div>
+                                    }
+                                </MudAlert>
+                            }
+                            <MudStack Row="true" Class="mt-4">
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SaveAsync(kind, version.Culture)">Opslaan</MudButton>
+                                <MudButton Variant="Variant.Outlined" Disabled="!version.IsCustomized" OnClick="() => ResetAsync(kind, version.Culture)">Terug naar standaard</MudButton>
+                            </MudStack>
+                        </MudTabPanel>
+                    }
+                </MudTabs>
+            }
+        </MudPaper>
+    }
+</AdminShell>
+
+@code {
+    private sealed class Draft
+    {
+        public string Subject { get; set; } = "";
+        public string Body { get; set; } = "";
+    }
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
+    private readonly Dictionary<MailKind, IReadOnlyList<MailTemplateVersion>> _versions = [];
+    private readonly Dictionary<(MailKind, string), Draft> _drafts = [];
+    private readonly Dictionary<(MailKind, string), IReadOnlyList<string>> _problems = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        foreach (var kind in MailKinds.All) await LoadAsync(kind.Kind, culture: null);
+    }
+
+    /// <summary>Laadt de versies opnieuw; het concept van <paramref name="culture"/> (of van alle talen) wordt overschreven.</summary>
+    private async Task LoadAsync(MailKind kind, string? culture)
+    {
+        var versions = await Templates.GetAsync(kind);
+        _versions[kind] = versions;
+        foreach (var version in versions)
+            if (culture is null || version.Culture == culture || !_drafts.ContainsKey((kind, version.Culture)))
+                _drafts[(kind, version.Culture)] = new Draft { Subject = version.Text.Subject, Body = version.Text.Body };
+    }
+
+    private async Task SaveAsync(MailKindDefinition kind, string culture)
+    {
+        var draft = _drafts[(kind.Kind, culture)];
+        try
+        {
+            var user = (await AuthenticationState).User.Id();
+            await Templates.SaveAsync(kind.Kind, culture, new MailTemplateText(draft.Subject ?? "", draft.Body ?? ""), user);
+            _problems.Remove((kind.Kind, culture));
+            Snackbar.Add($"{kind.Name} in het {LanguageName(culture)} is bewaard.", Severity.Success);
+            await LoadAsync(kind.Kind, culture);
+        }
+        catch (MailTemplateException e)
+        {
+            _problems[(kind.Kind, culture)] = e.Problems;
+        }
+    }
+
+    private async Task ResetAsync(MailKindDefinition kind, string culture)
+    {
+        await Templates.ResetAsync(kind.Kind, culture);
+        _problems.Remove((kind.Kind, culture));
+        Snackbar.Add($"{kind.Name} in het {LanguageName(culture)} gebruikt weer de standaardtekst.", Severity.Success);
+        await LoadAsync(kind.Kind, culture);
+    }
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+
+    private static string Local(DateTime utc) => TimeZoneInfo.ConvertTimeFromUtc(utc, BelgianTime).ToString("dd/MM/yyyy HH:mm");
+}
