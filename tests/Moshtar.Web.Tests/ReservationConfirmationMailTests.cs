@@ -92,6 +92,20 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
     }
 
     [Fact]
+    public async Task What_the_customer_typed_is_never_html_in_the_confirmation()
+    {
+        var item = await CreateItemAsync("hopsakee", "mail-html", stock: 1, name: "Html");
+
+        await ReserveAsync("hopsakee", "html@example.test", "nl", ReservationActor.Website, DeliveryMethod.Pickup,
+            [new ReservationLineRequest(item, null, 1)], firstName: "<b>Klant</b>", notes: "<script>alert(1)</script>");
+
+        var mail = Assert.Single(Outbox.Sent, m => m.To == "html@example.test");
+        Assert.Contains("<p>Hallo &lt;b&gt;Klant&lt;/b&gt;,</p>", mail.HtmlBody);
+        Assert.Contains("<strong>Opmerkingen:</strong> &lt;script&gt;", mail.HtmlBody);
+        Assert.Contains("Hallo <b>Klant</b>,", mail.TextBody);
+    }
+
+    [Fact]
     public async Task A_refused_reservation_sends_no_mail()
     {
         var item = await CreateItemAsync("hopsakee", "mail-geweigerd", stock: 1, name: "Geweigerd");
@@ -124,15 +138,19 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
 
     private static readonly DateOnly Day = TestReservations.FutureDay(310);
 
+    private Task<ReservationResult> ReserveAsync(string tenant, string email, string culture, ReservationActor actor,
+        DeliveryMethod delivery, params ReservationLineRequest[] lines) =>
+        ReserveAsync(tenant, email, culture, actor, delivery, lines, "Klant", null);
+
     private async Task<ReservationResult> ReserveAsync(string tenant, string email, string culture, ReservationActor actor,
-        DeliveryMethod delivery, params ReservationLineRequest[] lines)
+        DeliveryMethod delivery, ReservationLineRequest[] lines, string firstName, string? notes)
     {
         await using var scope = await app.TenantScopeAsync(tenant);
         var address = new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" };
         return await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
             new DateRange(Day, Day), lines,
-            new ReservationCustomer("Klant", "Test", email, null, address),
-            delivery, address, null, culture), actor);
+            new ReservationCustomer(firstName, "Test", email, null, address),
+            delivery, address, notes, culture), actor);
     }
 
     /// <summary>Een pakket van 150 euro per dag met een eigen artikel erin.</summary>

@@ -2,115 +2,110 @@ using System.Globalization;
 using System.Net;
 using System.Text;
 using Moshtar.Application.Mail;
+using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
 
 namespace Moshtar.Infrastructure.Reservations;
 
-/// <summary>De bevestigingsmail die een klant krijgt na een geslaagde reservatie, in zijn eigen taal.</summary>
+/// <summary>
+/// De bevestigingsmail die een klant krijgt na een geslaagde reservatie, in zijn eigen taal, opgebouwd uit
+/// het mailsjabloon. Het overzicht van de reservatie ({reservationDetails}) is een vast blok dat hier gemaakt wordt.
+/// </summary>
 internal static class ReservationConfirmation
 {
-    private sealed record Texts(
+    private sealed record DetailTexts(
         string CultureName,
-        string Subject,
-        string Greeting,
-        string Intro,
         string Number,
         string Period,
         string Contents,
         string Total,
         string DeliveryAt,
         string Pickup,
-        string Notes,
-        string Closing);
+        string Notes);
 
-    private static readonly Dictionary<string, Texts> ByCulture = new()
+    private static readonly Dictionary<string, DetailTexts> ByCulture = new()
     {
-        ["nl"] = new("nl-BE",
-            "Bevestiging van je reservatie {0} bij {1}",
-            "Hallo {0},",
-            "Bedankt voor je reservatie bij {0}. Ze is bevestigd.",
-            "Reservatienummer",
-            "Huurperiode",
-            "Wat je huurt",
-            "Totaal",
-            "Levering op {0}",
-            "Afhalen",
-            "Opmerkingen",
-            "Vragen of iets wijzigen? Antwoord gewoon op deze mail."),
-        ["fr"] = new("fr-BE",
-            "Confirmation de votre réservation {0} chez {1}",
-            "Bonjour {0},",
-            "Merci pour votre réservation chez {0}. Elle est confirmée.",
-            "Numéro de réservation",
-            "Période de location",
-            "Votre location",
-            "Total",
-            "Livraison à {0}",
-            "Retrait sur place",
-            "Remarques",
-            "Une question ou un changement ? Répondez simplement à cet e-mail."),
-        ["en"] = new("en-BE",
-            "Confirmation of your reservation {0} with {1}",
-            "Hello {0},",
-            "Thank you for your reservation with {0}. It is confirmed.",
-            "Reservation number",
-            "Rental period",
-            "What you are renting",
-            "Total",
-            "Delivery to {0}",
-            "Pickup",
-            "Notes",
-            "Questions or changes? Simply reply to this email."),
+        ["nl"] = new("nl-BE", "Reservatienummer", "Huurperiode", "Wat je huurt", "Totaal", "Levering op {0}", "Afhalen", "Opmerkingen"),
+        ["fr"] = new("fr-BE", "Numéro de réservation", "Période de location", "Votre location", "Total", "Livraison à {0}", "Retrait sur place", "Remarques"),
+        ["en"] = new("en-BE", "Reservation number", "Rental period", "What you are renting", "Total", "Delivery to {0}", "Pickup", "Notes"),
     };
 
     public static MailMessage Create(Reservation reservation, Tenant tenant)
     {
         var customer = reservation.Customer ?? throw new InvalidOperationException("Reservatie zonder klant.");
-        var t = ByCulture.GetValueOrDefault(reservation.Culture) ?? ByCulture.GetValueOrDefault(tenant.DefaultCulture) ?? ByCulture["nl"];
+        var language = ByCulture.ContainsKey(reservation.Culture) ? reservation.Culture
+            : ByCulture.ContainsKey(tenant.DefaultCulture) ? tenant.DefaultCulture
+            : "nl";
+        var t = ByCulture[language];
+        var template = MailKinds.ReservationConfirmation.Standard(language);
         var culture = CultureInfo.GetCultureInfo(t.CultureName);
 
         var period = reservation.StartDate == reservation.EndDate
             ? Date(reservation.StartDate)
             : $"{Date(reservation.StartDate)} – {Date(reservation.EndDate)}";
+        var values = new Dictionary<string, string>
+        {
+            ["firstName"] = customer.FirstName,
+            ["lastName"] = customer.LastName,
+            ["reservationNumber"] = reservation.Number,
+            ["rentalPeriod"] = period,
+            ["companyName"] = tenant.Name,
+            ["contactEmail"] = tenant.ContactEmail ?? "",
+            ["phone"] = tenant.ContactPhone ?? "",
+        };
+        string Fill(string text) => MailKindDefinition.Fill(text, name => values.GetValueOrDefault(name));
+
         var lines = reservation.Lines.Select(l => $"{l.Quantity} × {l.Description} – {Money(l.LineTotal)}").ToList();
         var delivery = reservation.DeliveryMethod == DeliveryMethod.Delivery && reservation.DeliveryAddress is { } a
             ? string.Format(t.DeliveryAt, $"{a.Street}, {a.PostalCode} {a.City}")
             : t.Pickup;
+        var facts = new List<(string Label, string Value)> { (t.Number, reservation.Number), (t.Period, period) };
 
-        var facts = new List<(string Label, string Value)>
-        {
-            (t.Number, reservation.Number),
-            (t.Period, period),
-        };
+        var detailsText = new StringBuilder();
+        foreach (var (label, value) in facts) detailsText.AppendLine($"{label}: {value}");
+        detailsText.AppendLine().AppendLine($"{t.Contents}:");
+        foreach (var line in lines) detailsText.AppendLine($"- {line}");
+        detailsText.AppendLine($"{t.Total}: {Money(reservation.TotalPrice)}").AppendLine().Append(delivery);
+        if (!string.IsNullOrWhiteSpace(reservation.Notes)) detailsText.AppendLine().Append($"{t.Notes}: {reservation.Notes}");
 
-        var text = new StringBuilder()
-            .AppendLine(string.Format(t.Greeting, customer.FirstName)).AppendLine()
-            .AppendLine(string.Format(t.Intro, tenant.Name)).AppendLine();
-        foreach (var (label, value) in facts) text.AppendLine($"{label}: {value}");
-        text.AppendLine().AppendLine($"{t.Contents}:");
-        foreach (var line in lines) text.AppendLine($"- {line}");
-        text.AppendLine($"{t.Total}: {Money(reservation.TotalPrice)}").AppendLine()
-            .AppendLine(delivery);
-        if (!string.IsNullOrWhiteSpace(reservation.Notes)) text.AppendLine($"{t.Notes}: {reservation.Notes}");
-        text.AppendLine().AppendLine(t.Closing).AppendLine().Append(tenant.Name);
-
-        var html = new StringBuilder()
-            .Append($"<p>{E(string.Format(t.Greeting, customer.FirstName))}</p>")
-            .Append($"<p>{E(string.Format(t.Intro, tenant.Name))}</p><p>");
-        foreach (var (label, value) in facts) html.Append($"<strong>{E(label)}:</strong> {E(value)}<br>");
-        html.Append($"</p><p><strong>{E(t.Contents)}:</strong></p><ul>");
-        foreach (var line in lines) html.Append($"<li>{E(line)}</li>");
-        html.Append($"</ul><p><strong>{E(t.Total)}: {E(Money(reservation.TotalPrice))}</strong></p>")
+        var detailsHtml = new StringBuilder("<p>");
+        foreach (var (label, value) in facts) detailsHtml.Append($"<strong>{E(label)}:</strong> {E(value)}<br>");
+        detailsHtml.Append($"</p><p><strong>{E(t.Contents)}:</strong></p><ul>");
+        foreach (var line in lines) detailsHtml.Append($"<li>{E(line)}</li>");
+        detailsHtml.Append($"</ul><p><strong>{E(t.Total)}: {E(Money(reservation.TotalPrice))}</strong></p>")
             .Append($"<p>{E(delivery)}</p>");
-        if (!string.IsNullOrWhiteSpace(reservation.Notes)) html.Append($"<p><strong>{E(t.Notes)}:</strong> {E(reservation.Notes)}</p>");
-        html.Append($"<p>{E(t.Closing)}</p><p>{E(tenant.Name)}</p>");
+        if (!string.IsNullOrWhiteSpace(reservation.Notes)) detailsHtml.Append($"<p><strong>{E(t.Notes)}:</strong> {E(reservation.Notes)}</p>");
 
-        return new MailMessage(customer.Email, string.Format(t.Subject, reservation.Number, tenant.Name), html.ToString(), text.ToString());
+        // Elke alinea van het sjabloon wordt een <p>; {reservationDetails} wordt het vaste blok, ook midden in een alinea.
+        var text = new List<string>();
+        var html = new StringBuilder();
+        foreach (var paragraph in Paragraphs(template.Body))
+        {
+            var parts = paragraph.Split($"{{{MailKinds.ReservationDetails}}}");
+            for (var i = 0; i < parts.Length; i++)
+            {
+                if (i > 0)
+                {
+                    text.Add(detailsText.ToString());
+                    html.Append(detailsHtml);
+                }
+                var part = Fill(parts[i].Trim());
+                if (part.Length == 0) continue;
+                text.Add(part);
+                html.Append($"<p>{E(part).ReplaceLineEndings("<br>")}</p>");
+            }
+        }
+
+        return new MailMessage(customer.Email, Fill(template.Subject), html.ToString(),
+            string.Join(Environment.NewLine + Environment.NewLine, text));
 
         string Date(DateOnly d) => d.ToString("d MMMM yyyy", culture);
         string Money(decimal amount) => amount.ToString("C", culture);
     }
+
+    private static IEnumerable<string> Paragraphs(string body) =>
+        body.ReplaceLineEndings("\n").Split("\n\n").Select(p => p.Trim()).Where(p => p.Length > 0);
 
     private static string E(string value) => WebUtility.HtmlEncode(value);
 }
