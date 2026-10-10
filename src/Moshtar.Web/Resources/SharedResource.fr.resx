@@ -41,4 +41,12 @@
   <data name="MainMenu" xml:space="preserve"><value>Menu principal</value></data>
   <data name="ChooseLanguage" xml:space="preserve"><value>Choisir la langue</value></data>
   <data name="Contact" xml:space="preserve"><value>Contact</value></data>
+  <data name="Call" xml:space="preserve"><value>Appeler</value></data>
+  <data name="SendMail" xml:space="preserve"><value>Envoyer un e-mail</value></data>
+  <data name="VatNumber" xml:space="preserve"><value>TVA</value></data>
+  <data name="GoogleReviews" xml:space="preserve"><value>Lisez nos avis sur Google</value></data>
+  <data name="FollowUs" xml:space="preserve"><value>Suivez-nous</value></data>
+  <data name="ServiceAreaTitle" xml:space="preserve"><value>Nous livrons à</value></data>
+  <data name="ContactIntro" xml:space="preserve"><value>Une question sur une réservation ou une fête ? N'hésitez pas à nous contacter.</value></data>
+  <data name="ContactDescription" xml:space="preserve"><value>Les coordonnées et la zone de livraison de {0}.</value></data>
 </root>

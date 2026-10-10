@@ -18,6 +18,15 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.HasIndex(t => t.Slug).IsUnique();
         b.Property(t => t.VatRate).HasPrecision(5, 4);
         b.Property(t => t.SenderEmail).HasMaxLength(254);
+        b.Property(t => t.Street).HasMaxLength(200);
+        b.Property(t => t.PostalCode).HasMaxLength(20);
+        b.Property(t => t.City).HasMaxLength(100);
+        b.Property(t => t.WhatsAppPhone).HasMaxLength(30);
+        b.Property(t => t.VatNumber).HasMaxLength(30);
+        b.Property(t => t.FacebookUrl).HasMaxLength(500);
+        b.Property(t => t.InstagramUrl).HasMaxLength(500);
+        b.Property(t => t.TikTokUrl).HasMaxLength(500);
+        b.Property(t => t.GoogleBusinessUrl).HasMaxLength(500);
         b.Ignore(t => t.Cultures);
         b.HasMany(t => t.Hosts).WithOne().HasForeignKey(h => h.TenantId);
     }

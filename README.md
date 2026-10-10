@@ -8,6 +8,8 @@ aan andere verhuurbedrijven aangeboden te worden.
 - **Reservatiewebsite** (`/`): catalogus met artikelen en pakketten, detailpagina met reservatieformulier.
   Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (logo, kleur en sfeerfoto, in te stellen op
   `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
+  De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens en het werkgebied, in te stellen op
+  `/admin/bedrijfsgegevens`.
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat. De klant krijgt dan een bevestigingsmail in
   zijn taal (NL, FR of EN), ook als de reservatie in het back office ingevoerd werd.
 - **Back office** (`/admin`): reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie

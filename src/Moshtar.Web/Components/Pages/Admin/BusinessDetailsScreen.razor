@@ -1,0 +1,114 @@
+@page "/admin/bedrijfsgegevens"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Application.Tenancy
+@inject IBusinessDetailsAdministration BusinessDetailsAdmin
+@inject ISnackbar Snackbar
+
+<PageTitle>Bedrijfsgegevens</PageTitle>
+
+<AdminShell Title="Bedrijfsgegevens">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Deze gegevens staan onderaan elke pagina van je reservatiewebsite en op de contactpagina. Wat je leeg laat, verschijnt niet.
+    </MudText>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Adres en contact</MudText>
+        <MudTextField @bind-Value="_s.Street" Label="Straat en nummer" Variant="Variant.Outlined" Class="mb-3" />
+        <MudStack Row="true" Class="mb-3">
+            <MudTextField @bind-Value="_s.PostalCode" Label="Postcode" Variant="Variant.Outlined" Style="max-width: 10rem" />
+            <MudTextField @bind-Value="_s.City" Label="Gemeente" Variant="Variant.Outlined" />
+        </MudStack>
+        <MudTextField @bind-Value="_s.Email" Label="E-mailadres" Variant="Variant.Outlined" Class="mb-3" Required="true"
+                      HelperText="Verplicht: klanten antwoorden op dit adres als ze je mails beantwoorden." />
+        <MudTextField @bind-Value="_s.Phone" Label="Telefoonnummer" Variant="Variant.Outlined" Class="mb-3"
+                      Placeholder="+32 475 12 34 56" HelperText="In internationaal formaat, met +32 voor een Belgisch nummer." />
+        <MudTextField @bind-Value="_s.WhatsAppPhone" Label="WhatsApp-nummer" Variant="Variant.Outlined" Class="mb-3"
+                      Placeholder="+32 475 12 34 56" HelperText="In internationaal formaat. Mag hetzelfde zijn als je telefoonnummer." />
+        <MudTextField @bind-Value="_s.VatNumber" Label="Btw-nummer" Variant="Variant.Outlined" Placeholder="BE 0123.456.789" />
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Sociale media en reviews</MudText>
+        <MudTextField @bind-Value="_s.FacebookUrl" Label="Facebook" Variant="Variant.Outlined" Class="mb-3" Placeholder="https://www.facebook.com/jouwbedrijf" />
+        <MudTextField @bind-Value="_s.InstagramUrl" Label="Instagram" Variant="Variant.Outlined" Class="mb-3" Placeholder="https://www.instagram.com/jouwbedrijf" />
+        <MudTextField @bind-Value="_s.TikTokUrl" Label="TikTok" Variant="Variant.Outlined" Class="mb-3" Placeholder="@("https://www.tiktok.com/@jouwbedrijf")" />
+        <MudTextField @bind-Value="_s.GoogleBusinessUrl" Label="Google-bedrijfsprofiel" Variant="Variant.Outlined"
+                      HelperText="De link naar je bedrijf op Google, waar klanten je reviews lezen." />
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Werkgebied</MudText>
+        <MudTextField @bind-Value="_serviceArea" Label="Gemeenten waar je levert" Variant="Variant.Outlined" Lines="6"
+                      HelperText="Eén gemeente per regel." />
+    </MudPaper>
+
+    @if (_problems.Count > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">
+            @foreach (var problem in _problems)
+            {
+                <div>@problem</div>
+            }
+        </MudAlert>
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Opslaan</MudButton>
+</AdminShell>
+
+@code {
+    private Form _s = new();
+    private string? _serviceArea;
+    private IReadOnlyList<string> _problems = [];
+
+    protected override async Task OnInitializedAsync() => Show(await BusinessDetailsAdmin.GetAsync());
+
+    private void Show(BusinessDetailsSettings s)
+    {
+        _s = new Form
+        {
+            Street = s.Street, PostalCode = s.PostalCode, City = s.City, Email = s.Email, Phone = s.Phone,
+            WhatsAppPhone = s.WhatsAppPhone, VatNumber = s.VatNumber, FacebookUrl = s.FacebookUrl, InstagramUrl = s.InstagramUrl,
+            TikTokUrl = s.TikTokUrl, GoogleBusinessUrl = s.GoogleBusinessUrl,
+        };
+        _serviceArea = string.Join('\n', s.ServiceArea);
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await BusinessDetailsAdmin.SaveAsync(new BusinessDetailsSettings
+            {
+                Street = _s.Street, PostalCode = _s.PostalCode, City = _s.City, Email = _s.Email, Phone = _s.Phone,
+                WhatsAppPhone = _s.WhatsAppPhone, VatNumber = _s.VatNumber, FacebookUrl = _s.FacebookUrl, InstagramUrl = _s.InstagramUrl,
+                TikTokUrl = _s.TikTokUrl, GoogleBusinessUrl = _s.GoogleBusinessUrl,
+                ServiceArea = Moshtar.Domain.Tenants.BusinessDetails.ServiceArea(_serviceArea),
+            });
+            _problems = [];
+            Show(await BusinessDetailsAdmin.GetAsync());
+            Snackbar.Add("Je bedrijfsgegevens zijn bewaard.", Severity.Success);
+        }
+        catch (BusinessDetailsException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    /// <summary>De velden zoals ze in het scherm bewerkt worden.</summary>
+    private sealed class Form
+    {
+        public string? Street { get; set; }
+        public string? PostalCode { get; set; }
+        public string? City { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? WhatsAppPhone { get; set; }
+        public string? VatNumber { get; set; }
+        public string? FacebookUrl { get; set; }
+        public string? InstagramUrl { get; set; }
+        public string? TikTokUrl { get; set; }
+        public string? GoogleBusinessUrl { get; set; }
+    }
+}

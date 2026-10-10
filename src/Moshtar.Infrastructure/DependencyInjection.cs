@@ -30,6 +30,7 @@ public static class DependencyInjection
         services.Configure<TenancyOptions>(configuration.GetSection("Tenancy"));
         services.AddSingleton<ITenantStore, TenantStore>();
         services.AddScoped<IBrandingAdministration, BrandingAdministration>();
+        services.AddScoped<IBusinessDetailsAdministration, BusinessDetailsAdministration>();
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();
