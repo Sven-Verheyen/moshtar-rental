@@ -89,7 +89,10 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
     .site-header-inner { gap: .25rem .75rem; }
     .brand { flex: 1 1 auto; min-width: 0; font-size: 1.15rem; }
     .cta { order: 2; min-height: 2.5rem; padding: .45rem 1rem; font-size: .95rem; }
-    .site-nav { order: 3; flex: 1 1 auto; }
+    /* Het menu blijft één regel; past het niet, dan schuift het opzij. */
+    .site-nav { order: 3; flex: 1 1 12rem; min-width: 0; gap: .9rem; overflow-x: auto; scrollbar-width: none; }
+    .site-nav a { white-space: nowrap; padding-inline: 0; font-size: .95rem; }
+    .languages a { padding-inline: .3rem; }
     .languages { order: 4; }
     .brand img { height: 2.5rem; }
 }
@@ -207,3 +210,9 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .contact-address { font-style: normal; display: flex; flex-direction: column; margin-bottom: 2rem; }
 .service-area ul { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: .5rem; }
 .service-area li { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: .35rem .9rem; }
+
+/* Veelgestelde vragen */
+.faq details { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: .75rem; max-width: 48rem; }
+.faq summary { cursor: pointer; font-weight: 700; padding: 1rem 1.25rem; min-height: 2.75rem; }
+.faq details p { margin: 0 1.25rem 1rem; white-space: pre-line; }
+.faq-more { margin-top: 2rem; }

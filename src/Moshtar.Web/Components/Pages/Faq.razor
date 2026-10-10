@@ -1,0 +1,36 @@
+@page "/veelgestelde-vragen"
+@page "/questions-frequentes"
+@page "/faq"
+@inject ITenantContext TenantContext
+@inject IWebsiteTexts Texts
+@inject SiteLinks Links
+@inject IStringLocalizer<SharedResource> L
+
+<PageTitle>@TenantContext.Tenant?.Name · @L["Faq"]</PageTitle>
+<SiteHead Description="@L["FaqDescription", TenantContext.Tenant?.Name ?? ""]" />
+
+<div class="page faq">
+    <h1>@L["Faq"]</h1>
+    @if (_faq is not null)
+    {
+        @foreach (var entry in _faq)
+        {
+            <details>
+                <summary>@entry.Question</summary>
+                @foreach (var paragraph in SiteText.Paragraphs(entry.Answer))
+                {
+                    <p>@paragraph</p>
+                }
+            </details>
+        }
+    }
+    <p class="faq-more">
+        <a class="button" href="@Links.Href(SiteRoute.Contact)">@L["Contact"]</a>
+    </p>
+</div>
+
+@code {
+    private IReadOnlyList<FaqEntry>? _faq;
+
+    protected override async Task OnInitializedAsync() => _faq = (await Texts.GetAsync(Links.Culture)).Faq;
+}

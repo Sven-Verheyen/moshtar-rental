@@ -36,7 +36,6 @@
   <data name="RequiresPower" xml:space="preserve"><value>Power required</value></data>
   <data name="Years" xml:space="preserve"><value>years</value></data>
   <data name="ChooseDate" xml:space="preserve"><value>Pick your date</value></data>
-  <data name="HeroSubtitle" xml:space="preserve"><value>Rent bouncy castles and games for your party, simply reserve online.</value></data>
   <data name="SkipToContent" xml:space="preserve"><value>Skip to content</value></data>
   <data name="MainMenu" xml:space="preserve"><value>Main menu</value></data>
   <data name="ChooseLanguage" xml:space="preserve"><value>Choose language</value></data>
@@ -49,4 +48,7 @@
   <data name="ServiceAreaTitle" xml:space="preserve"><value>Where we deliver</value></data>
   <data name="ContactIntro" xml:space="preserve"><value>Questions about a reservation or a party? Feel free to get in touch.</value></data>
   <data name="ContactDescription" xml:space="preserve"><value>Contact details and delivery area of {0}.</value></data>
+  <data name="Faq" xml:space="preserve"><value>FAQ</value></data>
+  <data name="FaqDescription" xml:space="preserve"><value>Answers to frequently asked questions about renting from {0}.</value></data>
+  <data name="FaqShort" xml:space="preserve"><value>FAQ</value></data>
 </root>

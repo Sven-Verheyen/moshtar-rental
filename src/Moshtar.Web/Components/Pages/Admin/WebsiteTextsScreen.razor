@@ -1,0 +1,184 @@
+@page "/admin/websiteteksten"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject IWebsiteTextAdministration Texts
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+
+<PageTitle>Websiteteksten</PageTitle>
+
+<AdminShell Title="Websiteteksten">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Pas de teksten van je reservatiewebsite aan, in elke taal die je aanbiedt. Zolang je niets aanpast, geldt de standaardtekst
+        van Moshtar, met je naam en je werkgebied ingevuld.
+    </MudText>
+
+    <MudTabs Elevation="1" Rounded="true" PanelClass="pt-4">
+        @foreach (var culture in Cultures)
+        {
+            <MudTabPanel Text="@LanguageName(culture)">
+                @if (_texts.GetValueOrDefault(culture) is { } texts)
+                {
+                    var home = _home[culture];
+                    <MudPaper Class="pa-4 mb-4" Elevation="1">
+                        <MudText Typo="Typo.h6" Class="mb-2">Home</MudText>
+                        <MudTextField @bind-Value="home.Title" Label="Titel" Variant="Variant.Outlined" Class="mb-1" />
+                        <TextStatus Text="texts.HomeTitle" OnReset="() => ResetAsync(culture, WebsiteTextKey.HomeTitle)" />
+                        <MudTextField @bind-Value="home.Subtitle" Label="Ondertitel" Variant="Variant.Outlined" Lines="2" Class="mb-1 mt-3" />
+                        <TextStatus Text="texts.HomeSubtitle" OnReset="() => ResetAsync(culture, WebsiteTextKey.HomeSubtitle)" />
+                        <Problems Items="@_problems.GetValueOrDefault((culture, "home"))" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="() => SaveHomeAsync(culture)">Opslaan</MudButton>
+                    </MudPaper>
+
+                    <MudPaper Class="pa-4 mb-4" Elevation="1">
+                        <MudText Typo="Typo.h6" Class="mb-2">Categorieën</MudText>
+                        @if (texts.Categories.Count == 0)
+                        {
+                            <MudText Typo="Typo.body2">Je hebt nog geen categorieën.</MudText>
+                        }
+                        @foreach (var category in texts.Categories)
+                        {
+                            var draft = _categories[(culture, category.CategoryId)];
+                            var section = $"categorie-{category.CategoryId}";
+                            <div class="mb-6">
+                                <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>@category.Name.Value</strong></MudText>
+                                <MudTextField @bind-Value="draft.Name" Label="Naam" Variant="Variant.Outlined" Class="mb-1" />
+                                <TextStatus Text="category.Name" OnReset="() => ResetAsync(culture, WebsiteTextKey.CategoryName, category.CategoryId)" />
+                                <MudTextField @bind-Value="draft.Slug" Label="Slug in de URL" Variant="Variant.Outlined" Class="mb-1 mt-3"
+                                              HelperText="Kleine letters, cijfers en koppeltekens, bv. springkastelen. Verander je de slug van een categorie die al gevonden wordt, dan verliest die pagina haar plaats in zoekmachines." />
+                                <TextStatus Text="category.Slug" OnReset="() => ResetAsync(culture, WebsiteTextKey.CategorySlug, category.CategoryId)" />
+                                <MudTextField @bind-Value="draft.Intro" Label="Inleiding" Variant="Variant.Outlined" Lines="3" Class="mb-1 mt-3"
+                                              HelperText="Staat bovenaan de pagina van de categorie. Laat een lege regel tussen twee alinea's." />
+                                <TextStatus Text="category.Intro" OnReset="() => ResetAsync(culture, WebsiteTextKey.CategoryIntro, category.CategoryId)" />
+                                <Problems Items="@_problems.GetValueOrDefault((culture, section))" />
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="() => SaveCategoryAsync(culture, category.CategoryId)">Opslaan</MudButton>
+                            </div>
+                        }
+                    </MudPaper>
+
+                    <MudPaper Class="pa-4 mb-4" Elevation="1">
+                        <MudText Typo="Typo.h6" Class="mb-1">Veelgestelde vragen</MudText>
+                        <MudText Typo="Typo.body2" Class="mb-3">@(texts.FaqIsCustomized ? "Aangepast." : "Standaardvragen van Moshtar.")</MudText>
+                        @{ var faq = _faq[culture]; }
+                        @for (var i = 0; i < faq.Count; i++)
+                        {
+                            var index = i;
+                            var entry = faq[index];
+                            <MudPaper Outlined="true" Class="pa-3 mb-3">
+                                <MudStack Row="true" AlignItems="AlignItems.Start">
+                                    <MudStack Class="flex-grow-1">
+                                        <MudTextField @bind-Value="entry.Question" Label="@($"Vraag {index + 1}")" Variant="Variant.Outlined" />
+                                        <MudTextField @bind-Value="entry.Answer" Label="Antwoord" Variant="Variant.Outlined" Lines="3" />
+                                    </MudStack>
+                                    <MudStack Spacing="0">
+                                        <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" aria-label="Naar boven" Disabled="index == 0" OnClick="() => Move(culture, index, -1)" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" aria-label="Naar beneden" Disabled="index == faq.Count - 1" OnClick="() => Move(culture, index, 1)" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Verwijderen" OnClick="() => faq.RemoveAt(index)" />
+                                    </MudStack>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Add" OnClick="() => faq.Add(new FaqDraft())">Vraag toevoegen</MudButton>
+                        <Problems Items="@_problems.GetValueOrDefault((culture, "faq"))" />
+                        <MudStack Row="true" Class="mt-3">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SaveFaqAsync(culture)">Opslaan</MudButton>
+                            <MudButton Variant="Variant.Outlined" Disabled="!texts.FaqIsCustomized" OnClick="() => ResetAsync(culture, WebsiteTextKey.Faq)">Terug naar standaard</MudButton>
+                        </MudStack>
+                    </MudPaper>
+                }
+            </MudTabPanel>
+        }
+    </MudTabs>
+</AdminShell>
+
+@code {
+    private sealed class HomeDraft { public string Title { get; set; } = ""; public string Subtitle { get; set; } = ""; }
+    private sealed class CategoryDraft { public string Name { get; set; } = ""; public string Slug { get; set; } = ""; public string Intro { get; set; } = ""; }
+    private sealed class FaqDraft { public string Question { get; set; } = ""; public string Answer { get; set; } = ""; }
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private readonly Dictionary<string, WebsiteTexts> _texts = [];
+    private readonly Dictionary<string, HomeDraft> _home = [];
+    private readonly Dictionary<(string, Guid), CategoryDraft> _categories = [];
+    private readonly Dictionary<string, List<FaqDraft>> _faq = [];
+    private readonly Dictionary<(string, string), IReadOnlyList<string>> _problems = [];
+
+    private IReadOnlyList<string> Cultures => TenantContext.Tenant?.Cultures ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        foreach (var culture in Cultures) await LoadAsync(culture);
+    }
+
+    /// <summary>Laadt de teksten van één taal opnieuw; de concepten van die taal worden overschreven.</summary>
+    private async Task LoadAsync(string culture)
+    {
+        var texts = await Texts.GetAsync(culture);
+        _texts[culture] = texts;
+        _home[culture] = new HomeDraft { Title = texts.HomeTitle.Value, Subtitle = texts.HomeSubtitle.Value };
+        foreach (var c in texts.Categories)
+            _categories[(culture, c.CategoryId)] = new CategoryDraft { Name = c.Name.Value, Slug = c.Slug.Value, Intro = c.Intro.Value };
+        _faq[culture] = texts.Faq.Select(e => new FaqDraft { Question = e.Question, Answer = e.Answer }).ToList();
+        foreach (var key in _problems.Keys.Where(k => k.Item1 == culture).ToList()) _problems.Remove(key);
+    }
+
+    private Task SaveHomeAsync(string culture) =>
+        CheckedAsync(culture, "home", async userId =>
+            await Texts.SaveHomeAsync(culture, _home[culture].Title ?? "", _home[culture].Subtitle ?? "", userId));
+
+    private Task SaveCategoryAsync(string culture, Guid categoryId) =>
+        CheckedAsync(culture, $"categorie-{categoryId}", async userId =>
+        {
+            var draft = _categories[(culture, categoryId)];
+            await Texts.SaveCategoryAsync(categoryId, culture, draft.Name ?? "", draft.Slug ?? "", draft.Intro ?? "", userId);
+        });
+
+    private Task SaveFaqAsync(string culture) =>
+        CheckedAsync(culture, "faq", async userId =>
+            await Texts.SaveFaqAsync(culture, _faq[culture].Select(e => new FaqEntry(e.Question ?? "", e.Answer ?? "")).ToList(), userId));
+
+    /// <summary>Bewaart, en toont de problemen bij het onderdeel als het niet in orde is.</summary>
+    private async Task CheckedAsync(string culture, string section, Func<Guid, Task> save)
+    {
+        try
+        {
+            await save((await AuthenticationState).User.Id());
+            await LoadAsync(culture);
+            Snackbar.Add($"Bewaard in het {LanguageName(culture)}.", Severity.Success);
+        }
+        catch (WebsiteTextException e)
+        {
+            _problems[(culture, section)] = e.Problems;
+        }
+    }
+
+    private async Task ResetAsync(string culture, WebsiteTextKey key, Guid? categoryId = null)
+    {
+        try
+        {
+            await Texts.ResetAsync(culture, key, categoryId);
+            await LoadAsync(culture);
+            Snackbar.Add($"De standaardtekst geldt weer in het {LanguageName(culture)}.", Severity.Success);
+        }
+        catch (WebsiteTextException e)
+        {
+            _problems[(culture, categoryId is { } id ? $"categorie-{id}" : "home")] = e.Problems;
+        }
+    }
+
+    private void Move(string culture, int index, int offset)
+    {
+        var faq = _faq[culture];
+        (faq[index], faq[index + offset]) = (faq[index + offset], faq[index]);
+    }
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+}

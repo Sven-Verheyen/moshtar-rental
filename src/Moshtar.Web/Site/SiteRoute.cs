@@ -17,6 +17,7 @@ public abstract record SiteRoute
         {
             [""] => Home,
             [var word] when ContactRoute.Words.ContainsValue(word) => Contact,
+            [var word] when FaqRoute.Words.ContainsValue(word) => Faq,
             [var word, var slug] when slug.Length > 0 && RentalRoute.Words.ContainsValue(word) => new RentalRoute(slug),
             _ => null,
         };
@@ -27,6 +28,9 @@ public abstract record SiteRoute
 
     /// <summary>De contactpagina.</summary>
     public static readonly SiteRoute Contact = new ContactRoute();
+
+    /// <summary>De pagina met veelgestelde vragen.</summary>
+    public static readonly SiteRoute Faq = new FaqRoute();
 }
 
 /// <summary>De home: "/" in de standaardtaal, "/fr" of "/en" in de andere.</summary>
@@ -47,6 +51,15 @@ public sealed record RentalRoute(string Slug) : SiteRoute
 public sealed record ContactRoute : SiteRoute
 {
     internal static readonly Dictionary<string, string> Words = new() { ["nl"] = "contact", ["fr"] = "contact", ["en"] = "contact" };
+
+    public override string PathIn(string culture) => Words[culture];
+}
+
+/// <summary>De pagina met veelgestelde vragen.</summary>
+public sealed record FaqRoute : SiteRoute
+{
+    internal static readonly Dictionary<string, string> Words =
+        new() { ["nl"] = "veelgestelde-vragen", ["fr"] = "questions-frequentes", ["en"] = "faq" };
 
     public override string PathIn(string culture) => Words[culture];
 }

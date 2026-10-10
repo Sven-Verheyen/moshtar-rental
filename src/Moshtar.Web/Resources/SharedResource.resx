@@ -36,7 +36,6 @@
   <data name="RequiresPower" xml:space="preserve"><value>Stroom nodig</value></data>
   <data name="Years" xml:space="preserve"><value>jaar</value></data>
   <data name="ChooseDate" xml:space="preserve"><value>Kies je datum</value></data>
-  <data name="HeroSubtitle" xml:space="preserve"><value>Springkastelen en spellen huren voor je feest, gewoon online reserveren.</value></data>
   <data name="SkipToContent" xml:space="preserve"><value>Naar de inhoud</value></data>
   <data name="MainMenu" xml:space="preserve"><value>Hoofdmenu</value></data>
   <data name="ChooseLanguage" xml:space="preserve"><value>Taal kiezen</value></data>
@@ -49,4 +48,7 @@
   <data name="ServiceAreaTitle" xml:space="preserve"><value>Hier leveren we</value></data>
   <data name="ContactIntro" xml:space="preserve"><value>Vragen over een reservatie of een feest? Neem gerust contact met ons op.</value></data>
   <data name="ContactDescription" xml:space="preserve"><value>De contactgegevens en het werkgebied van {0}.</value></data>
+  <data name="Faq" xml:space="preserve"><value>Veelgestelde vragen</value></data>
+  <data name="FaqDescription" xml:space="preserve"><value>Antwoorden op veelgestelde vragen over het huren bij {0}.</value></data>
+  <data name="FaqShort" xml:space="preserve"><value>Vragen</value></data>
 </root>

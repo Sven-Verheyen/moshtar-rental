@@ -21,6 +21,7 @@
         </a>
         <nav class="site-nav" aria-label="@L["MainMenu"]">
             <a href="@OfferHref">@L["Catalog"]</a>
+            <a href="@Links.Href(SiteRoute.Faq)" aria-current="@(Links.Current is FaqRoute ? "page" : null)">@L["FaqShort"]</a>
             <a href="@Links.Href(SiteRoute.Contact)" aria-current="@(Links.Current is ContactRoute ? "page" : null)">@L["Contact"]</a>
         </nav>
         <nav class="languages" aria-label="@L["ChooseLanguage"]">

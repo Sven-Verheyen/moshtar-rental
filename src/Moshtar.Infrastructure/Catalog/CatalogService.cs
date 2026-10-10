@@ -1,12 +1,13 @@
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Catalog;
 using Moshtar.Application.Tenancy;
+using Moshtar.Application.Website;
 using Moshtar.Domain.Common;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Catalog;
 
-internal sealed class CatalogService(AppDbContext db, ITenantContext tenantContext) : ICatalogService
+internal sealed class CatalogService(AppDbContext db, ITenantContext tenantContext, IWebsiteTexts websiteTexts) : ICatalogService
 {
     public async Task<IReadOnlyList<CatalogEntry>> GetCatalogAsync(string culture, CancellationToken ct = default)
     {
@@ -14,6 +15,8 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
         var items = await db.RentalItems.AsNoTracking().Include(i => i.Category)
             .Where(i => i.IsActive).ToListAsync(ct);
         var bundles = await db.Bundles.AsNoTracking().Where(b => b.IsActive).ToListAsync(ct);
+        // De naam van een categorie kan de verhuurder aanpassen bij de websiteteksten.
+        var categoryNames = (await websiteTexts.GetAsync(culture, ct)).Categories.ToDictionary(c => c.CategoryId, c => c.Name.Value);
         var itemNames = items.ToDictionary(i => i.Id, i => i.Translations.For(culture, fallback)?.Name ?? i.Slug);
 
         var entries = items
@@ -22,7 +25,7 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
             {
                 var t = i.Translations.For(culture, fallback);
                 return new CatalogEntry(i.Id, CatalogEntryKind.Item, i.Slug, t?.Name ?? i.Slug, t?.Description,
-                    i.Category?.Translations.For(culture, fallback)?.Name,
+                    i.CategoryId is { } categoryId ? categoryNames.GetValueOrDefault(categoryId) : null,
                     i.Pricing.DayPrice, i.Pricing.ExtraDayPrice,
                     i.Images.OrderBy(x => x.SortOrder).FirstOrDefault()?.Url, []);
             })
