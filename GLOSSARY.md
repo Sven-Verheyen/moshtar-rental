@@ -25,11 +25,11 @@ Een gebruiker die reservaties opvolgt, maar geen prijzen, voorraad, instellingen
 _Avoid_: personeel, operator
 
 **Bedrijfsgegevens** (`BusinessDetails`):
-Het adres, telefoonnummer, btw-nummer en de sociale media van een verhuurder, zoals klanten ze op de reservatiewebsite zien.
+Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien.
 _Avoid_: profiel, contactgegevens
 
 **Werkgebied** (`ServiceArea`):
-De gemeenten waar een verhuurder levert, of een straal rond zijn adres.
+De lijst van gemeenten waar een verhuurder levert.
 _Avoid_: regio, leveringszone
 
 **Hoofddomein** (`PrimaryHost`):
