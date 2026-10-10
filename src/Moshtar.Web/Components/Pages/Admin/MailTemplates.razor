@@ -7,6 +7,7 @@
 @inject IMailTemplateAdministration Templates
 @inject ISnackbar Snackbar
 @inject ILogger<MailTemplates> Logger
+@inject IJSRuntime JS
 
 <PageTitle>Mailsjablonen</PageTitle>
 
@@ -37,15 +38,32 @@
                                 }
                             </MudText>
                             <MudTextField @bind-Value="draft.Subject" Label="Onderwerp" Variant="Variant.Outlined" Class="mb-3" />
-                            <MudTextField @bind-Value="draft.Body" Label="Tekst" Variant="Variant.Outlined" Lines="14"
-                                          HelperText="Laat een lege regel tussen twee alinea's." />
-                            <MudText Typo="Typo.body2" Class="mt-3">
-                                Plaatshouders: @string.Join(", ", kind.Placeholders.Select(p => $"{{{p}}}")).
-                                @foreach (var block in kind.Blocks)
+                            <MudToolBar Dense="true" Gutters="false" Class="mb-1">
+                                <MudTooltip Text="Vet">
+                                    <MudIconButton Icon="@Icons.Material.Filled.FormatBold" aria-label="Vet" OnClick="@(() => WrapAsync(kind, version.Culture, "**", "**", "vette tekst"))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Cursief">
+                                    <MudIconButton Icon="@Icons.Material.Filled.FormatItalic" aria-label="Cursief" OnClick="@(() => WrapAsync(kind, version.Culture, "*", "*", "schuine tekst"))" />
+                                </MudTooltip>
+                                <MudTooltip Text="Link">
+                                    <MudIconButton Icon="@Icons.Material.Filled.Link" aria-label="Link" OnClick="@(() => WrapAsync(kind, version.Culture, "[", "](https://)", "linktekst"))" />
+                                </MudTooltip>
+                            </MudToolBar>
+                            <div id="@EditorId(kind.Kind, version.Culture)">
+                                <MudTextField @bind-Value="draft.Body" Label="Tekst" Variant="Variant.Outlined" Lines="14"
+                                              HelperText="Laat een lege regel tussen twee alinea's. **vet**, *cursief* en [tekst](https://adres) worden opmaak." />
+                            </div>
+                            <MudText Typo="Typo.body2" Class="mt-3 mb-1">Klik om een plaatshouder in te voegen:</MudText>
+                            <div class="d-flex flex-wrap gap-1">
+                                @foreach (var placeholder in kind.Placeholders)
                                 {
-                                    <span> {@block} voegt het vaste overzicht van de reservatie in en moet in de tekst staan.</span>
+                                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" OnClick="@(() => InsertAsync(kind, version.Culture, "{" + placeholder + "}"))">{@placeholder}</MudChip>
                                 }
-                            </MudText>
+                            </div>
+                            @foreach (var block in kind.Blocks)
+                            {
+                                <MudText Typo="Typo.body2" Class="mt-1">{@block} voegt het vaste overzicht van de reservatie in en moet in de tekst staan.</MudText>
+                            }
                             @if (_problems.GetValueOrDefault((kind.Kind, version.Culture)) is { Count: > 0 } problems)
                             {
                                 <MudAlert Severity="Severity.Error" Class="mt-3">
@@ -156,6 +174,31 @@
             _previews.Remove((kind.Kind, culture));
         }
     }
+
+    private IJSObjectReference? _editor;
+
+    private static string EditorId(MailKind kind, string culture) => $"mailsjabloon-{kind}-{culture}";
+
+    /// <summary>Zet opmaaktekens rond de selectie in de tekst, of rond een voorbeeldwoord als niets geselecteerd is.</summary>
+    private Task WrapAsync(MailKindDefinition kind, string culture, string before, string after, string example) =>
+        EditAsync(kind, culture, "wrap", before, after, example);
+
+    /// <summary>Voegt tekst in op de cursor, in de plaats van de selectie.</summary>
+    private Task InsertAsync(MailKindDefinition kind, string culture, string text) =>
+        EditAsync(kind, culture, "insert", text, "", "");
+
+    private async Task EditAsync(MailKindDefinition kind, string culture, string action, string before, string after, string example)
+    {
+        _editor ??= await JS.InvokeAsync<IJSObjectReference>("import", "./Components/Pages/Admin/MailTemplates.razor.js");
+        var id = EditorId(kind.Kind, culture);
+        var edit = await _editor.InvokeAsync<TextEdit?>(action, id, before, after, example);
+        if (edit is null) return;
+        _drafts[(kind.Kind, culture)].Body = edit.Value;
+        StateHasChanged();
+        await _editor.InvokeVoidAsync("select", id, edit.Start, edit.End);
+    }
+
+    private sealed record TextEdit(string Value, int Start, int End);
 
     private async Task<Guid> UserIdAsync() => (await AuthenticationState).User.Id();
 

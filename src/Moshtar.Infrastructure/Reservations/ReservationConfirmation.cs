@@ -124,10 +124,10 @@ internal static class ReservationConfirmation
                     text.Add(detailsText.ToString());
                     html.Append(detailsHtml);
                 }
-                var part = Fill(parts[i].Trim());
-                if (part.Length == 0) continue;
-                text.Add(part);
-                html.Append($"<p>{E(part).ReplaceLineEndings("<br>")}</p>");
+                var (partHtml, partText) = MailFormatting.Render(parts[i].Trim(), name => values.GetValueOrDefault(name));
+                if (partText.Trim().Length == 0) continue;
+                text.Add(partText.Trim());
+                html.Append($"<p>{partHtml.Trim()}</p>");
             }
         }
 

@@ -46,6 +46,8 @@ public sealed partial class MailKindDefinition(
         foreach (var block in Blocks)
             if (PlaceholdersIn(text.Subject).Contains(block))
                 problems.Add($"{{{block}}} kan niet in het onderwerp.");
+        foreach (var url in MailFormatting.ForbiddenLinks(text.Body))
+            problems.Add($"De link naar \"{url}\" moet een volledig adres zijn dat begint met https://, http:// of mailto:.");
         foreach (var required in requiredInBody)
             if (!PlaceholdersIn(text.Body).Contains(required))
                 problems.Add($"{{{required}}} ontbreekt in de tekst.");
