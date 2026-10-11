@@ -148,7 +148,7 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
             Assert.Contains($"<p class=\"alert error\" role=\"alert\">{message}</p>", html);
             Assert.DoesNotContain("Niet vrij", html);
-            Assert.DoesNotContain("name=\"Form.FirstName\"", html);
+            Assert.DoesNotContain("In winkelkar</button>", html);
         }
     }
 
@@ -191,9 +191,11 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         if (day.Year != day.AddDays(2).Year) period = $"{day.ToString("d MMMM yyyy", Dutch)} – {day.AddDays(2).ToString("d MMMM yyyy", Dutch)}";
         Assert.Contains($"<strong>Vrij op {period}</strong>", html);
         Assert.Contains("Totaal: € 240,00 <span class=\"muted\">voor 3 dagen, per stuk</span>", html);
-        Assert.True(html.IndexOf("Totaal: € 240,00") < html.IndexOf("name=\"Form.FirstName\""));
-        Assert.Contains($"name=\"Form.StartDate\" value=\"{day:yyyy-MM-dd}\"", html);
-        Assert.Contains($"name=\"Form.EndDate\" value=\"{day.AddDays(2):yyyy-MM-dd}\"", html);
+        Assert.True(html.IndexOf("Totaal: € 240,00") < html.IndexOf("In winkelkar</button>"));
+        Assert.Contains($"name=\"van\" value=\"{day:yyyy-MM-dd}\"", html);
+        Assert.Contains($"name=\"tot\" value=\"{day.AddDays(2):yyyy-MM-dd}\"", html);
+        // Reserveren gebeurt in de winkelkar, niet meer op de artikelpagina.
+        Assert.DoesNotContain("name=\"Form.FirstName\"", html);
         Assert.Contains("<dt>Afmetingen</dt>", html);
         Assert.Contains("<dd>5 × 4 × 3,5 m</dd>", html);
         Assert.Contains("<dd>3 – 12 jaar</dd>", html);
@@ -211,7 +213,7 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
         Assert.Contains("Kies je datum, dan zie je meteen of het vrij is en wat het kost.", html);
         Assert.Contains("<form id=\"datum\" class=\"period-form\" method=\"get\" action=\"/huren/prinses#reserveren\">", html);
-        Assert.DoesNotContain("name=\"Form.FirstName\"", html);
+        Assert.DoesNotContain("In winkelkar</button>", html);
     }
 
     [Fact]
@@ -227,36 +229,19 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("Dit is al gereserveerd op (een deel van) deze huurperiode.", html);
         Assert.Contains("<a class=\"button\" href=\"/huren/piraat#reserveren\">Andere datum kiezen</a>", html);
         Assert.Contains($"<a href=\"/?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}#aanbod\">Bekijk wat wel vrij is</a>", html);
-        Assert.DoesNotContain("name=\"Form.FirstName\"", html);
+        Assert.DoesNotContain("In winkelkar</button>", html);
     }
 
     [Fact]
-    public async Task A_customer_reserves_through_the_new_item_page()
+    public async Task A_customer_reserves_through_the_cart()
     {
         await NewTenantAsync("datum-reserveren");
         var client = app.CreateClient("datum-reserveren.test");
         var day = TestReservations.FutureDay(70);
         var path = $"/huren/prinses?van={day:yyyy-MM-dd}&tot={day.AddDays(1):yyyy-MM-dd}";
 
-        var form = await client.GetStringAsync(path);
-        var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["_handler"] = "reservation",
-            ["__RequestVerificationToken"] = BackOffice.Field(form, "__RequestVerificationToken"),
-            ["Form.StartDate"] = BackOffice.Field(form, "Form.StartDate"),
-            ["Form.EndDate"] = BackOffice.Field(form, "Form.EndDate"),
-            ["Form.Quantity"] = "1",
-            ["Form.FirstName"] = "Nina",
-            ["Form.LastName"] = "Datum",
-            ["Form.Email"] = "nina@example.test",
-            ["Form.Street"] = "Kerkstraat 1",
-            ["Form.PostalCode"] = "2000",
-            ["Form.City"] = "Antwerpen",
-            ["Form.DeliveryMethod"] = "Delivery",
-        }));
-        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+        var html = await WebsiteCart.ReserveItemAsync(client, path, "nina@example.test", "Nina", delivery: "Delivery");
 
-        response.EnsureSuccessStatusCode();
         Assert.Contains("is bevestigd. Totaal: € 180,00.", html);
         await using var scope = await app.TenantScopeAsync("datum-reserveren");
         var reservation = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations
@@ -271,30 +256,20 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         await NewTenantAsync("datum-post");
         var client = app.CreateClient("datum-post.test");
         var day = TestReservations.FutureDay(80);
-        var path = $"/huren/prinses?van={day:yyyy-MM-dd}";
+        var page = await WebsiteCart.PageAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}");
 
-        var form = await client.GetStringAsync(path);
-        var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
+        var response = await WebsiteCart.PostAsync(client, "/winkelkar/toevoegen", page, new()
         {
-            ["_handler"] = "reservation",
-            ["__RequestVerificationToken"] = BackOffice.Field(form, "__RequestVerificationToken"),
-            ["Form.StartDate"] = day.ToString("yyyy-MM-dd"),
-            ["Form.EndDate"] = "9999-12-31",
-            ["Form.Quantity"] = "1",
-            ["Form.FirstName"] = "Max",
-            ["Form.LastName"] = "Lang",
-            ["Form.Email"] = "max@example.test",
-            ["Form.Street"] = "Kerkstraat 1",
-            ["Form.PostalCode"] = "2000",
-            ["Form.City"] = "Antwerpen",
-            ["Form.DeliveryMethod"] = "Pickup",
-        }));
-        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+            ["soort"] = BackOffice.Field(page, "soort"),
+            ["id"] = BackOffice.Field(page, "id"),
+            ["van"] = day.ToString("yyyy-MM-dd"),
+            ["tot"] = "9999-12-31",
+            ["terug"] = "/huren/prinses",
+        });
 
-        response.EnsureSuccessStatusCode();
-        Assert.Contains("Een huurperiode is hoogstens 31 dagen.", html);
+        Assert.Equal("/huren/prinses", response.Headers.Location!.OriginalString);
         await using var scope = await app.TenantScopeAsync("datum-post");
-        Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.AnyAsync(r => r.Customer!.Email == "max@example.test"));
+        Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().Carts.AnyAsync());
     }
 
     private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl");

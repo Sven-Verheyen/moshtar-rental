@@ -6,6 +6,8 @@ using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Persistence;
+using Moshtar.Infrastructure.Mail;
+using static Moshtar.Web.Tests.WebsiteCart;
 
 namespace Moshtar.Web.Tests;
 
@@ -129,7 +131,7 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var client = app.CreateClient("kar-datum.test");
         var day = TestReservations.FutureDay(50);
         var other = day.AddDays(7);
-        await ReserveAsync("kar-datum", tenant.Pirate, other);
+        await ReserveForSomeoneElseAsync("kar-datum", tenant.Pirate, other);
         await AddAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}", quantity: 1);
         await AddAsync(client, $"/huren/piraat?van={day:yyyy-MM-dd}", quantity: 1);
 
@@ -230,6 +232,161 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.DoesNotContain("class=\"cart-count\"", html);
     }
 
+    [Fact]
+    public async Task Reserving_from_the_cart_makes_one_reservation_with_one_mail_and_empties_the_cart()
+    {
+        var tenant = await NewTenantAsync("kar-reserveren", stock: 2);
+        var client = app.CreateClient("kar-reserveren.test");
+        var day = TestReservations.FutureDay(100);
+        var query = $"?van={day:yyyy-MM-dd}&tot={day.AddDays(1):yyyy-MM-dd}";
+        await AddAsync(client, "/huren/prinses" + query, quantity: 2);
+        await AddAsync(client, "/huren/feest" + query, quantity: 1);
+
+        // Zonder e-mailadres eerst stap 1, nog geen formulier met de gegevens.
+        var before = await PageAsync(client, "/winkelkar");
+        Assert.Contains("Stap 1 van 2", before);
+        Assert.DoesNotContain("name=\"Form.FirstName\"", before);
+        var step1 = await IdentifyAsync(client, "Sara@Example.test");
+        Assert.Equal("/winkelkar#reserveren", step1.Headers.Location!.OriginalString);
+        var step2 = await PageAsync(client, "/winkelkar");
+        Assert.Contains("Stap 2 van 2", step2);
+        Assert.Contains("<strong>sara@example.test</strong>", step2);
+
+        var response = await ReserveAsync(client, "Sara");
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        response.EnsureSuccessStatusCode();
+        // 2 prinsessenkastelen voor 2 dagen (120 + 60) en een feestpakket voor 2 dagen (150 + 150).
+        Assert.Contains("is bevestigd. Totaal: € 660,00.", html);
+        Assert.Contains("<h1>Bedankt voor je reservatie</h1>", html);
+        Assert.DoesNotContain("class=\"cart-count\"", html);
+        Assert.Contains(response.Headers.GetValues("Set-Cookie"), c => c.StartsWith("moshtar-winkelkar=;"));
+        await using var scope = await app.TenantScopeAsync("kar-reserveren");
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var reservation = await db.Reservations.Include(r => r.Customer).SingleAsync();
+        Assert.Equal(("sara@example.test", "Sara", ReservationStatus.Confirmed), (reservation.Customer!.Email, reservation.Customer.FirstName, reservation.Status));
+        Assert.Equal(2, reservation.Lines.Count);
+        Assert.Equal((day, day.AddDays(1)), (reservation.StartDate, reservation.EndDate));
+        Assert.Single(app.Services.GetRequiredService<RecordingMailTransport>().Sent, m => m.To == "sara@example.test");
+        var cart = await db.Carts.AsNoTracking().SingleAsync();
+        Assert.Equal(reservation.Id, cart.ReservationId);
+        Assert.NotNull(cart.ReservedAtUtc);
+        Assert.Contains("Je winkelkar is leeg.", await PageAsync(client, "/winkelkar"));
+    }
+
+    [Fact]
+    public async Task Clicking_reserve_twice_at_once_makes_one_reservation_and_shows_it_both_times()
+    {
+        await NewTenantAsync("kar-dubbelklik", stock: 5);
+        var client = app.CreateClient("kar-dubbelklik.test");
+        var day = TestReservations.FutureDay(101);
+        await AddAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}");
+        await IdentifyAsync(client, "dubbel@example.test");
+
+        // Twee keer hetzelfde formulier tegelijk versturen, zoals bij een dubbelklik.
+        var page = await PageAsync(client, "/winkelkar");
+        Dictionary<string, string> Fields() => new()
+        {
+            ["_handler"] = "reservation",
+            ["Form.FirstName"] = "Dubbel",
+            ["Form.LastName"] = "Klant",
+            ["Form.Street"] = "Kerkstraat 1",
+            ["Form.PostalCode"] = "2000",
+            ["Form.City"] = "Antwerpen",
+            ["Form.DeliveryMethod"] = "Pickup",
+        };
+        var responses = await Task.WhenAll(PostAsync(client, "/winkelkar", page, Fields()), PostAsync(client, "/winkelkar", page, Fields()));
+
+        await using var scope = await app.TenantScopeAsync("kar-dubbelklik");
+        var reservation = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.SingleAsync();
+        foreach (var response in responses)
+        {
+            response.EnsureSuccessStatusCode();
+            Assert.Contains($"Je reservatie {reservation.Number} is bevestigd.", WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()));
+        }
+        Assert.Single(app.Services.GetRequiredService<RecordingMailTransport>().Sent, m => m.To == "dubbel@example.test");
+    }
+
+    [Fact]
+    public async Task Step_one_keeps_the_email_and_both_choices_which_are_off_by_default()
+    {
+        await NewTenantAsync("kar-vinkjes");
+        var client = app.CreateClient("kar-vinkjes.test");
+        await AddAsync(client, $"/fr/louer/prinses?van={TestReservations.FutureDay(110):yyyy-MM-dd}");
+
+        var page = await PageAsync(client, "/fr/panier");
+        Assert.Contains("<input type=\"checkbox\" name=\"herinnering\" value=\"ja\" />", page);
+        Assert.Contains("<input type=\"checkbox\" name=\"nieuws\" value=\"ja\" />", page);
+        Assert.Contains("Je souhaite recevoir les nouveautés et promotions de kar-vinkjes", page);
+        await IdentifyAsync(client, "louis@example.test", reminder: true, news: false, cartPath: "/fr/panier");
+
+        var cart = await CartAsync("kar-vinkjes");
+        Assert.Equal(("louis@example.test", "fr", true, false), (cart.Email, cart.Culture, cart.WantsReminder, cart.WantsNews));
+        // Het e-mailadres wijzigen toont stap 1 opnieuw, met wat al gekozen was.
+        var change = await PageAsync(client, "/fr/panier?stap=email");
+        Assert.Contains("value=\"louis@example.test\"", change);
+        Assert.Contains("<input type=\"checkbox\" name=\"herinnering\" value=\"ja\" checked />", change);
+    }
+
+    [Fact]
+    public async Task An_invalid_email_gives_a_message_and_is_not_kept()
+    {
+        await NewTenantAsync("kar-email-fout");
+        var client = app.CreateClient("kar-email-fout.test");
+        await AddAsync(client, $"/huren/prinses?van={TestReservations.FutureDay(120):yyyy-MM-dd}");
+
+        var response = await IdentifyAsync(client, "geen-adres");
+
+        Assert.Equal("/winkelkar?stap=email&fout=EmailInvalid#reserveren", response.Headers.Location!.OriginalString);
+        Assert.Contains("Dat e-mailadres klopt niet.", await PageAsync(client, "/winkelkar?stap=email&fout=EmailInvalid"));
+        Assert.Null((await CartAsync("kar-email-fout")).Email);
+    }
+
+    [Fact]
+    public async Task When_something_was_just_taken_the_customer_sees_what_and_keeps_his_details()
+    {
+        var tenant = await NewTenantAsync("kar-net-weg");
+        var client = app.CreateClient("kar-net-weg.test");
+        var day = TestReservations.FutureDay(130);
+        await AddAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}");
+        await AddAsync(client, $"/huren/piraat?van={day:yyyy-MM-dd}");
+        await IdentifyAsync(client, "tom@example.test");
+        var page = await PageAsync(client, "/winkelkar");
+
+        // Iemand anders reserveert intussen het piratenkasteel.
+        await ReserveForSomeoneElseAsync("kar-net-weg", tenant.Pirate, day);
+        var response = await PostAsync(client, "/winkelkar", page, new()
+        {
+            ["_handler"] = "reservation",
+            ["Form.FirstName"] = "Tom",
+            ["Form.LastName"] = "Laat",
+            ["Form.Street"] = "Kerkstraat 1",
+            ["Form.PostalCode"] = "2000",
+            ["Form.City"] = "Antwerpen",
+            ["Form.DeliveryMethod"] = "Pickup",
+        });
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("Net niet meer vrij op deze datum: Piratenkasteel.", html);
+        Assert.Contains("<span class=\"badge badge-busy\">Niet vrij op deze datum</span>", html);
+        Assert.Contains("value=\"Laat\"", html);
+        await using var scope = await app.TenantScopeAsync("kar-net-weg");
+        Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.AnyAsync(r => r.Customer!.Email == "tom@example.test"));
+    }
+
+    [Fact]
+    public async Task The_item_page_no_longer_has_the_reservation_form()
+    {
+        await NewTenantAsync("kar-geen-formulier");
+
+        var html = await PageAsync(app.CreateClient("kar-geen-formulier.test"), $"/huren/prinses?van={TestReservations.FutureDay(140):yyyy-MM-dd}");
+
+        Assert.Contains("In winkelkar</button>", html);
+        Assert.DoesNotContain("name=\"Form.FirstName\"", html);
+        Assert.DoesNotContain("Reservatie bevestigen", html);
+    }
+
     private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl");
 
     private sealed record TestTenant(Guid Princess, Guid Pirate, Guid Mill, Guid Party);
@@ -251,34 +408,13 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         return new TestTenant(princess.Id, pirate.Id, mill.Id, party.Id);
     }
 
-    /// <summary>Klikt "In winkelkar" op de pagina van een artikel of pakket, met de huurperiode uit de URL.</summary>
-    private static async Task<HttpResponseMessage> AddAsync(HttpClient client, string path, int quantity)
-    {
-        var page = await PageAsync(client, path);
-        return await PostAsync(client, "/winkelkar/toevoegen", page, new()
-        {
-            ["soort"] = BackOffice.Field(page, "soort"),
-            ["id"] = BackOffice.Field(page, "id"),
-            ["van"] = BackOffice.Field(page, "van"),
-            ["tot"] = BackOffice.Field(page, "tot"),
-            ["terug"] = BackOffice.Field(page, "terug"),
-            ["aantal"] = quantity.ToString(),
-        });
-    }
-
-    private static Task<HttpResponseMessage> PostAsync(HttpClient client, string path, string page, Dictionary<string, string> fields)
-    {
-        fields["__RequestVerificationToken"] = BackOffice.Field(page, "__RequestVerificationToken");
-        return client.PostAsync(path, new FormUrlEncodedContent(fields));
-    }
-
     private async Task<Moshtar.Domain.Carts.Cart> CartAsync(string tenantSlug)
     {
         await using var scope = await app.TenantScopeAsync(tenantSlug);
         return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Carts.AsNoTracking().SingleAsync();
     }
 
-    private async Task ReserveAsync(string tenantSlug, Guid itemId, DateOnly day)
+    private async Task ReserveForSomeoneElseAsync(string tenantSlug, Guid itemId, DateOnly day)
     {
         await using var scope = await app.TenantScopeAsync(tenantSlug);
         var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
@@ -288,10 +424,6 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
             DeliveryMethod.Pickup, null, null, "nl"), ReservationActor.Website);
         Assert.True(result.Succeeded);
     }
-
-    private static async Task<string> PageAsync(HttpClient client, string path) => WebUtility.HtmlDecode(await client.GetStringAsync(path));
-
-    private static int Count(string html, string text) => (html.Length - html.Replace(text, "").Length) / text.Length;
 
     private static Translation T(string culture, string name) => new() { Culture = culture, Name = name };
 }

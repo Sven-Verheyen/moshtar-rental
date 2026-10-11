@@ -114,4 +114,17 @@
   <data name="AddedToCart" xml:space="preserve"><value>Ajouté à votre panier.</value></data>
   <data name="ToCart" xml:space="preserve"><value>Voir mon panier</value></data>
   <data name="NotAddedToCart" xml:space="preserve"><value>Ceci ne rentre plus dans votre panier : avec ce qu'il contient déjà, il n'y a pas assez de disponibilité à cette date.</value></data>
+  <data name="CartFixFirst" xml:space="preserve"><value>Retirez d'abord ce qui n'est plus disponible, ou choisissez une autre date. Vous pourrez ensuite réserver.</value></data>
+  <data name="CartStep" xml:space="preserve"><value>Étape {0} sur {1}</value></data>
+  <data name="EmailInvalid" xml:space="preserve"><value>Cette adresse e-mail n'est pas valide. Vérifiez-la.</value></data>
+  <data name="WantsReminder" xml:space="preserve"><value>Envoyez-moi un rappel si je ne termine pas ma réservation</value></data>
+  <data name="WantsNews" xml:space="preserve"><value>Je souhaite recevoir les nouveautés et promotions de {0}</value></data>
+  <data name="Next" xml:space="preserve"><value>Continuer</value></data>
+  <data name="Change" xml:space="preserve"><value>Modifier</value></data>
+  <data name="CartReserveShortage" xml:space="preserve"><value>Plus disponible à cette date : {0}. Retirez-le de votre panier ou choisissez une autre date ; vos données restent remplies.</value></data>
+  <data name="CartGone" xml:space="preserve"><value>Votre panier est vide ou a expiré. Choisissez à nouveau ce que vous voulez louer.</value></data>
+  <data name="CartNoEmail" xml:space="preserve"><value>Indiquez d'abord votre adresse e-mail.</value></data>
+  <data name="CartHasGoneItems" xml:space="preserve"><value>Un article de votre panier n'est plus disponible à la location. Retirez-le, puis réservez.</value></data>
+  <data name="CartCannotReserve" xml:space="preserve"><value>Cette réservation n'est pas possible. Vérifiez la période de location ou contactez-nous.</value></data>
+  <data name="ReservationThanks" xml:space="preserve"><value>Merci pour votre réservation</value></data>
 </root>

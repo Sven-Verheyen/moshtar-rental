@@ -3,15 +3,11 @@ using Moshtar.Domain.Reservations;
 
 namespace Moshtar.Web.Models;
 
-public class ReservationForm
+/// <summary>Stap 2 van het reserveren vanuit de winkelkar; huurperiode, artikelen en e-mailadres staan al op de winkelkar.</summary>
+public class CartReservationForm
 {
-    [Required] public DateOnly? StartDate { get; set; }
-    [Required] public DateOnly? EndDate { get; set; }
-    [Range(1, 20)] public int Quantity { get; set; } = 1;
-
     [Required, MaxLength(100)] public string FirstName { get; set; } = "";
     [Required, MaxLength(100)] public string LastName { get; set; } = "";
-    [Required, EmailAddress, MaxLength(320)] public string Email { get; set; } = "";
     [MaxLength(30)] public string? Phone { get; set; }
 
     [Required, MaxLength(200)] public string Street { get; set; } = "";

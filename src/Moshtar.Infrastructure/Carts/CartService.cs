@@ -5,6 +5,7 @@ using Moshtar.Application.Catalog;
 using Moshtar.Application.Reservations;
 using Moshtar.Domain.Carts;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Carts;
@@ -29,7 +30,7 @@ internal sealed class CartService(
             return new CartLineView(l.Entry, entry, l.Quantity, entry?.PriceFor(period.Days) ?? 0,
                 Available: entry is not null && !Occupies(l, unavailable, entry));
         }).ToList();
-        return new CartView(period, lines);
+        return new CartView(period, lines, cart.Email, cart.WantsReminder, cart.WantsNews);
     }
 
     public async Task<int> CountAsync(string? key, CancellationToken ct = default) =>
@@ -81,15 +82,72 @@ internal sealed class CartService(
         return new CartChange(cart.Key, true);
     }
 
+    public async Task<CartChange> IdentifyAsync(string? key, string email, string culture, bool wantsReminder, bool wantsNews, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        if (await FindAsync(db, key, ct) is not { } cart) return new CartChange(null, false);
+        cart.Identify(email, culture, wantsReminder, wantsNews, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(ct);
+        return new CartChange(cart.Key, true);
+    }
+
+    public async Task<CartReservationResult> ReserveAsync(string? key, CartCustomerDetails details, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(key)) return CartReservationResult.Refused("CartGone");
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        // Eén reservatie per winkelkar, ook als de klant twee keer op "Reserveren" klikt: de tweede wacht hier tot de
+        // eerste klaar is en krijgt dan dezelfde reservatie te zien, zonder tweede reservatie of mail.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"winkelkar:" + key}, 0))", ct);
+        if (await db.Carts.AsNoTracking().FirstOrDefaultAsync(c => c.Key == key && c.ReservationId != null, ct) is { } reserved)
+            return await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == reserved.ReservationId, ct) is { } earlier
+                ? new CartReservationResult(earlier, new HashSet<Guid>(), null)
+                : CartReservationResult.Refused("CartGone");
+        if (await FindAsync(db, key, ct) is not { } cart || cart.Lines.Count == 0)
+            return CartReservationResult.Refused("CartGone");
+        if (cart.Email is null)
+            return CartReservationResult.Refused("CartNoEmail");
+        // Wat niet meer op de reservatiewebsite staat, kan niet gereserveerd worden: de klant verwijdert het eerst.
+        var entries = (await catalog.GetCatalogAsync(details.Culture, ct)).Select(Ref).ToHashSet();
+        if (cart.Lines.Any(l => !entries.Contains(l.Entry)))
+            return CartReservationResult.Refused("CartHasGoneItems");
+
+        ReservationResult result;
+        try
+        {
+            result = await reservations.ReserveAsync(new ReservationRequest(
+                cart.Period,
+                cart.Lines.Select(l => new ReservationLineRequest(l.RentalItemId, l.BundleId, l.Quantity)).ToList(),
+                new ReservationCustomer(details.FirstName, details.LastName, cart.Email, details.Phone, details.Address),
+                details.DeliveryMethod,
+                details.Address,
+                details.Notes,
+                details.Culture),
+                ReservationActor.Website, ct);
+        }
+        catch (ArgumentException)
+        {
+            // Bv. een huurperiode die intussen in het verleden ligt.
+            return CartReservationResult.Refused("CartCannotReserve");
+        }
+        if (result.Reservation is not { } reservation)
+            return new CartReservationResult(null, result.Shortages.Select(s => s.RentalItemId).ToHashSet(), null);
+
+        cart.MarkReserved(reservation.Id, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(CancellationToken.None);
+        await tx.CommitAsync(CancellationToken.None);
+        return new CartReservationResult(reservation, new HashSet<Guid>(), null);
+    }
+
     private async Task<Cart?> FindAsync(string? key, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(key)) return null;
         await using var db = await contexts.CreateDbContextAsync(ct);
-        return await db.Carts.AsNoTracking().FirstOrDefaultAsync(c => c.Key == key, ct);
+        return await db.Carts.AsNoTracking().FirstOrDefaultAsync(c => c.Key == key && c.ReservedAtUtc == null, ct);
     }
 
     private static async Task<Cart?> FindAsync(AppDbContext db, string? key, CancellationToken ct) =>
-        string.IsNullOrEmpty(key) ? null : await db.Carts.FirstOrDefaultAsync(c => c.Key == key, ct);
+        string.IsNullOrEmpty(key) ? null : await db.Carts.FirstOrDefaultAsync(c => c.Key == key && c.ReservedAtUtc == null, ct);
 
     /// <summary>
     /// De artikelen waarvan te weinig vrij is als alles uit de winkelkar samen gehuurd wordt, met de bestaande

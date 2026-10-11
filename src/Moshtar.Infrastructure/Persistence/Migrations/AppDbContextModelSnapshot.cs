@@ -96,6 +96,14 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Culture")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
@@ -103,6 +111,12 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("ReservationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ReservedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
@@ -112,6 +126,12 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("UpdatedAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("WantsNews")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("WantsReminder")
+                        .HasColumnType("boolean");
 
                     b.HasKey("Id");
 

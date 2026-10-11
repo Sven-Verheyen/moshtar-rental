@@ -114,4 +114,17 @@
   <data name="AddedToCart" xml:space="preserve"><value>Toegevoegd aan je winkelkar.</value></data>
   <data name="ToCart" xml:space="preserve"><value>Naar winkelkar</value></data>
   <data name="NotAddedToCart" xml:space="preserve"><value>Dit past niet meer in je winkelkar: samen met wat er al in zit, is er op deze datum niet genoeg vrij.</value></data>
+  <data name="CartFixFirst" xml:space="preserve"><value>Verwijder eerst wat niet meer vrij is, of kies een andere datum. Daarna kan je reserveren.</value></data>
+  <data name="CartStep" xml:space="preserve"><value>Stap {0} van {1}</value></data>
+  <data name="EmailInvalid" xml:space="preserve"><value>Dat e-mailadres klopt niet. Kijk het even na.</value></data>
+  <data name="WantsReminder" xml:space="preserve"><value>Stuur me een herinnering als ik mijn reservatie niet afrond</value></data>
+  <data name="WantsNews" xml:space="preserve"><value>Ik wil nieuws en acties van {0} ontvangen</value></data>
+  <data name="Next" xml:space="preserve"><value>Verder</value></data>
+  <data name="Change" xml:space="preserve"><value>Wijzigen</value></data>
+  <data name="CartReserveShortage" xml:space="preserve"><value>Net niet meer vrij op deze datum: {0}. Verwijder het uit je winkelkar of kies een andere datum; je gegevens blijven staan.</value></data>
+  <data name="CartGone" xml:space="preserve"><value>Je winkelkar is leeg of verlopen. Kies opnieuw wat je wil huren.</value></data>
+  <data name="CartNoEmail" xml:space="preserve"><value>Vul eerst je e-mailadres in.</value></data>
+  <data name="CartHasGoneItems" xml:space="preserve"><value>Iets in je winkelkar is niet meer te huren. Verwijder het en reserveer dan.</value></data>
+  <data name="CartCannotReserve" xml:space="preserve"><value>Deze reservatie kan niet. Kijk de huurperiode na of neem contact met ons op.</value></data>
+  <data name="ReservationThanks" xml:space="preserve"><value>Bedankt voor je reservatie</value></data>
 </root>
