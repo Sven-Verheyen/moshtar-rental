@@ -77,7 +77,8 @@ De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd of
 _Avoid_: audit log, logboek, geschiedenis
 
 **Huurperiode** (`DateRange`):
-De hele dagen waarvoor gehuurd wordt, begin- en einddag inbegrepen.
+De hele dagen waarvoor gehuurd wordt, begin- en einddag inbegrepen. Op de reservatiewebsite kiest de klant ze met
+"Kies je datum"; ze staat dan in de URL (`?van=…&tot=…`) en gaat mee naar elke pagina.
 _Avoid_: periode, verhuurdagen
 
 **Blokkering** (`Blockout`):

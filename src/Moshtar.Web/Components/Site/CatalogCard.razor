@@ -1,0 +1,48 @@
+@inject IStringLocalizer<SharedResource> L
+@inject SiteLinks Links
+
+@{
+    var href = Links.Href(new RentalRoute(Entry.Slug)) + Chosen.Query;
+}
+<article class="catalog-card @(Unavailable ? "unavailable" : null)">
+    @if (Entry.ImageUrl is not null)
+    {
+        <img src="@Entry.ImageUrl" alt="@Entry.Name" loading="lazy" width="640" height="480" />
+    }
+    else
+    {
+        <div class="image-placeholder" aria-hidden="true">@SiteText.Initial(Entry.Name)</div>
+    }
+    <div class="catalog-card-body">
+        <h3><a href="@href">@Entry.Name</a></h3>
+        @if (Unavailable)
+        {
+            <p class="badge badge-busy">@L["NotFreeOnDate"]</p>
+        }
+        @if (Entry.Description is not null)
+        {
+            <p>@Entry.Description</p>
+        }
+        @if (Entry.Contents.Count > 0)
+        {
+            <p class="muted">@L["BundleContains"]: @string.Join(", ", Entry.Contents)</p>
+        }
+        @if (Chosen.Period is { } period)
+        {
+            <p class="price">@SiteText.Money(Entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days)</span></p>
+        }
+        else
+        {
+            <p class="price">@SiteText.Money(Entry.DayPrice) <span class="muted">@L["PerDay"]</span></p>
+        }
+        <a class="button" href="@href" aria-hidden="true" tabindex="-1">@L["MoreInfo"]</a>
+    </div>
+</article>
+
+@code {
+    [Parameter, EditorRequired] public CatalogEntry Entry { get; set; } = null!;
+    [Parameter] public ChosenPeriod Chosen { get; set; } = ChosenPeriod.None;
+    [Parameter] public bool Unavailable { get; set; }
+
+    private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
+}

@@ -1,5 +1,7 @@
 using System.Globalization;
 using Moshtar.Application.Tenancy;
+using Moshtar.Application.Website;
+using Moshtar.Domain.Website;
 
 namespace Moshtar.Web.Site;
 
@@ -61,7 +63,7 @@ internal static class SiteLanguage
             }
 
             culture ??= tenant.DefaultCulture;
-            var route = SiteRoute.Parse(path);
+            var route = SiteRoute.Parse(path) ?? await CategoryRouteAsync(context, path, culture);
             if (route is not null && route.PathIn(culture) != path)
             {
                 context.Response.Redirect(SiteLinks.Href(route, culture, tenant.DefaultCulture) + request.QueryString, permanent: true);
@@ -71,6 +73,19 @@ internal static class SiteLanguage
             UseCulture(context, culture, route);
             await next();
         });
+
+    /// <summary>
+    /// Een pad van één woord kan een categorie zijn. Eerst de slug in de taal van de URL; een slug uit een andere taal
+    /// wordt herkend en daarna doorgestuurd, net als de vaste padwoorden.
+    /// </summary>
+    private static async Task<CategoryRoute?> CategoryRouteAsync(HttpContext context, string path, string culture)
+    {
+        if (path.Contains('/') || CategorySlug.Problem(path) is not null) return null;
+        var categories = await context.RequestServices.GetRequiredService<IWebsiteTexts>().GetCategorySlugsAsync(context.RequestAborted);
+        var category = categories.FirstOrDefault(c => c.PerCulture.GetValueOrDefault(culture) == path)
+            ?? categories.FirstOrDefault(c => c.PerCulture.Values.Contains(path));
+        return category is null ? null : new CategoryRoute(category.CategoryId, category.PerCulture);
+    }
 
     private static void UseCulture(HttpContext context, string culture, SiteRoute? route)
     {

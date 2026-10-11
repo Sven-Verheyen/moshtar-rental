@@ -94,6 +94,14 @@
 
     private string OfferHref => Links.Href(SiteRoute.Home) + "#aanbod";
 
-    /// <summary>Op de pagina van een artikel springt de knop naar het reservatieformulier, elders naar het aanbod.</summary>
-    private string ChooseDateHref => Links.Current is RentalRoute ? "#reserveren" : OfferHref;
+    /// <summary>
+    /// De knop springt naar het formulier "Kies je datum": op de pagina van een artikel bij het reserveren, op een
+    /// categoriepagina bovenaan de lijst, elders op de home.
+    /// </summary>
+    private string ChooseDateHref => Links.Current switch
+    {
+        RentalRoute => "#reserveren",
+        CategoryRoute => "#datum",
+        _ => Links.Href(SiteRoute.Home) + "#datum",
+    };
 }

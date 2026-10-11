@@ -99,6 +99,7 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 
 .site-main { min-height: 60vh; }
 .page, .offer { max-width: var(--width); margin: 0 auto; padding: 1.5rem var(--gutter) 3rem; }
+.offer { scroll-margin-top: 5rem; }
 
 /* Hero: de sfeerfoto groot bovenaan, of een vlak in de huisstijlkleur. */
 .hero {
@@ -127,6 +128,36 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .hero:not(.hero-plain) .button { background: #ffffff; color: var(--text); }
 .hero-plain .button { background: var(--on-brand); color: var(--brand); }
 
+/* "Kies je datum": een witte kaart, in de hero en op de categorie- en artikelpagina. */
+.period-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: .75rem;
+    max-width: 44rem;
+    padding: 1rem;
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow);
+    scroll-margin-top: 6rem;
+}
+.period-form label { display: flex; flex-direction: column; gap: .3rem; flex: 1 1 9rem; font-weight: 600; font-size: .95rem; }
+.period-form input {
+    font: inherit;
+    font-weight: normal;
+    min-height: 2.75rem;
+    padding: .55rem .75rem;
+    border: 1px solid #9aa5b1;
+    border-radius: .6rem;
+    background: #ffffff;
+    color: var(--text);
+}
+.period-form .button, .hero .period-form .button { flex: 1 1 12rem; background: var(--brand); color: var(--on-brand); }
+.period-form + .alert { margin-top: .75rem; max-width: 44rem; }
+.page > .period-form { margin: 1.5rem 0 0; }
+.reservation .period-form { box-shadow: none; padding: 0; }
+
 /* Aanbod */
 .offer h2 { font-size: 1.6rem; margin-top: 2rem; }
 .catalog-grid { display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
@@ -145,6 +176,28 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .catalog-card h3 a:hover { text-decoration: underline; }
 .catalog-card p { margin: 0; }
 .catalog-card .button { margin-top: auto; align-self: flex-start; }
+.catalog-card.unavailable img, .catalog-card.unavailable .image-placeholder { opacity: .5; filter: grayscale(1); }
+.badge { display: inline-block; align-self: flex-start; padding: .2rem .65rem; border-radius: 999px; font-size: .9rem; font-weight: 700; }
+.badge-busy { background: #ffe3e3; color: #610404; }
+.offer > .muted { margin-top: -.5rem; }
+.intro { max-width: 48rem; }
+
+/* Categorieën op de home */
+.category-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(min(13rem, 100%), 1fr)); }
+.category-tile {
+    position: relative;
+    display: grid;
+    border-radius: var(--radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    color: #ffffff;
+    text-decoration: none;
+    background: var(--text);
+}
+.category-tile img, .category-tile .image-placeholder { grid-area: 1 / 1; aspect-ratio: 4 / 3; width: 100%; object-fit: cover; }
+/* Een donkere band onder de naam, leesbaar op elke foto en op een lichte tegel zonder foto. */
+.category-tile-name { grid-area: 1 / 1; z-index: 1; align-self: end; padding: .75rem 1rem; font-size: 1.25rem; font-weight: 800; background: rgba(17, 24, 39, .8); }
+.category-tile:hover .category-tile-name { text-decoration: underline; }
 .image-placeholder {
     display: grid;
     place-items: center;
@@ -163,6 +216,18 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .page h1 { font-size: clamp(1.9rem, 4vw, 2.75rem); }
 .detail { display: grid; gap: 2rem; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); align-items: start; }
 .detail-info img, .detail-info .image-placeholder { border-radius: var(--radius); aspect-ratio: 4 / 3; width: 100%; object-fit: cover; }
+.gallery { display: grid; gap: .5rem; grid-template-columns: repeat(3, 1fr); }
+.gallery img:first-child { grid-column: 1 / -1; }
+.specs { display: grid; grid-template-columns: auto 1fr; gap: .35rem 1.25rem; margin: 0 0 1rem; }
+.specs dt { font-weight: 600; color: var(--muted); }
+.specs dd { margin: 0; }
+.availability { padding: 1rem; border-radius: .75rem; margin-bottom: 1rem; }
+.availability p { margin: 0 0 .35rem; }
+.availability .price { margin: .25rem 0; }
+.availability.free { background: #e3f9e5; color: #05400a; }
+.availability.free a, .availability.free .muted { color: #05400a; }
+.availability.busy { background: #ffe3e3; color: #610404; }
+.actions { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; align-items: center; }
 .reservation {
     background: var(--surface);
     border-radius: var(--radius);

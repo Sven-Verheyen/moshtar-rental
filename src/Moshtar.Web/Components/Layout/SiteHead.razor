@@ -9,6 +9,10 @@
         {
             <meta name="description" content="@Description" />
         }
+        @if (NoIndex)
+        {
+            <meta name="robots" content="noindex" />
+        }
         <link rel="canonical" href="@Links.Absolute(route, Links.Culture)" />
         @foreach (var culture in Links.Cultures)
         {
@@ -21,4 +25,10 @@
 @code {
     /// <summary>Korte beschrijving van de pagina voor zoekresultaten.</summary>
     [Parameter] public string? Description { get; set; }
+
+    /// <summary>
+    /// Niet indexeren, bv. met een huurperiode in de URL: elke datum zou anders een eigen pagina in de zoekresultaten
+    /// zijn. De canonieke URL wijst dan naar de pagina zonder datum.
+    /// </summary>
+    [Parameter] public bool NoIndex { get; set; }
 }

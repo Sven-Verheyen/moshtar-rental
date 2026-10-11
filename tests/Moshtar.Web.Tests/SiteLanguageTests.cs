@@ -182,7 +182,7 @@ public sealed class SiteLanguageTests(MoshtarApp app) : IClassFixture<MoshtarApp
     {
         var client = app.CreateClient(MoshtarApp.HopsakeeHost);
         var day = TestReservations.FutureDay(320);
-        var path = "/en/rent/" + Slug;
+        var path = $"/en/rent/{Slug}?van={day:yyyy-MM-dd}";
 
         var form = await client.GetStringAsync(path);
         var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>

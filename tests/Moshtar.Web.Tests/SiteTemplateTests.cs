@@ -45,8 +45,8 @@ public sealed class SiteTemplateTests(MoshtarApp app) : IClassFixture<MoshtarApp
     }
 
     [Theory]
-    [InlineData("/", "Kies je datum", "/#aanbod")]
-    [InlineData("/fr", "Choisissez votre date", "/fr#aanbod")]
+    [InlineData("/", "Kies je datum", "/#datum")]
+    [InlineData("/fr", "Choisissez votre date", "/fr#datum")]
     [InlineData("/en/rent/sjabloon-kasteel", "Pick your date", "#reserveren")]
     public async Task Every_page_has_the_choose_your_date_button(string path, string label, string target)
     {

@@ -242,9 +242,9 @@ public sealed class WebsiteTextTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("<h1>Fête & châteaux</h1>", french);
         Assert.Contains("<p>Tout pour votre fête.</p>", french);
         Assert.Contains("<meta name=\"description\" content=\"Tout pour votre fête.\" />", french);
-        Assert.Contains("<h2>Gonflables</h2>", french);
+        Assert.Contains("<span class=\"category-tile-name\">Gonflables</span>", french);
         Assert.Contains("<h1>Springkastelen en feestspellen huren bij teksten-site</h1>", dutch);
-        Assert.Contains("<h2>Springkastelen</h2>", dutch);
+        Assert.Contains("<span class=\"category-tile-name\">Springkastelen</span>", dutch);
     }
 
     [Theory]

@@ -51,4 +51,24 @@
   <data name="Faq" xml:space="preserve"><value>Questions fréquentes</value></data>
   <data name="FaqDescription" xml:space="preserve"><value>Réponses aux questions fréquentes sur la location chez {0}.</value></data>
   <data name="FaqShort" xml:space="preserve"><value>FAQ</value></data>
+  <data name="ShowAvailable" xml:space="preserve"><value>Voir les disponibilités</value></data>
+  <data name="NotFreeOnDate" xml:space="preserve"><value>Pas disponible à cette date</value></data>
+  <data name="PeriodUnreadable" xml:space="preserve"><value>Nous ne pouvons pas lire cette date. Choisissez un jour dans le calendrier.</value></data>
+  <data name="PeriodEndBeforeStart" xml:space="preserve"><value>Le jour de fin est avant le jour de début. Choisissez un jour de fin identique ou postérieur.</value></data>
+  <data name="PeriodInPast" xml:space="preserve"><value>Cette date est passée. Choisissez un jour à partir d'aujourd'hui.</value></data>
+  <data name="OfferFor" xml:space="preserve"><value>Notre offre · {0}</value></data>
+  <data name="AvailableCount" xml:space="preserve"><value>{0} sur {1} disponibles</value></data>
+  <data name="Categories" xml:space="preserve"><value>Nos catégories</value></data>
+  <data name="Featured" xml:space="preserve"><value>Les plus demandés</value></data>
+  <data name="ForOneDay" xml:space="preserve"><value>pour 1 jour</value></data>
+  <data name="ForDays" xml:space="preserve"><value>pour {0} jours</value></data>
+  <data name="AvailableOn" xml:space="preserve"><value>Disponible : {0}</value></data>
+  <data name="NotAvailableOn" xml:space="preserve"><value>Pas disponible : {0}</value></data>
+  <data name="NotAvailableExplanation" xml:space="preserve"><value>C'est déjà réservé pour (une partie de) cette période. Choisissez une autre date, ou voyez ce qui est disponible.</value></data>
+  <data name="OtherDate" xml:space="preserve"><value>Choisir une autre date</value></data>
+  <data name="SeeWhatsFree" xml:space="preserve"><value>Voir ce qui est disponible</value></data>
+  <data name="Total" xml:space="preserve"><value>Total</value></data>
+  <data name="ChooseDateFirst" xml:space="preserve"><value>Choisissez votre date pour voir tout de suite si c'est disponible et le prix.</value></data>
+  <data name="BackTo" xml:space="preserve"><value>Retour à {0}</value></data>
+  <data name="Photo" xml:space="preserve"><value>Photo {0} sur {1}</value></data>
 </root>

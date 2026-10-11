@@ -10,6 +10,12 @@ public interface IReservationService
     Task<IReadOnlyList<StockShortage>> CheckAvailabilityAsync(DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct = default);
 
     /// <summary>
+    /// De actieve artikelen en pakketten die in deze huurperiode niet één keer te reserveren zijn, voor de lijst
+    /// "wat is vrij op deze datum" op de reservatiewebsite.
+    /// </summary>
+    Task<IReadOnlySet<Guid>> FindUnavailableAsync(DateRange period, CancellationToken ct = default);
+
+    /// <summary>
     /// Maakt een reservatie aan en bevestigt ze meteen als de voorraad het toelaat.
     /// Gelijktijdige reservaties voor dezelfde tenant worden na elkaar afgehandeld,
     /// zodat het laatste exemplaar nooit twee keer verhuurd wordt.

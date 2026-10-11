@@ -26,6 +26,18 @@ internal sealed class WebsiteTextAdministration(AppDbContext db, ITenantContext 
         return Texts(culture, customizations, categories);
     }
 
+    public async Task<IReadOnlyList<CategorySlugs>> GetCategorySlugsAsync(CancellationToken ct = default)
+    {
+        var customizations = await db.WebsiteTextCustomizations.AsNoTracking().Where(t => t.Key == WebsiteTextKey.CategorySlug).ToListAsync(ct);
+        var categories = await db.Categories.AsNoTracking().OrderBy(c => c.SortOrder).ThenBy(c => c.Id).ToListAsync(ct);
+        var perCulture = Tenant.Cultures.ToDictionary(
+            culture => culture,
+            culture => Texts(culture, customizations.Where(t => t.Culture == culture).ToList(), categories).Categories);
+        return categories.Select(c => new CategorySlugs(
+            c.Id,
+            perCulture.ToDictionary(kv => kv.Key, kv => kv.Value.Single(t => t.CategoryId == c.Id).Slug.Value))).ToList();
+    }
+
     public async Task SaveHomeAsync(string culture, string title, string subtitle, Guid userId, CancellationToken ct = default)
     {
         CheckCulture(culture);

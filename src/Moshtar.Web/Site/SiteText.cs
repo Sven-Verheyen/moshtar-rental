@@ -12,4 +12,17 @@ public static class SiteText
     /// <summary>De alinea's van een tekst die een verhuurder invulde: gescheiden door een lege regel.</summary>
     public static IEnumerable<string> Paragraphs(string text) =>
         text.ReplaceLineEndings("\n").Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>Een huurperiode om te lezen, in de taal van de pagina: "12 oktober 2026" of "12 oktober – 14 oktober 2026".</summary>
+    public static string Period(Moshtar.Domain.Common.DateRange period)
+    {
+        var culture = CultureInfo.CurrentUICulture;
+        var end = period.End.ToString("d MMMM yyyy", culture);
+        if (period.Days == 1) return end;
+        var start = period.Start.ToString(period.Start.Year == period.End.Year ? "d MMMM" : "d MMMM yyyy", culture);
+        return $"{start} – {end}";
+    }
+
+    /// <summary>De prijs van een bedrag in euro, zoals overal op de reservatiewebsite: "€ 150,00".</summary>
+    public static string Money(decimal amount) => amount.ToString("C", CultureInfo.GetCultureInfo("nl-BE"));
 }

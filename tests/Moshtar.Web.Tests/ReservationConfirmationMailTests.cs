@@ -22,8 +22,9 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
         var client = app.CreateClient(MoshtarApp.HopsakeeHost);
         var day = TestReservations.FutureDay(300);
 
-        var form = await client.GetStringAsync("/huren/mail-website");
-        var response = await client.PostAsync("/huren/mail-website", new FormUrlEncodedContent(new Dictionary<string, string>
+        var path = $"/huren/mail-website?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}";
+        var form = await client.GetStringAsync(path);
+        var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
         {
             ["_handler"] = "reservation",
             ["__RequestVerificationToken"] = BackOffice.Field(form, "__RequestVerificationToken"),

@@ -6,7 +6,9 @@
 @inject IReservationService Reservations
 @inject IStringLocalizer<SharedResource> L
 @inject SiteLinks Links
+@inject IWebsiteTexts Texts
 @inject NavigationManager Navigation
+@inject TimeProvider Clock
 
 @if (_entry is null)
 {
@@ -16,35 +18,70 @@
 }
 
 <PageTitle>@_entry.Name</PageTitle>
-<SiteHead Description="@(_entry.Description ?? _entry.Name)" />
+<SiteHead Description="@(_entry.Description ?? _entry.Name)" NoIndex="_chosen.InUrl" />
 
 <div class="page">
-<p class="back"><a href="@(Links.Href(SiteRoute.Home) + "#aanbod")">← @L["Back"]</a></p>
+<p class="back"><a href="@BackHref">← @BackText</a></p>
 <h1>@_entry.Name</h1>
 
 <div class="detail">
     <section class="detail-info">
-        @if (_entry.ImageUrl is not null)
-        {
-            <img src="@_entry.ImageUrl" alt="@_entry.Name" width="960" height="720" />
-        }
-        else
+        @if (_entry.Images.Count == 0)
         {
             <div class="image-placeholder" aria-hidden="true">@SiteText.Initial(_entry.Name)</div>
         }
+        else
+        {
+            <div class="gallery">
+                @foreach (var (url, index) in _entry.Images.Select((u, i) => (u, i)))
+                {
+                    <img src="@url" alt="@(index == 0 ? _entry.Name : $"{_entry.Name} · {L["Photo", index + 1, _entry.Images.Count]}")"
+                         width="960" height="720" loading="@(index == 0 ? "eager" : "lazy")" />
+                }
+            </div>
+        }
         @if (_entry.Description is not null)
         {
-            <p>@_entry.Description</p>
+            @foreach (var paragraph in SiteText.Paragraphs(_entry.Description))
+            {
+                <p>@paragraph</p>
+            }
         }
         @if (_entry.Contents.Count > 0)
         {
             <p>@L["BundleContains"]: @string.Join(", ", _entry.Contents)</p>
         }
+        @if (_entry.Specs is { } specs && (specs.HasDimensions || specs.MinAge is not null || specs.MaxAge is not null || specs.MaxPersons is not null || specs.RequiresPower))
+        {
+            <h2>@L["Specs"]</h2>
+            <dl class="specs">
+                @if (specs.HasDimensions)
+                {
+                    <dt>@L["Dimensions"]</dt>
+                    <dd>@Dimensions(specs)</dd>
+                }
+                @if (specs.MinAge is not null || specs.MaxAge is not null)
+                {
+                    <dt>@L["Age"]</dt>
+                    <dd>@Ages(specs)</dd>
+                }
+                @if (specs.MaxPersons is { } persons)
+                {
+                    <dt>@L["MaxPersons"]</dt>
+                    <dd>@persons</dd>
+                }
+                @if (specs.RequiresPower)
+                {
+                    <dt>@L["RequiresPower"]</dt>
+                    <dd>✓</dd>
+                }
+            </dl>
+        }
         <p class="price price-large">
-            @_entry.DayPrice.ToString("C", Money) <span class="muted">@L["PerDay"]</span>
+            @SiteText.Money(_entry.DayPrice) <span class="muted">@L["PerDay"]</span>
             @if (_entry.ExtraDayPrice is { } extra)
             {
-                <span class="muted"> · @extra.ToString("C", Money) @L["PerExtraDay"]</span>
+                <span class="muted"> · @SiteText.Money(extra) @L["PerExtraDay"]</span>
             }
         </p>
     </section>
@@ -56,8 +93,29 @@
         {
             <p class="alert success" role="status">@_confirmation</p>
         }
+        else if (_chosen.Period is not { } period)
+        {
+            <p>@L["ChooseDateFirst"]</p>
+            <PeriodForm Action="@(Here + "#reserveren")" Chosen="_chosen" Today="_today" />
+        }
+        else if (!_available)
+        {
+            <div class="availability busy" role="status">
+                <p><strong>@L["NotAvailableOn", SiteText.Period(period)]</strong></p>
+                <p>@L["NotAvailableExplanation"]</p>
+            </div>
+            <p class="actions">
+                <a class="button" href="@(Here + "#reserveren")">@L["OtherDate"]</a>
+                <a href="@(Links.Href(SiteRoute.Home) + _chosen.Query + "#aanbod")">@L["SeeWhatsFree"]</a>
+            </p>
+        }
         else
         {
+            <div class="availability free" role="status">
+                <p><strong>@L["AvailableOn", SiteText.Period(period)]</strong></p>
+                <p class="price price-large">@L["Total"]: @SiteText.Money(_entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days)</span></p>
+                <p><a href="@(Here + "#reserveren")">@L["OtherDate"]</a></p>
+            </div>
             @if (_error is not null)
             {
                 <p class="alert error" role="alert">@_error</p>
@@ -65,9 +123,10 @@
             <EditForm Model="Form" FormName="reservation" OnValidSubmit="SubmitAsync" action="#reserveren">
                 <DataAnnotationsValidator />
                 <ValidationSummary />
+                @* De huurperiode is gekozen en getoond hierboven; een andere datum kiest de klant met de link. *@
+                <input type="hidden" name="Form.StartDate" value="@ChosenPeriod.Format(Form!.StartDate)" />
+                <input type="hidden" name="Form.EndDate" value="@ChosenPeriod.Format(Form!.EndDate)" />
                 <div class="row">
-                    <label>@L["StartDate"] <InputDate @bind-Value="Form!.StartDate" min="@Today" /></label>
-                    <label>@L["EndDate"] <InputDate @bind-Value="Form!.EndDate" min="@Today" /></label>
                     <label>@L["Quantity"] <InputNumber @bind-Value="Form!.Quantity" min="1" /></label>
                 </div>
                 <div class="row">
@@ -99,45 +158,69 @@
 </div>
 
 @code {
-    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
-
     [Parameter] public string Slug { get; set; } = "";
     [SupplyParameterFromForm] private ReservationForm? Form { get; set; }
+    [SupplyParameterFromQuery(Name = ChosenPeriod.StartKey)] private string? Start { get; set; }
+    [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
 
     private CatalogEntry? _entry;
+    private CategoryLink? _category;
+    private ChosenPeriod _chosen = ChosenPeriod.None;
+    private DateOnly _today;
+    private bool _available;
     private string? _confirmation;
     private string? _error;
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
-    private static string Today => DateTime.Today.ToString("yyyy-MM-dd");
+
+    /// <summary>Deze pagina zonder huurperiode, om een andere datum te kiezen.</summary>
+    private string Here => Links.Href(new RentalRoute(Slug));
+
+    /// <summary>Terug naar de categorie van het artikel, of naar het aanbod op de home; met de gekozen huurperiode.</summary>
+    private string BackHref => _category is null
+        ? Links.Href(SiteRoute.Home) + _chosen.Query + "#aanbod"
+        : Links.Href(_category.Route) + _chosen.Query + "#aanbod";
+
+    private string BackText => _category is null ? L["Back"] : L["BackTo", _category.Name];
 
     protected override async Task OnInitializedAsync()
     {
-        Form ??= new();
         _entry = await Catalog.GetBySlugAsync(Slug, Culture);
         // Een echte 404, zodat zoekmachines een onbestaand artikel niet indexeren.
-        if (_entry is null) Navigation.NotFound();
+        if (_entry is null)
+        {
+            Navigation.NotFound();
+            return;
+        }
+        if (_entry.CategoryId is { } categoryId)
+            _category = (await CategoryLink.AllAsync(Texts, Links)).FirstOrDefault(c => c.Id == categoryId);
+
+        _today = ChosenPeriod.Today(Clock);
+        _chosen = ChosenPeriod.From(Start, End, _today);
+        Form ??= new() { StartDate = _chosen.Period?.Start, EndDate = _chosen.Period?.End };
+        if (_chosen.Period is { } period)
+            _available = (await Reservations.CheckAvailabilityAsync(period, [Line(1)])).Count == 0;
     }
+
+    private ReservationLineRequest Line(int quantity) => _entry!.Kind == CatalogEntryKind.Item
+        ? new ReservationLineRequest(_entry.Id, null, quantity)
+        : new ReservationLineRequest(null, _entry.Id, quantity);
 
     private async Task SubmitAsync()
     {
         if (_entry is null || Form is null) return;
         if (Form.EndDate < Form.StartDate)
         {
-            _error = L["EndDate"] + " < " + L["StartDate"];
+            _error = L["PeriodEndBeforeStart"];
             return;
         }
 
         var address = new Moshtar.Domain.Common.Address { Street = Form.Street, PostalCode = Form.PostalCode, City = Form.City };
-        var line = _entry.Kind == CatalogEntryKind.Item
-            ? new ReservationLineRequest(_entry.Id, null, Form.Quantity)
-            : new ReservationLineRequest(null, _entry.Id, Form.Quantity);
-
         try
         {
             var result = await Reservations.ReserveAsync(new ReservationRequest(
                 new Moshtar.Domain.Common.DateRange(Form.StartDate!.Value, Form.EndDate!.Value),
-                [line],
+                [Line(Form.Quantity)],
                 new ReservationCustomer(Form.FirstName, Form.LastName, Form.Email, Form.Phone, address),
                 Form.DeliveryMethod,
                 address,
@@ -146,7 +229,7 @@
                 ReservationActor.Website);
 
             if (result.Reservation is { } reservation)
-                _confirmation = L["Confirmed", reservation.Number, reservation.TotalPrice.ToString("C", Money)];
+                _confirmation = L["Confirmed", reservation.Number, SiteText.Money(reservation.TotalPrice)];
             else
                 _error = L["NotAvailable", result.Shortages[0].Day.ToString("d", CultureInfo.CurrentUICulture)];
         }
@@ -155,4 +238,17 @@
             _error = ex.Message;
         }
     }
+
+    private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
+
+    private string Dimensions(ItemSpecs specs) =>
+        string.Join(" × ", new[] { specs.LengthCm, specs.WidthCm, specs.HeightCm }.OfType<int>().Select(cm => (cm / 100m).ToString("0.##", CultureInfo.CurrentUICulture))) + " m";
+
+    private string Ages(ItemSpecs specs) => (specs.MinAge, specs.MaxAge) switch
+    {
+        ({ } min, { } max) => $"{min} – {max} {L["Years"]}",
+        ({ } min, null) => $"{min}+ {L["Years"]}",
+        (null, { } max) => $"≤ {max} {L["Years"]}",
+        _ => "",
+    };
 }

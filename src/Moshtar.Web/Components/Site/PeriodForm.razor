@@ -1,0 +1,20 @@
+@inject IStringLocalizer<SharedResource> L
+
+@* "Kies je datum": een gewoon formulier met GET, zodat het zonder JavaScript werkt en de huurperiode in de URL staat. *@
+<form id="@Id" class="period-form" method="get" action="@Action">
+    <label>@L["StartDate"] <input type="date" name="@ChosenPeriod.StartKey" value="@ChosenPeriod.Format(Chosen.Start)" min="@ChosenPeriod.Format(Today)" required /></label>
+    <label>@L["EndDate"] <input type="date" name="@ChosenPeriod.EndKey" value="@ChosenPeriod.Format(Chosen.End)" min="@ChosenPeriod.Format(Today)" /></label>
+    <button type="submit" class="button button-large">@L["ShowAvailable"]</button>
+</form>
+@if (Chosen.Problem is { } problem)
+{
+    <p class="alert error" role="alert">@L[problem]</p>
+}
+
+@code {
+    /// <summary>Waar het formulier naartoe gaat: deze pagina, met het anker van de resultaten.</summary>
+    [Parameter, EditorRequired] public string Action { get; set; } = "";
+    [Parameter, EditorRequired] public ChosenPeriod Chosen { get; set; } = ChosenPeriod.None;
+    [Parameter, EditorRequired] public DateOnly Today { get; set; }
+    [Parameter] public string Id { get; set; } = "datum";
+}
