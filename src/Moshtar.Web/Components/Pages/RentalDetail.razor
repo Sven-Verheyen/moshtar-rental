@@ -51,7 +51,7 @@
         {
             <p>@L["BundleContains"]: @string.Join(", ", _entry.Contents)</p>
         }
-        @if (_entry.Specs is { } specs && (specs.HasDimensions || specs.MinAge is not null || specs.MaxAge is not null || specs.MaxPersons is not null || specs.RequiresPower))
+        @if (_entry.Specs is { } specs)
         {
             <h2>@L["Specs"]</h2>
             <dl class="specs">
@@ -70,11 +70,8 @@
                     <dt>@L["MaxPersons"]</dt>
                     <dd>@persons</dd>
                 }
-                @if (specs.RequiresPower)
-                {
-                    <dt>@L["RequiresPower"]</dt>
-                    <dd>✓</dd>
-                }
+                <dt>@L["RequiresPower"]</dt>
+                <dd>@(specs.RequiresPower ? L["Yes"] : L["No"])</dd>
             </dl>
         }
         <p class="price price-large">
@@ -113,7 +110,7 @@
         {
             <div class="availability free" role="status">
                 <p><strong>@L["AvailableOn", SiteText.Period(period)]</strong></p>
-                <p class="price price-large">@L["Total"]: @SiteText.Money(_entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days)</span></p>
+                <p class="price price-large">@L["Total"]: @SiteText.Money(_entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span></p>
                 <p><a href="@(Here + "#reserveren")">@L["OtherDate"]</a></p>
             </div>
             @if (_error is not null)

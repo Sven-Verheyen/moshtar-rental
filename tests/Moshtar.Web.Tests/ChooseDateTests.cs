@@ -135,6 +135,8 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     [Theory]
     [InlineData(5, 3, "De einddag ligt voor de begindag. Kies een einddag op of na de begindag.")]
     [InlineData(-400, -400, "Die datum ligt in het verleden. Kies een dag vanaf vandaag.")]
+    [InlineData(0, 31, "Je kan hoogstens 31 dagen na elkaar huren. Kies een kortere huurperiode of neem contact met ons op.")]
+    [InlineData(400, 400, "Zo ver vooruit kan je nog niet reserveren. Kies een dag binnen de twee jaar.")]
     public async Task An_impossible_rental_period_gives_a_clear_message(int startOffset, int endOffset, string message)
     {
         await NewTenantAsync("datum-fout");
@@ -188,7 +190,7 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var period = $"{day.ToString("d MMMM", Dutch)} – {day.AddDays(2).ToString("d MMMM yyyy", Dutch)}";
         if (day.Year != day.AddDays(2).Year) period = $"{day.ToString("d MMMM yyyy", Dutch)} – {day.AddDays(2).ToString("d MMMM yyyy", Dutch)}";
         Assert.Contains($"<strong>Vrij op {period}</strong>", html);
-        Assert.Contains("Totaal: € 240,00 <span class=\"muted\">voor 3 dagen</span>", html);
+        Assert.Contains("Totaal: € 240,00 <span class=\"muted\">voor 3 dagen, per stuk</span>", html);
         Assert.True(html.IndexOf("Totaal: € 240,00") < html.IndexOf("name=\"Form.FirstName\""));
         Assert.Contains($"name=\"Form.StartDate\" value=\"{day:yyyy-MM-dd}\"", html);
         Assert.Contains($"name=\"Form.EndDate\" value=\"{day.AddDays(2):yyyy-MM-dd}\"", html);
@@ -196,6 +198,8 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("<dd>5 × 4 × 3,5 m</dd>", html);
         Assert.Contains("<dd>3 – 12 jaar</dd>", html);
         Assert.Contains("<dt>Stroom nodig</dt>", html);
+        Assert.Contains("<dd>Ja</dd>", html);
+        Assert.Contains("<dd>Nee</dd>", await PageAsync("datum-prijs", "/huren/piraat"));
     }
 
     [Fact]

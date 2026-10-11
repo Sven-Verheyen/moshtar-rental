@@ -71,4 +71,9 @@
   <data name="ChooseDateFirst" xml:space="preserve"><value>Pick your date to see right away whether it's available and what it costs.</value></data>
   <data name="BackTo" xml:space="preserve"><value>Back to {0}</value></data>
   <data name="Photo" xml:space="preserve"><value>Photo {0} of {1}</value></data>
+  <data name="PeriodTooFarAhead" xml:space="preserve"><value>You can't reserve that far ahead yet. Please pick a day within two years.</value></data>
+  <data name="PeriodTooLong" xml:space="preserve"><value>You can rent for at most 31 days in a row. Please pick a shorter rental period or contact us.</value></data>
+  <data name="Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="No" xml:space="preserve"><value>No</value></data>
+  <data name="PerPiece" xml:space="preserve"><value>per item</value></data>
 </root>
