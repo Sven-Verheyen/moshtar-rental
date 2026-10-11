@@ -76,4 +76,9 @@
   <data name="Yes" xml:space="preserve"><value>Oui</value></data>
   <data name="No" xml:space="preserve"><value>Non</value></data>
   <data name="PerPiece" xml:space="preserve"><value>par pièce</value></data>
+  <data name="OtherLanguages" xml:space="preserve"><value>Autres langues</value></data>
+  <data name="Address" xml:space="preserve"><value>Adresse</value></data>
+  <data name="OtherItems" xml:space="preserve"><value>Autres articles</value></data>
+  <data name="Bundles" xml:space="preserve"><value>Forfaits</value></data>
+  <data name="VatIncluded" xml:space="preserve"><value>TVA comprise</value></data>
 </root>

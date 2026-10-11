@@ -8,6 +8,7 @@
 @inject IWebsiteTexts Texts
 @inject NavigationManager Navigation
 @inject TimeProvider Clock
+@inject ITenantContext TenantContext
 
 @if (_category is null || _entries is null)
 {
@@ -16,8 +17,9 @@
     return;
 }
 
-<PageTitle>@_category.Name</PageTitle>
-<SiteHead Description="@Description" NoIndex="_chosen.InUrl" />
+<SiteHead Title="@_category.Name" Description="@(_category.Intro.Length > 0 ? _category.Intro : _category.Name)"
+          Image="@_entries.FirstOrDefault(e => e.ImageUrl is not null)?.ImageUrl" NoIndex="_chosen.InUrl"
+          JsonLd="@([Breadcrumbs])" />
 
 <div class="page">
     <p class="back"><a href="@(Links.Href(SiteRoute.Home) + _chosen.Query + "#aanbod")">← @L["Back"]</a></p>
@@ -54,11 +56,11 @@
     private DateOnly _today;
     private IReadOnlySet<Guid> _unavailable = new HashSet<Guid>();
 
-    /// <summary>De eerste zin of zo van de inleiding, anders de naam.</summary>
-    private string Description =>
-        _category!.Intro.Length == 0 ? _category.Name
-        : _category.Intro.Length <= 160 ? _category.Intro.ReplaceLineEndings(" ")
-        : _category.Intro.ReplaceLineEndings(" ")[..157].TrimEnd() + "…";
+    private System.Text.Json.Nodes.JsonObject Breadcrumbs => StructuredData.Breadcrumbs(
+        (Tenant?.Name ?? "", Links.Absolute(SiteRoute.Home, Links.Culture)),
+        (_category!.Name, Links.Absolute(_category.Route, Links.Culture)));
+
+    private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
 
     protected override async Task OnInitializedAsync()
     {

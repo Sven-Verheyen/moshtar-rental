@@ -3,8 +3,7 @@
 @inject ITenantContext TenantContext
 @inject IStringLocalizer<SharedResource> L
 
-<PageTitle>@Tenant?.Name · @L["Contact"]</PageTitle>
-<SiteHead Description="@L["ContactDescription", Tenant?.Name ?? ""]" />
+<SiteHead Title="@L["Contact"]" Description="@L["ContactDescription", Tenant?.Name ?? ""]" />
 
 <div class="page contact">
     <h1>@L["Contact"]</h1>

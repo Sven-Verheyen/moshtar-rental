@@ -9,6 +9,7 @@
 @inject IWebsiteTexts Texts
 @inject NavigationManager Navigation
 @inject TimeProvider Clock
+@inject ITenantContext TenantContext
 
 @if (_entry is null)
 {
@@ -17,8 +18,8 @@
     return;
 }
 
-<PageTitle>@_entry.Name</PageTitle>
-<SiteHead Description="@(_entry.Description ?? _entry.Name)" NoIndex="_chosen.InUrl" />
+<SiteHead Title="@_entry.Name" Description="@(_entry.Description ?? _entry.Name)" Image="@_entry.ImageUrl" OgType="product"
+          NoIndex="_chosen.InUrl" JsonLd="@([StructuredData.Product(_entry, Links), Breadcrumbs])" />
 
 <div class="page">
 <p class="back"><a href="@BackHref">← @BackText</a></p>
@@ -177,6 +178,13 @@
     private string BackHref => _category is null
         ? Links.Href(SiteRoute.Home) + _chosen.Query + "#aanbod"
         : Links.Href(_category.Route) + _chosen.Query + "#aanbod";
+
+    /// <summary>Het kruimelpad: home, de categorie als het artikel er een heeft, en het artikel.</summary>
+    private System.Text.Json.Nodes.JsonObject Breadcrumbs => StructuredData.Breadcrumbs(
+        new[] { (TenantContext.Tenant?.Name ?? "", Links.Absolute(SiteRoute.Home, Links.Culture)) }
+            .Concat(_category is null ? [] : [(_category.Name, Links.Absolute(_category.Route, Links.Culture))])
+            .Append((_entry!.Name, Links.Absolute(new RentalRoute(_entry.Slug), Links.Culture)))
+            .ToArray());
 
     private string BackText => _category is null ? L["Back"] : L["BackTo", _category.Name];
 

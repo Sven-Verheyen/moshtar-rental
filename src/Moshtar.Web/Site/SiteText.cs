@@ -25,4 +25,14 @@ public static class SiteText
 
     /// <summary>De prijs van een bedrag in euro, zoals overal op de reservatiewebsite: "€ 150,00".</summary>
     public static string Money(decimal amount) => amount.ToString("C", CultureInfo.GetCultureInfo("nl-BE"));
+
+    /// <summary>Een tekst als meta-beschrijving: op één regel en hoogstens 160 tekens, anders ingekort op een woord.</summary>
+    public static string Summary(string? text, int maxLength = 160)
+    {
+        var line = string.Join(' ', (text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        if (line.Length <= maxLength) return line;
+        var cut = line[..(maxLength - 1)];
+        var space = cut.LastIndexOf(' ');
+        return (space > maxLength / 2 ? cut[..space] : cut).TrimEnd(',', '.', ';', ':') + "…";
+    }
 }

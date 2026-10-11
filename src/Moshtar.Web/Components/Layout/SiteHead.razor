@@ -1,34 +1,89 @@
 @inject SiteLinks Links
+@inject ITenantContext TenantContext
 
-@* Canonieke URL op het hoofddomein en hreflang-links naar dezelfde pagina in elke taal (ADR 0004).
+@* De titel, de beschrijving en Open Graph voor zoekmachines, sociale media en AI-bots; de canonieke URL op het
+   hoofddomein en hreflang-links naar dezelfde pagina in elke taal (ADR 0004); en de gestructureerde gegevens (JSON-LD).
    Elke pagina die geïndexeerd mag worden zet dit zelf, zodat een 404 (onbestaand artikel) het niet krijgt. *@
-@if (Links.Current is { } route)
+<PageTitle>@FullTitle</PageTitle>
+@if (Links.Current is { } route && TenantContext.Tenant is { } tenant)
 {
+    var canonical = Links.Absolute(route, Links.Culture);
+    var description = SiteText.Summary(Description);
     <HeadContent>
-        @if (Description is { Length: > 0 })
+        @if (description.Length > 0)
         {
-            <meta name="description" content="@Description" />
+            <meta name="description" content="@description" />
         }
         @if (NoIndex)
         {
             <meta name="robots" content="noindex" />
         }
-        <link rel="canonical" href="@Links.Absolute(route, Links.Culture)" />
+        <link rel="canonical" href="@canonical" />
         @foreach (var culture in Links.Cultures)
         {
             <link rel="alternate" hreflang="@culture" href="@Links.Absolute(route, culture)" />
         }
         <link rel="alternate" hreflang="x-default" href="@Links.Absolute(route, Links.DefaultCulture)" />
+        <meta property="og:type" content="@OgType" />
+        <meta property="og:site_name" content="@tenant.Name" />
+        <meta property="og:title" content="@(Title ?? tenant.Name)" />
+        @if (description.Length > 0)
+        {
+            <meta property="og:description" content="@description" />
+        }
+        <meta property="og:url" content="@canonical" />
+        <meta property="og:locale" content="@OgLocale(Links.Culture)" />
+        @if (OgImage(tenant) is { } image)
+        {
+            <meta property="og:image" content="@image" />
+            <meta property="og:image:alt" content="@(Title ?? tenant.Name)" />
+            <meta name="twitter:card" content="summary_large_image" />
+        }
+        @((MarkupString)StructuredData.Script(StructuredData.LocalBusiness(tenant, Links)))
+        @foreach (var data in JsonLd)
+        {
+            @((MarkupString)StructuredData.Script(data))
+        }
     </HeadContent>
 }
 
 @code {
-    /// <summary>Korte beschrijving van de pagina voor zoekresultaten.</summary>
+    /// <summary>De titel van de pagina; de naam van de verhuurder komt erachter, tenzij hij er al in staat.</summary>
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>Korte beschrijving van de pagina voor zoekresultaten; te lang wordt ingekort.</summary>
     [Parameter] public string? Description { get; set; }
+
+    /// <summary>De foto voor sociale media; anders de sfeerfoto of het logo van de verhuurder.</summary>
+    [Parameter] public string? Image { get; set; }
+
+    /// <summary>"website", of "product" voor een artikel of pakket.</summary>
+    [Parameter] public string OgType { get; set; } = "website";
+
+    /// <summary>Gestructureerde gegevens van deze pagina, naast de verhuurder (die staat op elke pagina).</summary>
+    [Parameter] public IReadOnlyList<System.Text.Json.Nodes.JsonObject> JsonLd { get; set; } = [];
 
     /// <summary>
     /// Niet indexeren, bv. met een huurperiode in de URL: elke datum zou anders een eigen pagina in de zoekresultaten
     /// zijn. De canonieke URL wijst dan naar de pagina zonder datum.
     /// </summary>
     [Parameter] public bool NoIndex { get; set; }
+
+    private string? TenantName => TenantContext.Tenant?.Name;
+
+    private string FullTitle =>
+        Title is null ? TenantName ?? ""
+        : TenantName is null || Title.Contains(TenantName, StringComparison.OrdinalIgnoreCase) ? Title
+        : $"{Title} · {TenantName}";
+
+    private string? OgImage(Moshtar.Domain.Tenants.Tenant tenant) =>
+        Image ?? Moshtar.Domain.Tenants.Branding.HeroImageUrl(tenant.HeroImageUrl) ?? Moshtar.Domain.Tenants.Branding.LogoUrl(tenant.LogoUrl);
+
+    /// <summary>Open Graph wil taal en land; de reservatiewebsite is Belgisch, Engels als Brits Engels.</summary>
+    private static string OgLocale(string culture) => culture switch
+    {
+        "fr" => "fr_BE",
+        "en" => "en_GB",
+        _ => "nl_BE",
+    };
 }
