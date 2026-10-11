@@ -238,6 +238,11 @@ internal sealed class ReservationService(
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
         if (request.Period.Start < today)
             throw new ArgumentException("De huurperiode mag niet in het verleden liggen.");
+        // Ook hier, en niet alleen op de reservatiewebsite: een formulier kan andere datums posten dan het toonde.
+        if (RentalPeriodLimits.IsTooLong(request.Period))
+            throw new ArgumentException($"Een huurperiode is hoogstens {RentalPeriodLimits.MaxDays} dagen.");
+        if (RentalPeriodLimits.IsTooFarAhead(request.Period.Start, today))
+            throw new ArgumentException($"Je kan hoogstens {RentalPeriodLimits.MaxYearsAhead} jaar vooruit reserveren.");
         if (string.IsNullOrWhiteSpace(request.Customer.Email))
             throw new ArgumentException("E-mailadres is verplicht.");
     }
