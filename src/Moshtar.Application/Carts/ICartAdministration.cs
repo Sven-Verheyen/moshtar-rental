@@ -11,7 +11,8 @@ public interface ICartAdministration
 
 /// <summary>
 /// Een open winkelkar zoals de verhuurder hem ziet. <see cref="Email"/> is null zolang de klant de eerste stap van
-/// het reserveren niet deed.
+/// het reserveren niet deed. <see cref="ReminderFailed"/>: de herinneringsmail kon niet vertrekken en wordt niet
+/// opnieuw geprobeerd.
 /// </summary>
 public record OpenCartView(
     string? Email,
@@ -19,7 +20,8 @@ public record OpenCartView(
     IReadOnlyList<OpenCartLine> Lines,
     decimal Total,
     DateTime UpdatedAtUtc,
-    DateTime? ReminderSentAtUtc);
+    DateTime? ReminderSentAtUtc,
+    bool ReminderFailed);
 
-/// <summary>Een lijn met de Nederlandse naam; <see cref="Name"/> is null als het artikel of pakket niet meer bestaat.</summary>
+/// <summary>Een lijn met de Nederlandse naam; <see cref="Name"/> is null als het artikel of pakket niet meer bestaat of niet meer op de website staat.</summary>
 public record OpenCartLine(string? Name, int Quantity);

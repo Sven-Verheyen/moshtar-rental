@@ -50,11 +50,12 @@ public class Cart : TenantEntity
 
     /// <summary>
     /// De sleutel in de link van de herinneringsmail, anders dan die in de cookie: wie de mail ziet, kent zo niet
-    /// meteen de sleutel waarmee de klant zijn winkelkar wijzigt. Pas gemaakt als de herinnering vertrekt.
+    /// meteen de sleutel waarmee de klant zijn winkelkar wijzigt. Gemaakt net voor de herinnering vertrekt; staat ze er
+    /// zonder <see cref="ReminderSentAtUtc"/>, dan mislukte de mail en komt er geen nieuwe poging.
     /// </summary>
     public string? ReminderKey { get; set; }
 
-    /// <summary>Wanneer de herinnering vertrok; er komt er maar één per winkelkar.</summary>
+    /// <summary>Wanneer de herinnering echt vertrok; er komt er maar één per winkelkar.</summary>
     public DateTime? ReminderSentAtUtc { get; set; }
 
     /// <summary>Het aantal stuks in de winkelkar, voor het icoon in de kop.</summary>
@@ -117,7 +118,7 @@ public class Cart : TenantEntity
     /// zijn winkelkar 24 uur niet wijzigde. Of er nog iets vrij is, beslist wie de mail stuurt.
     /// </summary>
     public bool IsReminderDue(DateTime nowUtc) =>
-        WantsReminder && Email is not null && ReservedAtUtc is null && ReminderSentAtUtc is null
+        WantsReminder && Email is not null && ReservedAtUtc is null && ReminderKey is null
         && UpdatedAtUtc <= nowUtc - ReminderAfter && !IsExpired(nowUtc);
 
     /// <summary>Niet gereserveerd en 7 dagen niet gewijzigd: de winkelkar mag weg, met het e-mailadres.</summary>

@@ -134,7 +134,7 @@ public sealed class CartReminderTests(MoshtarApp app) : IClassFixture<MoshtarApp
         var client = app.CreateClient($"{tenant}.test");
         var prefix = cartPath.StartsWith("/fr/") ? "/fr/louer" : "/huren";
         var added = await AddAsync(client, $"{prefix}/prinses?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}");
-        Assert.EndsWith("winkelkar=toegevoegd#reserveren", added.Headers.Location!.OriginalString);
+        Assert.EndsWith("winkelkar=toegevoegd&aantal=1#reserveren", added.Headers.Location!.OriginalString);
         await IdentifyAsync(client, email, reminder: reminder, cartPath: cartPath);
         return client;
     }

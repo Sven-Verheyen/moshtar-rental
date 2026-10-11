@@ -22,7 +22,7 @@ internal sealed class CartHousekeeping(
 
         var dueBefore = nowUtc - Cart.ReminderAfter;
         var due = await db.Carts.AsNoTracking()
-            .Where(c => c.WantsReminder && c.Email != null && c.ReservedAtUtc == null && c.ReminderSentAtUtc == null && c.UpdatedAtUtc <= dueBefore)
+            .Where(c => c.WantsReminder && c.Email != null && c.ReservedAtUtc == null && c.ReminderKey == null && c.UpdatedAtUtc <= dueBefore)
             .ToListAsync(ct);
         if (due.Count == 0) return new CartHousekeepingResult(0, deleted);
 
@@ -43,12 +43,13 @@ internal sealed class CartHousekeeping(
             if (await carts.GetAsync(cart.Key, language, ct) is not { } view || !view.Lines.Any(l => l.Entry is not null && l.Available))
                 continue;
 
-            // Eerst de winkelkar opeisen, dan mailen: zo vertrekt er nooit een tweede herinnering, ook niet als het
-            // onderhoud twee keer tegelijk loopt. Liever één gemiste herinnering dan twee.
+            // Eerst de winkelkar opeisen met de sleutel, dan mailen: zo vertrekt er nooit een tweede herinnering, ook
+            // niet als het onderhoud twee keer tegelijk loopt of de mail mislukt. Liever één gemiste herinnering dan twee.
+            // ReminderSentAtUtc komt pas als de mail echt vertrok, zodat het back office geen mislukte toont als verstuurd.
             var reminderKey = CartService.NewKey();
             var claimed = await db.Carts
-                .Where(c => c.Id == cart.Id && c.ReminderSentAtUtc == null && c.ReservedAtUtc == null)
-                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ReminderSentAtUtc, nowUtc).SetProperty(c => c.ReminderKey, reminderKey), ct);
+                .Where(c => c.Id == cart.Id && c.ReminderKey == null && c.ReservedAtUtc == null)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.ReminderKey, reminderKey), ct);
             if (claimed == 0) continue;
 
             try
@@ -59,6 +60,8 @@ internal sealed class CartHousekeeping(
                 var link = $"https://{host}{CartReminderPath.For(reminderKey)}";
                 await mailer.SendAsync(CartReminder.Create(view, language, tenant, template, link), CancellationToken.None);
                 sent++;
+                await db.Carts.Where(c => c.Id == cart.Id)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.ReminderSentAtUtc, nowUtc), CancellationToken.None);
             }
             catch (Exception e)
             {

@@ -28,7 +28,8 @@ internal sealed class CartAdministration(AppDbContext db, ICatalogService catalo
                 lines.Select(x => new OpenCartLine(x.Entry?.Name, x.Line.Quantity)).ToList(),
                 lines.Sum(x => (x.Entry?.PriceFor(days) ?? 0) * x.Line.Quantity),
                 c.UpdatedAtUtc,
-                c.ReminderSentAtUtc);
+                c.ReminderSentAtUtc,
+                c.ReminderKey is not null && c.ReminderSentAtUtc is null);
         }).ToList();
     }
 }
