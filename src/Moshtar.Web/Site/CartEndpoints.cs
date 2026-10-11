@@ -30,6 +30,12 @@ public static class CartEndpoints
     public const string Added = "toegevoegd";
     public const string NotAdded = "niet-vrij";
 
+    /// <summary>De querystring-sleutel met het aantal dat net in de winkelkar ging, voor Google Analytics.</summary>
+    public const string AddedQuantityKey = "aantal";
+
+    /// <summary>De waarde van <see cref="StepKey"/> net na stap 1: de klant begint aan zijn gegevens.</summary>
+    public const string DetailsStep = "gegevens";
+
     /// <summary>De querystring-sleutel waarmee de winkelkarpagina een ongeldige datum meldt.</summary>
     public const string ProblemKey = "fout";
 
@@ -50,10 +56,12 @@ public static class CartEndpoints
             if (!valid || Entry(form) is not { } entry || period is null)
                 return Results.Redirect(terug);
 
-            var change = await carts.AddAsync(Key(context), entry, Math.Max(1, Quantity(form, fallback: 1)), period.Value, context.RequestAborted);
+            var quantity = Math.Max(1, Quantity(form, fallback: 1));
+            var change = await carts.AddAsync(Key(context), entry, quantity, period.Value, context.RequestAborted);
             Remember(context, change);
             var separator = terug.Contains('?') ? '&' : '?';
-            return Results.Redirect($"{terug}{separator}{ResultKey}={(change.Succeeded ? Added : NotAdded)}#reserveren");
+            var result = change.Succeeded ? $"{Added}&{AddedQuantityKey}={quantity}" : NotAdded;
+            return Results.Redirect($"{terug}{separator}{ResultKey}={result}#reserveren");
         }).DisableAntiforgery();
 
         app.MapPost(QuantityPath, async (HttpContext context, IAntiforgery antiforgery, ICartService carts) =>
@@ -89,7 +97,7 @@ public static class CartEndpoints
             var culture = SiteLanguage.Cultures.Contains(form["taal"].ToString()) ? form["taal"].ToString() : "nl";
             Remember(context, await carts.IdentifyAsync(Key(context), email, culture,
                 wantsReminder: form["herinnering"] == Checked, wantsNews: form["nieuws"] == Checked, context.RequestAborted));
-            return Results.Redirect(terug + "#reserveren");
+            return Results.Redirect($"{terug}{(terug.Contains('?') ? '&' : '?')}{StepKey}={DetailsStep}#reserveren");
         }).DisableAntiforgery();
 
         // De link in de herinneringsmail: opent de winkelkar, ook op een toestel zonder cookie, in de taal van de klant.

@@ -43,7 +43,7 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
         var response = await AddAsync(client, "/huren/prinses" + query, quantity: 1);
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.Equal($"/huren/prinses{query}&winkelkar=toegevoegd#reserveren", response.Headers.Location!.OriginalString);
+        Assert.Equal($"/huren/prinses{query}&winkelkar=toegevoegd&aantal=1#reserveren", response.Headers.Location!.OriginalString);
         var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"), c => c.StartsWith("moshtar-winkelkar="));
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("max-age=604800", cookie, StringComparison.OrdinalIgnoreCase);
@@ -247,7 +247,7 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("Stap 1 van 2", before);
         Assert.DoesNotContain("name=\"Form.FirstName\"", before);
         var step1 = await IdentifyAsync(client, "Sara@Example.test");
-        Assert.Equal("/winkelkar#reserveren", step1.Headers.Location!.OriginalString);
+        Assert.Equal("/winkelkar?stap=gegevens#reserveren", step1.Headers.Location!.OriginalString);
         var step2 = await PageAsync(client, "/winkelkar");
         Assert.Contains("Stap 2 van 2", step2);
         Assert.Contains("<strong>sara@example.test</strong>", step2);

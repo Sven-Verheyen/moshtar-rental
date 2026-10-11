@@ -114,6 +114,7 @@
             </div>
             @if (CartResult == CartEndpoints.Added)
             {
+                <AnalyticsEvent Name="add_to_cart" Data="@AddedToCart(period)" />
                 <div class="alert success cart-added" role="status">
                     <p>@L["AddedToCart"]</p>
                     <a class="button" href="@Links.Href(SiteRoute.Cart)">@L["ToCart"]</a>
@@ -144,6 +145,7 @@
     [SupplyParameterFromQuery(Name = ChosenPeriod.StartKey)] private string? Start { get; set; }
     [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
     [SupplyParameterFromQuery(Name = CartEndpoints.ResultKey)] private string? CartResult { get; set; }
+    [SupplyParameterFromQuery(Name = CartEndpoints.AddedQuantityKey)] private int? AddedQuantity { get; set; }
 
     private CatalogEntry? _entry;
     private CategoryLink? _category;
@@ -202,6 +204,14 @@
         ["days"] = period.Days,
         ["available"] = _available,
     };
+
+    /// <summary>Voor Google Analytics: wat net in de winkelkar ging, aan de prijs voor de huurperiode. Geen persoonsgegevens.</summary>
+    private System.Text.Json.Nodes.JsonObject AddedToCart(Moshtar.Domain.Common.DateRange period)
+    {
+        var quantity = Math.Clamp(AddedQuantity ?? 1, 1, Cart.MaxQuantity);
+        var price = _entry!.PriceFor(period.Days);
+        return AnalyticsItems.Event(price * quantity, [AnalyticsItems.Item(_entry.Slug, _entry.Name, quantity, price)]);
+    }
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
 

@@ -30,6 +30,14 @@
     else
     {
         var period = _cart.Period;
+        @if (Step == CartEndpoints.DetailsStep && _cart.Email is not null)
+        {
+            <AnalyticsEvent Name="begin_checkout" Data="@CartEvent(_cart)" />
+        }
+        else if (HttpMethods.IsGet(HttpContext?.Request.Method ?? ""))
+        {
+            <AnalyticsEvent Name="view_cart" Data="@CartEvent(_cart)" />
+        }
         <section class="cart-period" aria-labelledby="huurperiode">
             <h2 id="huurperiode">@L["CartPeriod", SiteText.Period(period)]</h2>
             @if (period.Start < _today)
@@ -229,22 +237,20 @@
     /// De bevestigde reservatie als GA4-aankoop: het reservatienummer, het totaal in euro en elke lijn. Geen naam,
     /// e-mailadres of andere gegevens van de klant.
     /// </summary>
-    private System.Text.Json.Nodes.JsonObject Purchase(Reservation reservation) => new()
+    private System.Text.Json.Nodes.JsonObject Purchase(Reservation reservation)
     {
-        ["transaction_id"] = reservation.Number,
-        ["value"] = reservation.TotalPrice,
-        ["currency"] = "EUR",
-        ["items"] = new System.Text.Json.Nodes.JsonArray(reservation.Lines.Select(l =>
+        var data = AnalyticsItems.Event(reservation.TotalPrice, reservation.Lines.Select(l =>
         {
             var entry = _cart?.Lines.FirstOrDefault(c => c.Ref == new CatalogRef(l.RentalItemId, l.BundleId))?.Entry;
-            return (System.Text.Json.Nodes.JsonNode)new System.Text.Json.Nodes.JsonObject
-            {
-                ["item_id"] = entry?.Slug ?? l.Description,
-                ["item_name"] = entry?.Name ?? l.Description,
-                ["quantity"] = l.Quantity,
-            };
-        }).ToArray()),
-    };
+            return AnalyticsItems.Item(entry?.Slug ?? l.Description, entry?.Name ?? l.Description, l.Quantity, l.UnitPrice);
+        }));
+        data.Insert(0, "transaction_id", reservation.Number);
+        return data;
+    }
+
+    /// <summary>De winkelkar voor GA4 (<c>view_cart</c>, <c>begin_checkout</c>): wat nog te reserveren is, zonder klantgegevens.</summary>
+    private static System.Text.Json.Nodes.JsonObject CartEvent(CartView cart) => AnalyticsItems.Event(cart.Total,
+        cart.Lines.Where(l => l.Entry is not null).Select(l => AnalyticsItems.Item(l.Entry!.Slug, l.Entry.Name, l.Quantity, l.UnitPrice)));
 
     private static string Kind(CatalogRef entry) => entry.RentalItemId is null ? CartEndpoints.Bundle : CartEndpoints.Item;
     private static Guid Id(CatalogRef entry) => entry.RentalItemId ?? entry.BundleId!.Value;

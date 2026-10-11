@@ -134,10 +134,54 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
             $"\"start_date\":\"{day:yyyy-MM-dd}\",\"end_date\":\"{day.AddDays(1):yyyy-MM-dd}\",\"days\":2,\"available\":true}});</script>", form);
         var purchase = System.Text.RegularExpressions.Regex.Match(confirmed, "<script>gtag\\('event',\"purchase\",(.*?)\\);</script>");
         Assert.True(purchase.Success, "De bevestigde reservatie wordt gemeten.");
-        Assert.Matches("^\\{\"transaction_id\":\"[^\"]+\",\"value\":200.00,\"currency\":\"EUR\",\"items\":\\[\\{\"item_id\":\"kasteel\",\"item_name\":\"Kasteel\",\"quantity\":1\\}\\]\\}$", purchase.Groups[1].Value);
+        Assert.Matches("^\\{\"transaction_id\":\"[^\"]+\",\"value\":200.00,\"currency\":\"EUR\",\"items\":\\[\\{\"item_id\":\"kasteel\",\"item_name\":\"Kasteel\",\"quantity\":1,\"price\":200.00\\}\\]\\}$", purchase.Groups[1].Value);
         foreach (var personal in new[] { "Greta", "Klant", "greta@example", "470 00", "Meetstraat" })
             Assert.DoesNotContain(personal, string.Join("", System.Text.RegularExpressions.Regex.Matches(confirmed, "<script>gtag.*?</script>").Select(m => m.Value)));
     }
+
+    [Fact]
+    public async Task With_consent_adding_to_the_cart_viewing_it_and_starting_to_reserve_are_measured_without_personal_data()
+    {
+        await NewTenantAsync("ga-winkelkar", "G-TEST12345");
+        var client = app.CreateClient("ga-winkelkar.test");
+        await ChooseAsync(client, "ja", "/");
+        var day = TestReservations.FutureDay(42);
+
+        var added = await WebsiteCart.AddAsync(client, $"/huren/kasteel?van={day:yyyy-MM-dd}&tot={day.AddDays(1):yyyy-MM-dd}");
+        var item = await client.GetStringAsync(added.Headers.Location!.OriginalString);
+        var cart = await client.GetStringAsync("/winkelkar");
+        var step1 = await WebsiteCart.IdentifyAsync(client, "wim@example.test", news: true);
+        var step2 = await client.GetStringAsync(step1.Headers.Location!.OriginalString);
+
+        // 2 dagen kasteel aan 100 per dag.
+        const string items = "\"currency\":\"EUR\",\"items\":[{\"item_id\":\"kasteel\",\"item_name\":\"Kasteel\",\"quantity\":1,\"price\":200";
+        Assert.Contains(items, Event(item, "add_to_cart"));
+        Assert.Contains(items, Event(cart, "view_cart"));
+        Assert.Contains(items, Event(step2, "begin_checkout"));
+        Assert.Null(Event(step2, "view_cart"));
+        Assert.DoesNotContain("wim@", Event(step2, "begin_checkout"));
+    }
+
+    [Fact]
+    public async Task Without_consent_the_cart_is_not_measured()
+    {
+        await NewTenantAsync("ga-winkelkar-nee", "G-TEST12345");
+        var client = app.CreateClient("ga-winkelkar-nee.test");
+        var day = TestReservations.FutureDay(43);
+
+        var added = await WebsiteCart.AddAsync(client, $"/huren/kasteel?van={day:yyyy-MM-dd}");
+        var item = await client.GetStringAsync(added.Headers.Location!.OriginalString);
+        var cart = await client.GetStringAsync("/winkelkar");
+
+        Assert.DoesNotContain("gtag(", item);
+        Assert.DoesNotContain("gtag(", cart);
+    }
+
+    /// <summary>De gegevens van een GA4-gebeurtenis op de pagina, of null als ze er niet is.</summary>
+    private static string? Event(string html, string name) =>
+        System.Text.RegularExpressions.Regex.Match(html, $"<script>gtag\\('event',\"{name}\",(.*?)\\);</script>") is { Success: true } m
+            ? m.Groups[1].Value
+            : null;
 
     [Fact]
     public async Task Without_consent_no_events_are_measured()
