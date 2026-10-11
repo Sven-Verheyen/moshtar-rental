@@ -139,6 +139,19 @@ internal sealed class CartService(
         return new CartReservationResult(reservation, new HashSet<Guid>(), null);
     }
 
+    public async Task<CartReminderTarget?> FindByReminderKeyAsync(string reminderKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrEmpty(reminderKey)) return null;
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        return await db.Carts.AsNoTracking()
+            .Where(c => c.ReminderKey == reminderKey && c.ReservedAtUtc == null)
+            .Select(c => new CartReminderTarget(c.Key, c.Culture))
+            .FirstOrDefaultAsync(ct);
+    }
+
+    /// <summary>Een nieuwe, niet te raden sleutel, voor de cookie of de link in de herinneringsmail.</summary>
+    internal static string NewKey() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+
     private async Task<Cart?> FindAsync(string? key, CancellationToken ct)
     {
         if (string.IsNullOrEmpty(key)) return null;
@@ -171,7 +184,5 @@ internal sealed class CartService(
     private static CartLine Copy(CartLine l) => new() { RentalItemId = l.RentalItemId, BundleId = l.BundleId, Quantity = l.Quantity };
 
     /// <summary>32 willekeurige bytes, URL-veilig: niet te raden, ook niet door iemand die andere sleutels kent.</summary>
-    private static string NewKey() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
-
     private static string Base64UrlEncode(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 }

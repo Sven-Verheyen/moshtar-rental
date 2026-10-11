@@ -12,6 +12,7 @@ public sealed record MailTemplateText(string Subject, string Body);
 public enum MailKind
 {
     ReservationConfirmation,
+    CartReminder,
 }
 
 /// <summary>
@@ -31,6 +32,9 @@ public sealed partial class MailKindDefinition(
     public string Name { get; } = name;
     public IReadOnlyList<string> Placeholders { get; } = placeholders;
     public IReadOnlyList<string> Blocks { get; } = blocks;
+
+    /// <summary>Moet deze plaatshouder in de tekst staan?</summary>
+    public bool IsRequired(string placeholder) => requiredInBody.Contains(placeholder);
 
     /// <summary>De standaardtekst van Moshtar in deze taal, of in het Nederlands als de taal onbekend is.</summary>
     public MailTemplateText Standard(string culture) =>
@@ -70,6 +74,17 @@ public sealed partial class MailKindDefinition(
 public static class MailKinds
 {
     public const string ReservationDetails = "reservationDetails";
+    public const string CartContents = "cartContents";
+    public const string CartLink = "cartLink";
+
+    /// <summary>Wat een blokplaatshouder invoegt, voor de beheerder.</summary>
+    public static string Describe(string block) => block switch
+    {
+        ReservationDetails => "voegt het vaste overzicht van de reservatie in",
+        CartContents => "voegt de huurperiode en wat in de winkelkar zit in",
+        CartLink => "voegt de link in die de winkelkar opent, ook op een ander toestel",
+        _ => "voegt een vast blok in",
+    };
 
     public static readonly MailKindDefinition ReservationConfirmation = new(
         MailKind.ReservationConfirmation,
@@ -120,7 +135,62 @@ public static class MailKinds
                 """),
         });
 
-    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation];
+    public static readonly MailKindDefinition CartReminder = new(
+        MailKind.CartReminder,
+        "Herinnering winkelkar",
+        placeholders: ["rentalPeriod", "companyName", "contactEmail", "phone", CartContents, CartLink],
+        requiredInBody: [CartLink],
+        blocks: [CartContents, CartLink],
+        standardByCulture: new Dictionary<string, MailTemplateText>
+        {
+            ["nl"] = new(
+                "Je winkelkar bij {companyName} staat nog klaar",
+                """
+                Hallo,
+
+                Je legde iets in je winkelkar bij {companyName}, maar je reservatie is nog niet afgerond.
+
+                {cartContents}
+
+                {cartLink}
+
+                Je winkelkar houdt niets voor je vast: pas als je reserveert, ben je zeker. Vragen? Antwoord gewoon op deze mail.
+
+                {companyName}
+                """),
+            ["fr"] = new(
+                "Votre panier chez {companyName} vous attend",
+                """
+                Bonjour,
+
+                Vous avez ajouté quelque chose à votre panier chez {companyName}, mais votre réservation n'est pas encore finalisée.
+
+                {cartContents}
+
+                {cartLink}
+
+                Votre panier ne bloque rien pour vous : vous n'êtes sûr qu'une fois la réservation faite. Une question ? Répondez simplement à cet e-mail.
+
+                {companyName}
+                """),
+            ["en"] = new(
+                "Your cart at {companyName} is still waiting",
+                """
+                Hello,
+
+                You put something in your cart at {companyName}, but you have not finished your reservation yet.
+
+                {cartContents}
+
+                {cartLink}
+
+                Your cart does not hold anything for you: only a reservation makes it sure. Questions? Simply reply to this email.
+
+                {companyName}
+                """),
+        });
+
+    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation, CartReminder];
 
     public static MailKindDefinition For(MailKind kind) => All.Single(d => d.Kind == kind);
 }

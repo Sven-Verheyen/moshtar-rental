@@ -1,8 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using Moshtar.Application.Carts;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Mail;
 using Moshtar.Infrastructure.Persistence;
+using Moshtar.Infrastructure.Carts;
 using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Mail;
@@ -53,28 +55,33 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
     }
 
     public Task<MailMessage> PreviewAsync(MailKind kind, string culture, MailTemplateText text, CancellationToken ct = default) =>
-        Task.FromResult(Preview(kind, culture, text, to: ""));
+        PreviewAsync(kind, culture, text, to: "", ct);
 
     public async Task SendTestAsync(MailKind kind, string culture, MailTemplateText text, Guid userId, CancellationToken ct = default)
     {
         var email = await db.Users.Where(u => u.Id == userId).Select(u => u.Email).SingleOrDefaultAsync(ct)
             ?? throw new InvalidOperationException("Geen e-mailadres gekend voor deze gebruiker.");
-        var mail = Preview(kind, culture, text, email);
+        var mail = await PreviewAsync(kind, culture, text, email, ct);
         await mailer.SendAsync(mail with { Subject = $"[Testmail] {mail.Subject}" }, ct);
     }
 
     public Task ResetAsync(MailKind kind, string culture, CancellationToken ct = default) =>
         db.MailTemplateCustomizations.Where(t => t.Kind == kind && t.Culture == culture).ExecuteDeleteAsync(ct);
 
-    private MailMessage Preview(MailKind kind, string culture, MailTemplateText text, string to)
+    private async Task<MailMessage> PreviewAsync(MailKind kind, string culture, MailTemplateText text, string to, CancellationToken ct)
     {
         text = Checked(MailKinds.For(kind), culture, text);
-        var example = kind switch
+        var host = await db.TenantHosts.AsNoTracking().Where(h => h.TenantId == Tenant.Id)
+            .OrderByDescending(h => h.IsPrimary).Select(h => h.Hostname).FirstOrDefaultAsync(ct);
+        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        var mail = kind switch
         {
-            MailKind.ReservationConfirmation => ReservationConfirmation.Example(culture, DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime)),
+            MailKind.ReservationConfirmation => ReservationConfirmation.Create(ReservationConfirmation.Example(culture, today), Tenant, text),
+            MailKind.CartReminder => CartReminder.Create(CartReminder.Example(culture, today), CartReminder.LanguageOf(culture, Tenant), Tenant, text,
+                $"https://{host ?? "www.example.com"}{CartReminderPath.For("voorbeeld")}"),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
-        return ReservationConfirmation.Create(example, Tenant, text) with { To = to };
+        return mail with { To = to };
     }
 
     /// <summary>De tekst zoals hij bewaard en verstuurd wordt, of een <see cref="MailTemplateException"/> met wat er mis is.</summary>

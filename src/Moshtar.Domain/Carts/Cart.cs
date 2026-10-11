@@ -11,6 +11,12 @@ public class Cart : TenantEntity
     /// <summary>Hoeveel exemplaren van één artikel of pakket een klant hoogstens in zijn winkelkar legt.</summary>
     public const int MaxQuantity = 20;
 
+    /// <summary>Zo lang na de laatste wijziging krijgt een klant die erom vroeg zijn herinnering.</summary>
+    public static readonly TimeSpan ReminderAfter = TimeSpan.FromHours(24);
+
+    /// <summary>Een winkelkar die zo lang niet gewijzigd en niet gereserveerd werd, verdwijnt.</summary>
+    public static readonly TimeSpan Lifetime = TimeSpan.FromDays(7);
+
     /// <summary>De willekeurige, niet te raden sleutel in de cookie van de klant.</summary>
     public string Key { get; set; } = "";
 
@@ -41,6 +47,15 @@ public class Cart : TenantEntity
     public DateTime? ReservedAtUtc { get; set; }
 
     public Guid? ReservationId { get; set; }
+
+    /// <summary>
+    /// De sleutel in de link van de herinneringsmail, anders dan die in de cookie: wie de mail ziet, kent zo niet
+    /// meteen de sleutel waarmee de klant zijn winkelkar wijzigt. Pas gemaakt als de herinnering vertrekt.
+    /// </summary>
+    public string? ReminderKey { get; set; }
+
+    /// <summary>Wanneer de herinnering vertrok; er komt er maar één per winkelkar.</summary>
+    public DateTime? ReminderSentAtUtc { get; set; }
 
     /// <summary>Het aantal stuks in de winkelkar, voor het icoon in de kop.</summary>
     public int Count => Lines.Sum(l => l.Quantity);
@@ -96,6 +111,17 @@ public class Cart : TenantEntity
         ReservedAtUtc = atUtc;
         UpdatedAtUtc = atUtc;
     }
+
+    /// <summary>
+    /// Krijgt de klant nu zijn herinnering? Alleen als hij erom vroeg, nog niet reserveerde, er nog geen kreeg en
+    /// zijn winkelkar 24 uur niet wijzigde. Of er nog iets vrij is, beslist wie de mail stuurt.
+    /// </summary>
+    public bool IsReminderDue(DateTime nowUtc) =>
+        WantsReminder && Email is not null && ReservedAtUtc is null && ReminderSentAtUtc is null
+        && UpdatedAtUtc <= nowUtc - ReminderAfter && !IsExpired(nowUtc);
+
+    /// <summary>Niet gereserveerd en 7 dagen niet gewijzigd: de winkelkar mag weg, met het e-mailadres.</summary>
+    public bool IsExpired(DateTime nowUtc) => ReservedAtUtc is null && UpdatedAtUtc <= nowUtc - Lifetime;
 
     /// <summary>Een andere huurperiode voor alles in de winkelkar.</summary>
     public void ChangePeriod(DateRange period, DateTime atUtc)

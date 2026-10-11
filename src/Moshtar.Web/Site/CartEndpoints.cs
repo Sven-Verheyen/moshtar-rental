@@ -33,8 +33,6 @@ public static class CartEndpoints
     /// <summary>De querystring-sleutel waarmee de winkelkarpagina een ongeldige datum meldt.</summary>
     public const string ProblemKey = "fout";
 
-    /// <summary>Een winkelkar die 7 dagen niet gewijzigd wordt, verdwijnt; de cookie ook.</summary>
-    private static readonly TimeSpan Lifetime = TimeSpan.FromDays(7);
 
     public const string Item = "artikel";
     public const string Bundle = "pakket";
@@ -93,6 +91,16 @@ public static class CartEndpoints
                 wantsReminder: form["herinnering"] == Checked, wantsNews: form["nieuws"] == Checked, context.RequestAborted));
             return Results.Redirect(terug + "#reserveren");
         }).DisableAntiforgery();
+
+        // De link in de herinneringsmail: opent de winkelkar, ook op een toestel zonder cookie, in de taal van de klant.
+        app.MapGet(CartReminderPath.Route, async (string key, HttpContext context, ICartService carts, SiteLinks links) =>
+        {
+            var target = await carts.FindByReminderKeyAsync(key, context.RequestAborted);
+            if (target is not null)
+                Remember(context, new CartChange(target.Key, true));
+            var culture = target?.Culture is { } c && SiteLanguage.Cultures.Contains(c) ? c : links.Culture;
+            return Results.Redirect(links.Href(SiteRoute.Cart, culture));
+        });
         return app;
     }
 
@@ -142,6 +150,7 @@ public static class CartEndpoints
         IsEssential = true,
         SameSite = SameSiteMode.Lax,
         Secure = context.Request.IsHttps,
-        MaxAge = Lifetime,
+        // Een winkelkar die 7 dagen niet gewijzigd wordt, verdwijnt; de cookie ook.
+        MaxAge = Cart.Lifetime,
     };
 }

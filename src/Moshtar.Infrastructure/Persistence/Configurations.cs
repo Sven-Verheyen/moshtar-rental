@@ -201,7 +201,9 @@ internal class CartConfiguration : IEntityTypeConfiguration<Cart>
         b.Property(c => c.Key).HasMaxLength(64);
         b.Property(c => c.Email).HasMaxLength(320);
         b.Property(c => c.Culture).HasMaxLength(10);
+        b.Property(c => c.ReminderKey).HasMaxLength(64);
         b.HasIndex(c => c.Key).IsUnique();
+        b.HasIndex(c => c.ReminderKey).IsUnique();
         b.HasIndex(c => c.UpdatedAtUtc);
         b.Ignore(c => c.Period);
         b.Ignore(c => c.Count);
