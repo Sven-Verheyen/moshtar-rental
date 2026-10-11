@@ -94,6 +94,10 @@ _Avoid_: marge, wachttijd
 De tekst en het onderwerp van een soort mail die een verhuurder aan zijn klanten stuurt, per taal, met plaatshouders voor de gegevens van de reservatie. Zolang de verhuurder niets aanpast, geldt de standaardtekst van Moshtar.
 _Avoid_: template, e-mailtekst, mailtemplate
 
+**Websitetekst** (`WebsiteText`):
+Een tekst van de reservatiewebsite die een verhuurder per taal kan aanpassen: titel en ondertitel van de home, naam, slug en inleiding van een categorie, en de veelgestelde vragen. Zolang de verhuurder niets aanpast, geldt de standaardtekst van Moshtar, met zijn naam en werkgebied ingevuld.
+_Avoid_: content, pagina-inhoud, copy
+
 **Huisstijl** (`Branding`):
 Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto zijn adressen van afbeeldingen op de eigen website van de verhuurder.
 _Avoid_: branding, thema, look

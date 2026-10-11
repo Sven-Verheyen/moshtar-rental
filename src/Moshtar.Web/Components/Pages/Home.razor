@@ -3,9 +3,10 @@
 @inject ITenantContext TenantContext
 @inject IStringLocalizer<SharedResource> L
 @inject SiteLinks Links
+@inject IWebsiteTexts Texts
 
 <PageTitle>@Tenant?.Name · @L["Catalog"]</PageTitle>
-<SiteHead Description="@L["HeroSubtitle"]" />
+<SiteHead Description="@_texts?.HomeSubtitle.Value" />
 
 <section class="hero @(HeroImage is null ? "hero-plain" : null)">
     @if (HeroImage is not null)
@@ -13,8 +14,8 @@
         <img class="hero-image" src="@HeroImage" alt="" fetchpriority="high" width="1600" height="900" />
     }
     <div class="hero-content">
-        <h1>@Tenant?.Name</h1>
-        <p>@L["HeroSubtitle"]</p>
+        <h1>@_texts?.HomeTitle.Value</h1>
+        <p>@_texts?.HomeSubtitle.Value</p>
         <a class="button button-large" href="#aanbod">@L["ChooseDate"]</a>
     </div>
 </section>
@@ -61,10 +62,14 @@
 @code {
     private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
     private IReadOnlyList<CatalogEntry>? _entries;
+    private WebsiteTexts? _texts;
 
     private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
     private string? HeroImage => Moshtar.Domain.Tenants.Branding.HeroImageUrl(Tenant?.HeroImageUrl);
 
-    protected override async Task OnInitializedAsync() =>
-        _entries = await Catalog.GetCatalogAsync(CultureInfo.CurrentUICulture.TwoLetterISOLanguageName);
+    protected override async Task OnInitializedAsync()
+    {
+        _texts = await Texts.GetAsync(Links.Culture);
+        _entries = await Catalog.GetCatalogAsync(Links.Culture);
+    }
 }

@@ -1,0 +1,13 @@
+@* Of een websitetekst aangepast is, met een knop om terug te gaan naar de standaardtekst. *@
+<MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
+    <MudText Typo="Typo.caption">@(Text.IsCustomized ? "Aangepast." : "Standaardtekst van Moshtar.")</MudText>
+    @if (Text.IsCustomized)
+    {
+        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="OnReset">Terug naar standaard</MudButton>
+    }
+</MudStack>
+
+@code {
+    [Parameter, EditorRequired] public WebsiteText Text { get; set; } = default!;
+    [Parameter] public EventCallback OnReset { get; set; }
+}

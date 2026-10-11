@@ -5,6 +5,7 @@ using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
+using Moshtar.Domain.Website;
 using Moshtar.Infrastructure.Identity;
 
 namespace Moshtar.Infrastructure.Persistence;
@@ -174,5 +175,19 @@ internal class UserConfiguration : IEntityTypeConfiguration<User>
         b.HasIndex(u => u.NormalizedUserName).HasDatabaseName("UserNameIndex").IsUnique(false);
         b.HasIndex(u => new { u.TenantId, u.NormalizedUserName }).IsUnique();
         b.HasIndex(u => new { u.TenantId, u.NormalizedEmail }).IsUnique();
+    }
+}
+
+internal class WebsiteTextCustomizationConfiguration : IEntityTypeConfiguration<WebsiteTextCustomization>
+{
+    public void Configure(EntityTypeBuilder<WebsiteTextCustomization> b)
+    {
+        b.Property(t => t.Key).HasConversion<string>().HasMaxLength(40);
+        b.Property(t => t.Culture).HasMaxLength(10);
+        // Eén aanpassing per tekst, taal en categorie; NULLS NOT DISTINCT zodat dat ook geldt voor teksten zonder categorie.
+        b.HasIndex(t => new { t.TenantId, t.Culture, t.Key, t.CategoryId }).IsUnique().AreNullsDistinct(false);
+        b.HasOne<Category>().WithMany().HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.Cascade);
+        // Gebruikers worden uitgeschakeld, nooit verwijderd.
+        b.HasOne<User>().WithMany().HasForeignKey(t => t.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }

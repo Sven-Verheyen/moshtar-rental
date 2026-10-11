@@ -36,7 +36,6 @@
   <data name="RequiresPower" xml:space="preserve"><value>Électricité nécessaire</value></data>
   <data name="Years" xml:space="preserve"><value>ans</value></data>
   <data name="ChooseDate" xml:space="preserve"><value>Choisissez votre date</value></data>
-  <data name="HeroSubtitle" xml:space="preserve"><value>Louez des châteaux gonflables et des jeux pour votre fête, réservation en ligne.</value></data>
   <data name="SkipToContent" xml:space="preserve"><value>Aller au contenu</value></data>
   <data name="MainMenu" xml:space="preserve"><value>Menu principal</value></data>
   <data name="ChooseLanguage" xml:space="preserve"><value>Choisir la langue</value></data>
@@ -49,4 +48,7 @@
   <data name="ServiceAreaTitle" xml:space="preserve"><value>Nous livrons à</value></data>
   <data name="ContactIntro" xml:space="preserve"><value>Une question sur une réservation ou une fête ? N'hésitez pas à nous contacter.</value></data>
   <data name="ContactDescription" xml:space="preserve"><value>Les coordonnées et la zone de livraison de {0}.</value></data>
+  <data name="Faq" xml:space="preserve"><value>Questions fréquentes</value></data>
+  <data name="FaqDescription" xml:space="preserve"><value>Réponses aux questions fréquentes sur la location chez {0}.</value></data>
+  <data name="FaqShort" xml:space="preserve"><value>FAQ</value></data>
 </root>

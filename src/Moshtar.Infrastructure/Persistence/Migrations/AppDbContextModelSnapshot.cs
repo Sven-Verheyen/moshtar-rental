@@ -544,6 +544,54 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("TenantHosts");
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Website.WebsiteTextCustomization", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Culture")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("TenantId", "Culture", "Key", "CategoryId")
+                        .IsUnique();
+
+                    NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("TenantId", "Culture", "Key", "CategoryId"), false);
+
+                    b.ToTable("WebsiteTextCustomizations");
+                });
+
             modelBuilder.Entity("Moshtar.Infrastructure.Identity.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1031,6 +1079,20 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .WithMany("Hosts")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Website.WebsiteTextCustomization", b =>
+                {
+                    b.HasOne("Moshtar.Domain.Catalog.Category", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Moshtar.Infrastructure.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

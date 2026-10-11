@@ -1,0 +1,14 @@
+@* Wat er mis is met wat de beheerder invulde, zoals de beheerservice het meldt. *@
+@if (Items is { Count: > 0 })
+{
+    <MudAlert Severity="Severity.Error" Class="mt-3">
+        @foreach (var problem in Items)
+        {
+            <div>@problem</div>
+        }
+    </MudAlert>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<string>? Items { get; set; }
+}
