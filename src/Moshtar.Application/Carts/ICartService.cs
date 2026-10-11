@@ -37,7 +37,15 @@ public interface ICartService
     /// bevestigd als de voorraad het toelaat, één bevestigingsmail). Daarna is de winkelkar afgesloten.
     /// </summary>
     Task<CartReservationResult> ReserveAsync(string? key, CartCustomerDetails details, CancellationToken ct = default);
+
+    /// <summary>
+    /// De winkelkar achter de link in de herinneringsmail: zijn sleutel voor de cookie en de taal van de klant,
+    /// of null als hij intussen gereserveerd of gewist is.
+    /// </summary>
+    Task<CartReminderTarget?> FindByReminderKeyAsync(string reminderKey, CancellationToken ct = default);
 }
+
+public record CartReminderTarget(string Key, string? Culture);
 
 /// <summary>De gegevens van stap 2; het e-mailadres staat al op de winkelkar.</summary>
 public record CartCustomerDetails(

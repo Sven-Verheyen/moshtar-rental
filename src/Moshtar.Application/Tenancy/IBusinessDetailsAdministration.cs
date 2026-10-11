@@ -18,6 +18,8 @@ public sealed record BusinessDetailsSettings
     public string? GoogleAnalyticsId { get; init; }
     /// <summary>De gemeenten van het werkgebied.</summary>
     public IReadOnlyList<string> ServiceArea { get; init; } = [];
+    /// <summary>Kunnen klanten zelf afhalen, of levert de verhuurder altijd?</summary>
+    public bool OffersPickup { get; init; }
 }
 
 /// <summary>Een ingevuld veld is niet geldig; <see cref="Problems"/> zegt wat er mis is.</summary>

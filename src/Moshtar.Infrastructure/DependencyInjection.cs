@@ -42,6 +42,7 @@ public static class DependencyInjection
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<ICartService, CartService>();
+        services.AddScoped<ICartHousekeeping, CartHousekeeping>();
 
         var mail = configuration.GetSection("Mail");
         services.Configure<MailOptions>(mail);

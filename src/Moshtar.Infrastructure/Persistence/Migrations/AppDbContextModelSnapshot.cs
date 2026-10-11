@@ -112,6 +112,13 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 
+                    b.Property<string>("ReminderKey")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("ReminderSentAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid?>("ReservationId")
                         .HasColumnType("uuid");
 
@@ -136,6 +143,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.HasIndex("ReminderKey")
                         .IsUnique();
 
                     b.HasIndex("TenantId");
@@ -522,6 +532,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("OffersPickup")
+                        .HasColumnType("boolean");
 
                     b.Property<string>("PostalCode")
                         .HasMaxLength(20)

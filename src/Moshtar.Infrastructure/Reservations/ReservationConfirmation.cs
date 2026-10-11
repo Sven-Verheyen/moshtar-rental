@@ -112,35 +112,14 @@ internal static class ReservationConfirmation
             .Append($"<p>{E(delivery)}</p>");
         if (!string.IsNullOrWhiteSpace(reservation.Notes)) detailsHtml.Append($"<p><strong>{E(t.Notes)}:</strong> {E(reservation.Notes)}</p>");
 
-        // Elke alinea van het sjabloon wordt een <p>; {reservationDetails} wordt het vaste blok, ook midden in een alinea.
-        var text = new List<string>();
-        var html = new StringBuilder(MailHeader.Html(tenant));
-        foreach (var paragraph in Paragraphs(template.Body))
-        {
-            var parts = paragraph.Split($"{{{MailKinds.ReservationDetails}}}");
-            for (var i = 0; i < parts.Length; i++)
-            {
-                if (i > 0)
-                {
-                    text.Add(detailsText.ToString());
-                    html.Append(detailsHtml);
-                }
-                var (partHtml, partText) = MailFormatting.Render(parts[i].Trim(), name => values.GetValueOrDefault(name));
-                if (partText.Trim().Length == 0) continue;
-                text.Add(partText.Trim());
-                html.Append($"<p>{partHtml.Trim()}</p>");
-            }
-        }
+        var (html, text) = MailBody.Compose(tenant, template.Body, name => values.GetValueOrDefault(name),
+            new Dictionary<string, MailBlock> { [MailKinds.ReservationDetails] = new(detailsHtml.ToString(), detailsText.ToString()) });
 
-        return new MailMessage(customer.Email, Fill(template.Subject), html.ToString(),
-            string.Join(Environment.NewLine + Environment.NewLine, text));
+        return new MailMessage(customer.Email, Fill(template.Subject), html, text);
 
         string Date(DateOnly d) => d.ToString("d MMMM yyyy", culture);
         string Money(decimal amount) => amount.ToString("C", culture);
     }
-
-    private static IEnumerable<string> Paragraphs(string body) =>
-        body.ReplaceLineEndings("\n").Split("\n\n").Select(p => p.Trim()).Where(p => p.Length > 0);
 
     private static string E(string value) => WebUtility.HtmlEncode(value);
 }

@@ -62,7 +62,7 @@
                             </div>
                             @foreach (var block in kind.Blocks)
                             {
-                                <MudText Typo="Typo.body2" Class="mt-1">{@block} voegt het vaste overzicht van de reservatie in en moet in de tekst staan.</MudText>
+                                <MudText Typo="Typo.body2" Class="mt-1">{@block} @MailKinds.Describe(block)@(kind.IsRequired(block) ? " en moet in de tekst staan" : "").</MudText>
                             }
                             @if (_problems.GetValueOrDefault((kind.Kind, version.Culture)) is { Count: > 0 } problems)
                             {
@@ -82,7 +82,7 @@
                             @if (_previews.GetValueOrDefault((kind.Kind, version.Culture)) is { } preview)
                             {
                                 <MudPaper Outlined="true" Class="pa-4 mt-4">
-                                    <MudText Typo="Typo.overline">Voorbeeld met een fictieve reservatie</MudText>
+                                    <MudText Typo="Typo.overline">Voorbeeld met fictieve gegevens</MudText>
                                     <MudText Typo="Typo.subtitle1" Class="mb-2"><strong>@preview.Subject</strong></MudText>
                                     <MudDivider Class="mb-2" />
                                     @* De HTML komt uit de mailopbouw, waar alle tekst ge-escaped wordt (ADR 0003). *@
