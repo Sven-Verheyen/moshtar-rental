@@ -15,6 +15,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens en het werkgebied, in te stellen op
   `/admin/bedrijfsgegevens`. Titel en ondertitel van de home, de categorieteksten en de veelgestelde vragen
   (`/veelgestelde-vragen`) past de beheerder aan op `/admin/websiteteksten`; anders gelden de standaardteksten van Moshtar.
+  Met een GA4-meet-ID (op `/admin/bedrijfsgegevens`) vraagt een toestemmingsbalk of Google Analytics mag; het script
+  laadt pas na "Accepteren" en meet dan ook gecontroleerde beschikbaarheid en bevestigde reservaties, zonder
+  persoonsgegevens. De keuze staat in de cookie `moshtar-analytics` (`POST /toestemming`, wijzigen via "Cookie-instellingen"
+  in de footer). Elke verhuurder heeft een privacyverklaring per taal (`/privacy`, `/fr/confidentialite`, `/en/privacy`).
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat. De klant krijgt dan een bevestigingsmail in
   zijn taal (NL, FR of EN), ook als de reservatie in het back office ingevoerd werd.
 - **Back office** (`/admin`): reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie

@@ -81,4 +81,21 @@
   <data name="OtherItems" xml:space="preserve"><value>Other items</value></data>
   <data name="Bundles" xml:space="preserve"><value>Packages</value></data>
   <data name="VatIncluded" xml:space="preserve"><value>VAT included</value></data>
+  <data name="Privacy" xml:space="preserve"><value>Privacy</value></data>
+  <data name="PrivacyTitle" xml:space="preserve"><value>Privacy and cookies</value></data>
+  <data name="PrivacyDescription" xml:space="preserve"><value>How {0} handles your data and cookies, and what your rights are.</value></data>
+  <data name="PrivacyIntro" xml:space="preserve"><value>{0} handles your data with care. Here you can read which data we keep, why, and what your rights are.</value></data>
+  <data name="PrivacyWhoTitle" xml:space="preserve"><value>Who we are</value></data>
+  <data name="PrivacyReservationTitle" xml:space="preserve"><value>Your reservation</value></data>
+  <data name="PrivacyReservationText" xml:space="preserve"><value>When you make a reservation, we ask for your name, email address, phone number, address and any notes. We only use them to carry out your reservation: to confirm it, to deliver or arrange the pickup and to contact you about your reservation. We only share them with the service providers we need for this, such as for sending emails, and never for their own purposes. We do not keep them longer than necessary, or as long as the law requires.</value></data>
+  <data name="PrivacyCookiesTitle" xml:space="preserve"><value>Cookies</value></data>
+  <data name="PrivacyCookiesText" xml:space="preserve"><value>This website uses cookies that it needs to work, for example to send the reservation form securely and to remember your choice about statistics. They do not require consent.</value></data>
+  <data name="PrivacyAnalyticsText" xml:space="preserve"><value>With your consent, we use Google Analytics to see how visitors use the website, for example which items are popular and how many reservations come in through the website. Google places cookies for this and processes your IP address and data about your device and your visit. We never send your name, email address or other contact details to Google. Without your consent, we do not load Google Analytics. We keep your choice for six months; you can always change it via ‘Cookie settings’ at the bottom of every page.</value></data>
+  <data name="PrivacyRightsTitle" xml:space="preserve"><value>Your rights</value></data>
+  <data name="PrivacyRightsText" xml:space="preserve"><value>You can always view, correct or have your data deleted, and object to its use. To do so, get in touch with us:</value></data>
+  <data name="PrivacyComplaint" xml:space="preserve"><value>If you are not happy with how we handle your data, you can file a complaint with the Belgian Data Protection Authority (dataprotectionauthority.be).</value></data>
+  <data name="ConsentText" xml:space="preserve"><value>May we use Google Analytics to see how you use this website? It helps us improve it. We never pass on your name or contact details.</value></data>
+  <data name="Accept" xml:space="preserve"><value>Accept</value></data>
+  <data name="Decline" xml:space="preserve"><value>Decline</value></data>
+  <data name="CookieSettings" xml:space="preserve"><value>Cookie settings</value></data>
 </root>

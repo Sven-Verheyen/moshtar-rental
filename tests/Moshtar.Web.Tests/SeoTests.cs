@@ -172,13 +172,13 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var urls = xml.Root!.Elements(sitemaps + "url").ToList();
         var locs = urls.Select(u => u.Element(sitemaps + "loc")!.Value).ToList();
         // Home, één categorie met artikelen (spellen heeft er geen), drie artikelen, een pakket, vragen en contact: 8 pagina's in 3 talen.
-        Assert.Equal(24, locs.Count);
+        Assert.Equal(27, locs.Count);
         Assert.Equal(locs.Count, locs.Distinct().Count());
         foreach (var loc in new[]
         {
             "https://seo-sitemap.test/", "https://seo-sitemap.test/fr", "https://seo-sitemap.test/springkastelen",
             "https://seo-sitemap.test/en/bouncy-castles", "https://seo-sitemap.test/fr/louer/piraat", "https://seo-sitemap.test/huren/feest",
-            "https://seo-sitemap.test/en/faq", "https://seo-sitemap.test/contact",
+            "https://seo-sitemap.test/en/faq", "https://seo-sitemap.test/contact", "https://seo-sitemap.test/fr/confidentialite",
         })
             Assert.Contains(loc, locs);
         Assert.DoesNotContain("https://seo-sitemap.test/spellen", locs);

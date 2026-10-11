@@ -442,6 +442,10 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<string>("GoogleAnalyticsId")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
                     b.Property<string>("GoogleBusinessUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");

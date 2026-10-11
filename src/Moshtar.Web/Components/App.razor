@@ -22,6 +22,12 @@
         <link rel="icon" href="@(Moshtar.Domain.Tenants.Branding.LogoUrl(TenantContext.Tenant?.LogoUrl) ?? "data:,")" />
         @* Kleur uit de huisstijl; Branding laat alleen een hexcode door, dus hier kan niets anders in de CSS komen. *@
         <style>:root { --brand: @Brand; --on-brand: @Moshtar.Domain.Tenants.Branding.TextColorOn(Brand); }</style>
+        @* Google Analytics pas na "Accepteren" in de toestemmingsbalk. Het meet-ID is gevalideerd (G- met letters en cijfers). *@
+        @if (AnalyticsConsent.Allowed(HttpContext, TenantContext.Tenant) && AnalyticsConsent.MeasurementId(TenantContext.Tenant) is { } measurementId)
+        {
+            <script async src="https://www.googletagmanager.com/gtag/js?id=@measurementId"></script>
+            @((MarkupString)$"<script>window.dataLayer=window.dataLayer||[];function gtag(){{dataLayer.push(arguments);}}gtag('js',new Date());gtag('config','{measurementId}');</script>")
+        }
     }
     <HeadOutlet />
 </head>

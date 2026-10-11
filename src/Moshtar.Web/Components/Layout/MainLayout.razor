@@ -78,11 +78,35 @@
         {
             <p><a href="@google" rel="noopener" target="_blank">@L["GoogleReviews"]</a></p>
         }
-        <p class="muted">© @DateTime.Today.Year @Tenant?.Name</p>
+        <p class="muted">
+            <span>© @DateTime.Today.Year @Tenant?.Name</span>
+            <a href="@Links.Href(SiteRoute.Privacy)" aria-current="@(Links.Current is PrivacyRoute ? "page" : null)">@L["Privacy"]</a>
+            @if (AnalyticsConsent.MeasurementId(Tenant) is not null && HttpContext is not null)
+            {
+                <a href="@AnalyticsConsent.ChangePath?terug=@Uri.EscapeDataString(AnalyticsConsent.ReturnUrl(HttpContext))" rel="nofollow">@L["CookieSettings"]</a>
+            }
+        </p>
     </div>
 </footer>
 
+@* De toestemmingsbalk voor Google Analytics: een gewoon formulier, zonder JavaScript. Hij plakt onderaan het scherm en
+   schuift aan het einde van de pagina onder de footer, zodat hij niets definitief bedekt. *@
+@if (AnalyticsConsent.MustAsk(HttpContext, Tenant))
+{
+    <form class="consent" method="post" action="@AnalyticsConsent.ChoosePath" aria-label="@L["CookieSettings"]">
+        <p>@L["ConsentText"] <a href="@Links.Href(SiteRoute.Privacy)">@L["Privacy"]</a></p>
+        <AntiforgeryToken />
+        <input type="hidden" name="terug" value="@AnalyticsConsent.ReturnUrl(HttpContext!)" />
+        <div class="consent-choices">
+            <button class="button" type="submit" name="keuze" value="ja">@L["Accept"]</button>
+            <button class="button" type="submit" name="keuze" value="nee">@L["Decline"]</button>
+        </div>
+    </form>
+}
+
 @code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
     private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
     private string? PostalCodeAndCity => $"{Tenant?.PostalCode} {Tenant?.City}".Trim();
 

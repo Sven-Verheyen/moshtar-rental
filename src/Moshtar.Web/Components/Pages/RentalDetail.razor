@@ -90,6 +90,10 @@
         @if (_confirmation is not null)
         {
             <p class="alert success" role="status">@_confirmation</p>
+            @if (_confirmed is { } confirmed)
+            {
+                <AnalyticsEvent Name="purchase" Data="@Purchase(confirmed)" />
+            }
         }
         else if (_chosen.Period is not { } period)
         {
@@ -98,6 +102,7 @@
         }
         else if (!_available)
         {
+            <AnalyticsEvent Name="check_availability" Data="@AvailabilityChecked(period)" />
             <div class="availability busy" role="status">
                 <p><strong>@L["NotAvailableOn", SiteText.Period(period)]</strong></p>
                 <p>@L["NotAvailableExplanation"]</p>
@@ -109,6 +114,7 @@
         }
         else
         {
+            <AnalyticsEvent Name="check_availability" Data="@AvailabilityChecked(period)" />
             <div class="availability free" role="status">
                 <p><strong>@L["AvailableOn", SiteText.Period(period)]</strong></p>
                 <p class="price price-large">@L["Total"]: @SiteText.Money(_entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span></p>
@@ -167,6 +173,7 @@
     private DateOnly _today;
     private bool _available;
     private string? _confirmation;
+    private (string Number, decimal Total, int Quantity)? _confirmed;
     private string? _error;
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
@@ -234,7 +241,10 @@
                 ReservationActor.Website);
 
             if (result.Reservation is { } reservation)
+            {
                 _confirmation = L["Confirmed", reservation.Number, SiteText.Money(reservation.TotalPrice)];
+                _confirmed = (reservation.Number, reservation.TotalPrice, Form.Quantity);
+            }
             else
                 _error = L["NotAvailable", result.Shortages[0].Day.ToString("d", CultureInfo.CurrentUICulture)];
         }
@@ -243,6 +253,34 @@
             _error = ex.Message;
         }
     }
+
+    /// <summary>Voor Google Analytics: welk artikel voor welke periode, en of het vrij was. Geen persoonsgegevens.</summary>
+    private System.Text.Json.Nodes.JsonObject AvailabilityChecked(Moshtar.Domain.Common.DateRange period) => new()
+    {
+        ["item_id"] = _entry!.Slug,
+        ["item_name"] = _entry.Name,
+        ["start_date"] = ChosenPeriod.Format(period.Start),
+        ["end_date"] = ChosenPeriod.Format(period.End),
+        ["days"] = period.Days,
+        ["available"] = _available,
+    };
+
+    /// <summary>
+    /// De bevestigde reservatie als GA4-aankoop: het reservatienummer, het totaal in euro en het artikel. Geen naam,
+    /// e-mailadres of andere gegevens van de klant.
+    /// </summary>
+    private System.Text.Json.Nodes.JsonObject Purchase((string Number, decimal Total, int Quantity) confirmed) => new()
+    {
+        ["transaction_id"] = confirmed.Number,
+        ["value"] = confirmed.Total,
+        ["currency"] = "EUR",
+        ["items"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
+        {
+            ["item_id"] = _entry!.Slug,
+            ["item_name"] = _entry.Name,
+            ["quantity"] = confirmed.Quantity,
+        }),
+    };
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
 

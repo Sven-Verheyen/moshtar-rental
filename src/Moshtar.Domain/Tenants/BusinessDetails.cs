@@ -61,12 +61,28 @@ public static partial class BusinessDetails
         return problems;
     }
 
+    /// <summary>
+    /// Het GA4-meet-ID van de verhuurder, in hoofdletters ("G-ABC123XYZ"), of null als het leeg of ongeldig is.
+    /// Het komt letterlijk in het Google-script, dus alleen G- met letters en cijfers.
+    /// </summary>
+    public static string? GoogleAnalyticsId(string? id) =>
+        id?.Trim().ToUpperInvariant() is { } upper && MeasurementId().IsMatch(upper) ? upper : null;
+
+    /// <summary>Wat er mis is met een ingevuld meet-ID, of null als het leeg of goed is.</summary>
+    public static string? GoogleAnalyticsProblem(string? id) =>
+        Filled(id) && GoogleAnalyticsId(id) is null
+            ? "Het meet-ID van Google Analytics begint met G- gevolgd door letters en cijfers, bv. G-ABC123XYZ."
+            : null;
+
     private static bool Filled(string? value) => !string.IsNullOrWhiteSpace(value);
 
     private static string Dialable(string phone) => NotDialable().Replace(phone, "");
 
     [GeneratedRegex("[\\s./()-]")]
     private static partial Regex NotDialable();
+
+    [GeneratedRegex("^G-[A-Z0-9]{4,20}$")]
+    private static partial Regex MeasurementId();
 
     [GeneratedRegex("^\\+[1-9][0-9]{7,14}$")]
     private static partial Regex InternationalNumber();

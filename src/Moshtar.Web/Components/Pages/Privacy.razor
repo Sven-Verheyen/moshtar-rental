@@ -1,0 +1,58 @@
+@* "privacy" in het Nederlands en Engels, "confidentialite" in het Frans (ADR 0004). *@
+@page "/privacy"
+@page "/confidentialite"
+@using Moshtar.Domain.Tenants
+@inject ITenantContext TenantContext
+@inject SiteLinks Links
+@inject IStringLocalizer<SharedResource> L
+
+<SiteHead Title="@L["PrivacyTitle"]" Description="@L["PrivacyDescription", Tenant?.Name ?? ""]" />
+
+@* Een standaardverklaring met de gegevens van de verhuurder; Google Analytics staat er alleen in als hij het gebruikt. *@
+<div class="page privacy">
+    <h1>@L["PrivacyTitle"]</h1>
+    <p class="lead">@L["PrivacyIntro", Tenant?.Name ?? ""]</p>
+
+    <h2>@L["PrivacyWhoTitle"]</h2>
+    <address class="contact-address">
+        <strong>@Tenant?.Name</strong>
+        @if (Tenant?.Street is { } street)
+        {
+            <span>@street</span>
+        }
+        @if (PostalCodeAndCity.Length > 0)
+        {
+            <span>@PostalCodeAndCity</span>
+        }
+        @if (BusinessDetails.Email(Tenant?.ContactEmail) is { } email)
+        {
+            <a href="mailto:@email">@email</a>
+        }
+        @if (Tenant?.VatNumber is { } vat)
+        {
+            <span>@L["VatNumber"] @vat</span>
+        }
+    </address>
+
+    <h2>@L["PrivacyReservationTitle"]</h2>
+    <p>@L["PrivacyReservationText"]</p>
+
+    <h2>@L["PrivacyCookiesTitle"]</h2>
+    <p>@L["PrivacyCookiesText"]</p>
+
+    @if (AnalyticsConsent.MeasurementId(Tenant) is not null)
+    {
+        <h2 id="google-analytics">Google Analytics</h2>
+        <p>@L["PrivacyAnalyticsText"]</p>
+        <p><a class="button" href="@AnalyticsConsent.ChangePath?terug=@Uri.EscapeDataString(Links.Href(SiteRoute.Privacy))" rel="nofollow">@L["CookieSettings"]</a></p>
+    }
+
+    <h2>@L["PrivacyRightsTitle"]</h2>
+    <p>@L["PrivacyRightsText"] <a href="@Links.Href(SiteRoute.Contact)">@L["Contact"]</a></p>
+    <p>@L["PrivacyComplaint"]</p>
+</div>
+
+@code {
+    private Tenant? Tenant => TenantContext.Tenant;
+    private string PostalCodeAndCity => $"{Tenant?.PostalCode} {Tenant?.City}".Trim();
+}

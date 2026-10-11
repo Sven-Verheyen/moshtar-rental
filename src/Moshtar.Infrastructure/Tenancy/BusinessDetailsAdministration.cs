@@ -16,6 +16,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
             Street = t.Street, PostalCode = t.PostalCode, City = t.City,
             Email = t.ContactEmail, Phone = t.ContactPhone, WhatsAppPhone = t.WhatsAppPhone, VatNumber = t.VatNumber,
             FacebookUrl = t.FacebookUrl, InstagramUrl = t.InstagramUrl, TikTokUrl = t.TikTokUrl, GoogleBusinessUrl = t.GoogleBusinessUrl,
+            GoogleAnalyticsId = t.GoogleAnalyticsId,
             ServiceArea = t.ServiceArea,
         };
     }
@@ -23,7 +24,9 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
     public async Task SaveAsync(BusinessDetailsSettings s, CancellationToken ct = default)
     {
         var problems = BusinessDetails.Problems(s.Email, s.Phone, s.WhatsAppPhone, s.FacebookUrl, s.InstagramUrl, s.TikTokUrl, s.GoogleBusinessUrl)
-            .Concat(TooLong(s)).ToList();
+            .Concat(TooLong(s))
+            .Concat(BusinessDetails.GoogleAnalyticsProblem(s.GoogleAnalyticsId) is { } analytics ? [analytics] : [])
+            .ToList();
         if (problems.Count > 0)
             throw new BusinessDetailsException(problems);
 
@@ -49,6 +52,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
         tenant.InstagramUrl = BusinessDetails.Link(s.InstagramUrl);
         tenant.TikTokUrl = BusinessDetails.Link(s.TikTokUrl);
         tenant.GoogleBusinessUrl = BusinessDetails.Link(s.GoogleBusinessUrl);
+        tenant.GoogleAnalyticsId = BusinessDetails.GoogleAnalyticsId(s.GoogleAnalyticsId);
         tenant.ServiceArea = BusinessDetails.ServiceArea(string.Join('\n', s.ServiceArea)).ToList();
     }
 

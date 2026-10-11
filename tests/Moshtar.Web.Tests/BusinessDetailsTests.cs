@@ -68,6 +68,25 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
     }
 
     [Fact]
+    public async Task The_google_analytics_measurement_id_is_optional_cleaned_and_validated()
+    {
+        await app.CreateTenantAsync("gegevens-analytics", "gegevens-analytics.test");
+        await using var scope = await app.TenantScopeAsync("gegevens-analytics");
+        var admin = Admin(scope);
+
+        await admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", GoogleAnalyticsId = " g-abc123xyz " });
+        Assert.Equal("G-ABC123XYZ", (await admin.GetAsync()).GoogleAnalyticsId);
+
+        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() =>
+            admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", GoogleAnalyticsId = "UA-12345-1" }));
+        Assert.Equal(["Het meet-ID van Google Analytics begint met G- gevolgd door letters en cijfers, bv. G-ABC123XYZ."], refused.Problems);
+        Assert.Equal("G-ABC123XYZ", (await admin.GetAsync()).GoogleAnalyticsId);
+
+        await admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", GoogleAnalyticsId = " " });
+        Assert.Null((await admin.GetAsync()).GoogleAnalyticsId);
+    }
+
+    [Fact]
     public async Task The_contact_page_shows_a_postal_code_without_a_street()
     {
         await app.CreateTenantAsync("gegevens-postcode", "gegevens-postcode.test");
