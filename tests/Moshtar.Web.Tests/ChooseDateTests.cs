@@ -265,6 +265,38 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Equal(ReservationStatus.Confirmed, reservation.Status);
     }
 
+    [Fact]
+    public async Task A_posted_rental_period_beyond_the_limits_is_refused_before_any_availability_is_calculated()
+    {
+        await NewTenantAsync("datum-post");
+        var client = app.CreateClient("datum-post.test");
+        var day = TestReservations.FutureDay(80);
+        var path = $"/huren/prinses?van={day:yyyy-MM-dd}";
+
+        var form = await client.GetStringAsync(path);
+        var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["_handler"] = "reservation",
+            ["__RequestVerificationToken"] = BackOffice.Field(form, "__RequestVerificationToken"),
+            ["Form.StartDate"] = day.ToString("yyyy-MM-dd"),
+            ["Form.EndDate"] = "9999-12-31",
+            ["Form.Quantity"] = "1",
+            ["Form.FirstName"] = "Max",
+            ["Form.LastName"] = "Lang",
+            ["Form.Email"] = "max@example.test",
+            ["Form.Street"] = "Kerkstraat 1",
+            ["Form.PostalCode"] = "2000",
+            ["Form.City"] = "Antwerpen",
+            ["Form.DeliveryMethod"] = "Pickup",
+        }));
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        response.EnsureSuccessStatusCode();
+        Assert.Contains("Een huurperiode is hoogstens 31 dagen.", html);
+        await using var scope = await app.TenantScopeAsync("datum-post");
+        Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.AnyAsync(r => r.Customer!.Email == "max@example.test"));
+    }
+
     private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl");
 
     private sealed record TestTenant(Guid Castles, Guid Pirate, Guid Mill);

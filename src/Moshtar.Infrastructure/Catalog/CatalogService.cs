@@ -17,6 +17,7 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
         var bundles = await db.Bundles.AsNoTracking().Where(b => b.IsActive).ToListAsync(ct);
         // De naam van een categorie kan de verhuurder aanpassen bij de websiteteksten.
         var categoryNames = (await websiteTexts.GetAsync(culture, ct)).Categories.ToDictionary(c => c.CategoryId, c => c.Name.Value);
+        var itemsById = items.ToDictionary(i => i.Id);
         var itemNames = items.ToDictionary(i => i.Id, i => i.Translations.For(culture, fallback)?.Name ?? i.Slug);
 
         var entries = items
@@ -28,14 +29,20 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
                     i.CategoryId, i.CategoryId is { } categoryId ? categoryNames.GetValueOrDefault(categoryId) : null,
                     i.Pricing.DayPrice, i.Pricing.ExtraDayPrice,
                     i.Images.OrderBy(x => x.SortOrder).Select(x => x.Url).ToList(), [],
-                    new ItemSpecs(i.LengthCm, i.WidthCm, i.HeightCm, i.MinAge, i.MaxAge, i.MaxPersons, i.RequiresPower));
+                    new ItemSpecs(i.LengthCm, i.WidthCm, i.HeightCm, i.MinAge, i.MaxAge, i.MaxPersons, i.RequiresPower),
+                    InStock: i.Stock > 0);
             })
             .Concat(bundles.Select(b =>
             {
                 var t = b.Translations.For(culture, fallback);
                 var contents = b.Items.Select(x => $"{x.Quantity} × {itemNames.GetValueOrDefault(x.RentalItemId, "?")}").ToList();
+                // Een pakket heeft geen eigen foto's: dan die van de artikelen erin. Het is te huren als elk artikel
+                // erin actief is en genoeg exemplaren heeft.
+                var images = b.Items.SelectMany(x => itemsById.TryGetValue(x.RentalItemId, out var item)
+                    ? item.Images.OrderBy(image => image.SortOrder).Select(image => image.Url) : []).ToList();
+                var inStock = b.Items.All(x => itemsById.TryGetValue(x.RentalItemId, out var item) && item.Stock >= x.Quantity);
                 return new CatalogEntry(b.Id, CatalogEntryKind.Bundle, b.Slug, t?.Name ?? b.Slug, t?.Description,
-                    null, null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, [], contents);
+                    null, null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, images, contents, InStock: inStock);
             }));
         return entries.ToList();
     }

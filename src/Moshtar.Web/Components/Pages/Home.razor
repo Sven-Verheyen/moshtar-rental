@@ -7,8 +7,7 @@
 @inject IWebsiteTexts Texts
 @inject TimeProvider Clock
 
-<PageTitle>@Tenant?.Name · @L["Catalog"]</PageTitle>
-<SiteHead Description="@_texts?.HomeSubtitle.Value" NoIndex="_chosen.InUrl" />
+<SiteHead Title="@_texts?.HomeTitle.Value" Description="@_texts?.HomeSubtitle.Value" NoIndex="_chosen.InUrl" />
 
 <section class="hero @(HeroImage is null ? "hero-plain" : null)">
     @if (HeroImage is not null)

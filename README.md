@@ -8,6 +8,8 @@ aan andere verhuurbedrijven aangeboden te worden.
 - **Reservatiewebsite** (`/`): de klant kiest eerst zijn huurperiode ("Kies je datum", `?van=…&tot=…` in de URL) en
   ziet dan wat vrij is, op de home en op de pagina van elke categorie (`/springkastelen`, slug per taal). De pagina van
   een artikel of pakket toont beschikbaarheid en totaalprijs voor die huurperiode, en pas dan het reservatieformulier.
+  Voor zoekmachines en AI-bots heeft elke pagina titel, beschrijving, Open Graph en JSON-LD (LocalBusiness, Product,
+  FAQPage, BreadcrumbList), en elke verhuurder een eigen `/robots.txt`, `/sitemap.xml` en `/llms.txt`.
   Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (logo, kleur en sfeerfoto, in te stellen op
   `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
   De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens en het werkgebied, in te stellen op

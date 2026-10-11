@@ -68,7 +68,8 @@ public sealed class SiteTemplateTests(MoshtarApp app) : IClassFixture<MoshtarApp
         var html = await (await app.CreateClient(MoshtarApp.HopsakeeHost).GetAsync(path)).Content.ReadAsStringAsync();
 
         Assert.DoesNotContain("MudBlazor", html);
-        Assert.DoesNotContain("<script", html);
+        // Alleen gestructureerde gegevens (JSON-LD): dat zijn gegevens voor zoekmachines, geen JavaScript.
+        Assert.DoesNotMatch(@"<script(?! type=""application/ld\+json"">)", html);
         // Zonder <base> wijzen ankers als #reserveren naar de pagina zelf.
         Assert.DoesNotContain("<base", html);
         Assert.Matches(@"<link rel=""stylesheet"" href=""/site\.[a-z0-9]+\.css""", html);

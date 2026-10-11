@@ -6,8 +6,8 @@
 @inject SiteLinks Links
 @inject IStringLocalizer<SharedResource> L
 
-<PageTitle>@TenantContext.Tenant?.Name · @L["Faq"]</PageTitle>
-<SiteHead Description="@L["FaqDescription", TenantContext.Tenant?.Name ?? ""]" />
+<SiteHead Title="@L["Faq"]" Description="@L["FaqDescription", TenantContext.Tenant?.Name ?? ""]"
+          JsonLd="@(_faq is { Count: > 0 } faq ? [StructuredData.FaqPage(faq)] : [])" />
 
 <div class="page faq">
     <h1>@L["Faq"]</h1>
