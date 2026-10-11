@@ -25,6 +25,12 @@ public sealed record ChosenPeriod
     public DateOnly? Start { get; private init; }
     public DateOnly? End { get; private init; }
 
+    /// <summary>Langer huurt niemand een springkasteel; een langere periode is een tikfout (of een poging om de beschikbaarheid veel te laten rekenen).</summary>
+    public const int MaxDays = 31;
+
+    /// <summary>Zo ver vooruit kan je reserveren.</summary>
+    public const int MaxYearsAhead = 2;
+
     public static readonly ChosenPeriod None = new();
 
     public static ChosenPeriod From(string? start, string? end, DateOnly today)
@@ -36,6 +42,8 @@ public sealed record ChosenPeriod
             startDay is null || endDay is null ? "PeriodUnreadable"
             : endDay < startDay ? "PeriodEndBeforeStart"
             : startDay < today ? "PeriodInPast"
+            : startDay > today.AddYears(MaxYearsAhead) ? "PeriodTooFarAhead"
+            : endDay.Value.DayNumber - startDay.Value.DayNumber + 1 > MaxDays ? "PeriodTooLong"
             : null;
         return new ChosenPeriod
         {

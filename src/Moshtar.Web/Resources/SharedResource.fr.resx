@@ -71,4 +71,9 @@
   <data name="ChooseDateFirst" xml:space="preserve"><value>Choisissez votre date pour voir tout de suite si c'est disponible et le prix.</value></data>
   <data name="BackTo" xml:space="preserve"><value>Retour à {0}</value></data>
   <data name="Photo" xml:space="preserve"><value>Photo {0} sur {1}</value></data>
+  <data name="PeriodTooFarAhead" xml:space="preserve"><value>Impossible de réserver si loin à l'avance. Choisissez un jour dans les deux ans.</value></data>
+  <data name="PeriodTooLong" xml:space="preserve"><value>Vous pouvez louer au maximum 31 jours d'affilée. Choisissez une période plus courte ou contactez-nous.</value></data>
+  <data name="Yes" xml:space="preserve"><value>Oui</value></data>
+  <data name="No" xml:space="preserve"><value>Non</value></data>
+  <data name="PerPiece" xml:space="preserve"><value>par pièce</value></data>
 </root>

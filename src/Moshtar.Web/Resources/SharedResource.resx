@@ -71,4 +71,9 @@
   <data name="ChooseDateFirst" xml:space="preserve"><value>Kies je datum, dan zie je meteen of het vrij is en wat het kost.</value></data>
   <data name="BackTo" xml:space="preserve"><value>Terug naar {0}</value></data>
   <data name="Photo" xml:space="preserve"><value>Foto {0} van {1}</value></data>
+  <data name="PeriodTooFarAhead" xml:space="preserve"><value>Zo ver vooruit kan je nog niet reserveren. Kies een dag binnen de twee jaar.</value></data>
+  <data name="PeriodTooLong" xml:space="preserve"><value>Je kan hoogstens 31 dagen na elkaar huren. Kies een kortere huurperiode of neem contact met ons op.</value></data>
+  <data name="Yes" xml:space="preserve"><value>Ja</value></data>
+  <data name="No" xml:space="preserve"><value>Nee</value></data>
+  <data name="PerPiece" xml:space="preserve"><value>per stuk</value></data>
 </root>
