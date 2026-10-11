@@ -1,3 +1,4 @@
+using Moshtar.Web.Admin;
 using System.Globalization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -98,6 +99,7 @@ app.MapStaticAssets();
 app.MapSiteFiles();
 app.MapAnalyticsConsent();
 app.MapCartEndpoints();
+app.MapMarketingContactsExport();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
