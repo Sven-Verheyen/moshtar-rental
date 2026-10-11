@@ -18,6 +18,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
             FacebookUrl = t.FacebookUrl, InstagramUrl = t.InstagramUrl, TikTokUrl = t.TikTokUrl, GoogleBusinessUrl = t.GoogleBusinessUrl,
             GoogleAnalyticsId = t.GoogleAnalyticsId,
             ServiceArea = t.ServiceArea,
+            OffersPickup = t.OffersPickup,
         };
     }
 
@@ -54,6 +55,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
         tenant.GoogleBusinessUrl = BusinessDetails.Link(s.GoogleBusinessUrl);
         tenant.GoogleAnalyticsId = BusinessDetails.GoogleAnalyticsId(s.GoogleAnalyticsId);
         tenant.ServiceArea = BusinessDetails.ServiceArea(string.Join('\n', s.ServiceArea)).ToList();
+        tenant.OffersPickup = s.OffersPickup;
     }
 
     /// <summary>Velden die langer zijn dan de database toelaat (zie TenantConfiguration).</summary>

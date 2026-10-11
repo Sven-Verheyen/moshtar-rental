@@ -142,13 +142,16 @@
                         <label>@L["PostalCode"] <InputText @bind-Value="Form!.PostalCode" autocomplete="postal-code" /></label>
                         <label>@L["City"] <InputText @bind-Value="Form!.City" autocomplete="address-level2" /></label>
                     </div>
-                    <fieldset>
-                        <legend>@L["DeliveryMethod"]</legend>
-                        <InputRadioGroup @bind-Value="Form!.DeliveryMethod">
-                            <label><InputRadio Value="DeliveryMethod.Delivery" /> @L["Delivery"]</label>
-                            <label><InputRadio Value="DeliveryMethod.Pickup" /> @L["Pickup"]</label>
-                        </InputRadioGroup>
-                    </fieldset>
+                    @if (OffersPickup)
+                    {
+                        <fieldset>
+                            <legend>@L["DeliveryMethod"]</legend>
+                            <InputRadioGroup @bind-Value="Form!.DeliveryMethod">
+                                <label><InputRadio Value="DeliveryMethod.Delivery" /> @L["Delivery"]</label>
+                                <label><InputRadio Value="DeliveryMethod.Pickup" /> @L["Pickup"]</label>
+                            </InputRadioGroup>
+                        </fieldset>
+                    }
                     <label>@L["Notes"] <InputTextArea @bind-Value="Form!.Notes" rows="3" /></label>
                     <button type="submit" class="button button-large">@L["Submit"]</button>
                 </EditForm>
@@ -171,6 +174,8 @@
     private DateOnly _today;
     private Reservation? _reservation;
     private string? _error;
+
+    private bool OffersPickup => TenantContext.Tenant?.OffersPickup == true;
 
     /// <summary>Reserveren kan pas als alles vrij is en de huurperiode niet voorbij is.</summary>
     private bool CanReserve => _cart is { AllAvailable: true } cart && cart.Period.Start >= _today;
@@ -197,7 +202,9 @@
         if (Form is null) return;
         var address = new Moshtar.Domain.Common.Address { Street = Form.Street, PostalCode = Form.PostalCode, City = Form.City };
         var result = await Carts.ReserveAsync(CartEndpoints.Key(HttpContext), new CartCustomerDetails(
-            Form.FirstName, Form.LastName, Form.Phone, address, Form.DeliveryMethod, Form.Notes, Culture));
+            Form.FirstName, Form.LastName, Form.Phone, address,
+            // Zonder afhalen levert de verhuurder altijd, ook als iemand toch "afhalen" meestuurt.
+            OffersPickup ? Form.DeliveryMethod : DeliveryMethod.Delivery, Form.Notes, Culture));
         if (result.Reservation is { } reservation)
         {
             _reservation = reservation;

@@ -18,6 +18,7 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         FacebookUrl = "https://www.facebook.com/feest", InstagramUrl = "https://www.instagram.com/feest", TikTokUrl = "https://www.tiktok.com/@feest",
         GoogleBusinessUrl = "https://g.page/feest",
         ServiceArea = ["Mortsel", " Edegem ", "", "mortsel", "Kontich"],
+        OffersPickup = true,
     };
 
     [Fact]
@@ -33,6 +34,7 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         Assert.Equal("+32 475 12 34 56", saved.Phone);
         Assert.Equal("https://www.tiktok.com/@feest", saved.TikTokUrl);
         Assert.Equal(["Mortsel", "Edegem", "Kontich"], saved.ServiceArea);
+        Assert.True(saved.OffersPickup);
 
         await admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", Street = " " });
         Assert.Equivalent(new BusinessDetailsSettings { Email = "info@feest.test" }, await admin.GetAsync(), strict: true);

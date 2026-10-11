@@ -34,7 +34,7 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
             Assert.Contains("Lotte", body);
             Assert.Contains("1 × Springkasteel Piraat", body);
             Assert.Contains(day.ToString("d MMMM yyyy", new System.Globalization.CultureInfo("nl-BE")), body);
-            Assert.Contains("Afhalen", body);
+            Assert.Contains("Levering op Kerkstraat 1, 2000 Antwerpen", body);
             Assert.Contains("€ 100,00", body);
         }
     }

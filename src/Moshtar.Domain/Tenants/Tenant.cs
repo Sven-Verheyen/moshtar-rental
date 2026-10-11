@@ -42,6 +42,8 @@ public class Tenant
     public string? GoogleAnalyticsId { get; set; }
     /// <summary>Het werkgebied: de gemeenten waar de verhuurder levert.</summary>
     public List<string> ServiceArea { get; set; } = [];
+    /// <summary>Kunnen klanten zelf afhalen? Zo niet, dan levert de verhuurder altijd en is er geen keuze.</summary>
+    public bool OffersPickup { get; set; }
 
     public string? LogoUrl { get; set; }
     public string? PrimaryColor { get; set; }

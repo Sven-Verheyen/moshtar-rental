@@ -308,6 +308,50 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
+    public async Task Without_pickup_the_customer_gets_no_choice_and_the_rental_company_always_delivers()
+    {
+        await NewTenantAsync("kar-leveren");
+        var client = app.CreateClient("kar-leveren.test");
+        var day = TestReservations.FutureDay(102);
+        await AddAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}");
+        await IdentifyAsync(client, "leveren@example.test");
+
+        Assert.DoesNotContain("Form.DeliveryMethod", await PageAsync(client, "/winkelkar"));
+        // Ook wie toch "afhalen" meestuurt, krijgt een levering.
+        (await ReserveAsync(client, "Leo", delivery: "Pickup")).EnsureSuccessStatusCode();
+
+        await using var scope = await app.TenantScopeAsync("kar-leveren");
+        var reservation = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.SingleAsync();
+        Assert.Equal(DeliveryMethod.Delivery, reservation.DeliveryMethod);
+        Assert.Equal("Kerkstraat 1", reservation.DeliveryAddress!.Street);
+    }
+
+    [Fact]
+    public async Task With_pickup_the_customer_chooses_to_pick_up()
+    {
+        await NewTenantAsync("kar-afhalen");
+        await using (var setup = await app.TenantScopeAsync("kar-afhalen"))
+        {
+            var db = setup.ServiceProvider.GetRequiredService<AppDbContext>();
+            var tenant = await db.Tenants.SingleAsync(t => t.Slug == "kar-afhalen");
+            tenant.OffersPickup = true;
+            await db.SaveChangesAsync();
+            setup.ServiceProvider.GetRequiredService<Moshtar.Infrastructure.Tenancy.ITenantStore>().Forget(tenant.Id);
+        }
+        var client = app.CreateClient("kar-afhalen.test");
+        var day = TestReservations.FutureDay(103);
+        await AddAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}");
+        await IdentifyAsync(client, "afhalen@example.test");
+
+        Assert.Contains("Zelf afhalen", await PageAsync(client, "/winkelkar"));
+        (await ReserveAsync(client, "Ann", delivery: "Pickup")).EnsureSuccessStatusCode();
+
+        await using var scope = await app.TenantScopeAsync("kar-afhalen");
+        var reservation = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.SingleAsync();
+        Assert.Equal(DeliveryMethod.Pickup, reservation.DeliveryMethod);
+    }
+
+    [Fact]
     public async Task Step_one_keeps_the_email_and_both_choices_which_are_off_by_default()
     {
         await NewTenantAsync("kar-vinkjes");

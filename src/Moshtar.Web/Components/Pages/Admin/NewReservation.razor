@@ -41,10 +41,13 @@
                         <MudDatePicker Editable="true" @bind-Date="_form.StartDate" Label="Van" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy" For="() => _form.StartDate" />
                         <MudDatePicker Editable="true" @bind-Date="_form.EndDate" Label="Tot en met" Variant="Variant.Outlined" Margin="Margin.Dense" DateFormat="dd/MM/yyyy" For="() => _form.EndDate" />
                     </div>
-                    <MudRadioGroup T="DeliveryMethod" @bind-Value="_form.DeliveryMethod" Class="mt-2">
-                        <MudRadio Value="DeliveryMethod.Delivery">Leveren</MudRadio>
-                        <MudRadio Value="DeliveryMethod.Pickup">Afhalen</MudRadio>
-                    </MudRadioGroup>
+                    @if (TenantContext.Tenant?.OffersPickup == true)
+                    {
+                        <MudRadioGroup T="DeliveryMethod" @bind-Value="_form.DeliveryMethod" Class="mt-2">
+                            <MudRadio Value="DeliveryMethod.Delivery">Leveren</MudRadio>
+                            <MudRadio Value="DeliveryMethod.Pickup">Afhalen</MudRadio>
+                        </MudRadioGroup>
+                    }
                     <MudTextField @bind-Value="_form.Notes" Label="Opmerkingen" Lines="3" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Notes" />
                 </MudPaper>
             </MudItem>
