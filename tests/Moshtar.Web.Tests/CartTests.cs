@@ -275,6 +275,39 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
+    public async Task Clicking_reserve_twice_at_once_makes_one_reservation_and_shows_it_both_times()
+    {
+        await NewTenantAsync("kar-dubbelklik", stock: 5);
+        var client = app.CreateClient("kar-dubbelklik.test");
+        var day = TestReservations.FutureDay(101);
+        await AddAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}");
+        await IdentifyAsync(client, "dubbel@example.test");
+
+        // Twee keer hetzelfde formulier tegelijk versturen, zoals bij een dubbelklik.
+        var page = await PageAsync(client, "/winkelkar");
+        Dictionary<string, string> Fields() => new()
+        {
+            ["_handler"] = "reservation",
+            ["Form.FirstName"] = "Dubbel",
+            ["Form.LastName"] = "Klant",
+            ["Form.Street"] = "Kerkstraat 1",
+            ["Form.PostalCode"] = "2000",
+            ["Form.City"] = "Antwerpen",
+            ["Form.DeliveryMethod"] = "Pickup",
+        };
+        var responses = await Task.WhenAll(PostAsync(client, "/winkelkar", page, Fields()), PostAsync(client, "/winkelkar", page, Fields()));
+
+        await using var scope = await app.TenantScopeAsync("kar-dubbelklik");
+        var reservation = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.SingleAsync();
+        foreach (var response in responses)
+        {
+            response.EnsureSuccessStatusCode();
+            Assert.Contains($"Je reservatie {reservation.Number} is bevestigd.", WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()));
+        }
+        Assert.Single(app.Services.GetRequiredService<RecordingMailTransport>().Sent, m => m.To == "dubbel@example.test");
+    }
+
+    [Fact]
     public async Task Step_one_keeps_the_email_and_both_choices_which_are_off_by_default()
     {
         await NewTenantAsync("kar-vinkjes");

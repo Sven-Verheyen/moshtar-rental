@@ -93,7 +93,16 @@ internal sealed class CartService(
 
     public async Task<CartReservationResult> ReserveAsync(string? key, CartCustomerDetails details, CancellationToken ct = default)
     {
+        if (string.IsNullOrEmpty(key)) return CartReservationResult.Refused("CartGone");
         await using var db = await contexts.CreateDbContextAsync(ct);
+        // Eén reservatie per winkelkar, ook als de klant twee keer op "Reserveren" klikt: de tweede wacht hier tot de
+        // eerste klaar is en krijgt dan dezelfde reservatie te zien, zonder tweede reservatie of mail.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"winkelkar:" + key}, 0))", ct);
+        if (await db.Carts.AsNoTracking().FirstOrDefaultAsync(c => c.Key == key && c.ReservationId != null, ct) is { } reserved)
+            return await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == reserved.ReservationId, ct) is { } earlier
+                ? new CartReservationResult(earlier, new HashSet<Guid>(), null)
+                : CartReservationResult.Refused("CartGone");
         if (await FindAsync(db, key, ct) is not { } cart || cart.Lines.Count == 0)
             return CartReservationResult.Refused("CartGone");
         if (cart.Email is null)
@@ -126,6 +135,7 @@ internal sealed class CartService(
 
         cart.MarkReserved(reservation.Id, clock.GetUtcNow().UtcDateTime);
         await db.SaveChangesAsync(CancellationToken.None);
+        await tx.CommitAsync(CancellationToken.None);
         return new CartReservationResult(reservation, new HashSet<Guid>(), null);
     }
 
