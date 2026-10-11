@@ -89,6 +89,14 @@ De hele dagen waarvoor gehuurd wordt, begin- en einddag inbegrepen. Op de reserv
 "Kies je datum"; ze staat dan in de URL (`?van=…&tot=…`) en gaat mee naar elke pagina.
 _Avoid_: periode, verhuurdagen
 
+**Winkelkar** (`Cart`):
+De artikelen en pakketten die een klant op de reservatiewebsite verzamelt om ze samen in één reservatie te reserveren, voor één huurperiode. Iets in de winkelkar leggen houdt geen voorraad vast; pas reserveren doet dat. Een winkelkar die niet gereserveerd wordt, verdwijnt na 7 dagen.
+_Avoid_: winkelmandje, mandje, selectie, bestelling
+
+**Marketingcontact** (`MarketingContact`):
+Een e-mailadres van een klant of bezoeker die uitdrukkelijk toestemming gaf om nieuws en acties van een verhuurder te ontvangen, met zijn taal en het tijdstip van die toestemming.
+_Avoid_: nieuwsbriefabonnee, lead, prospect
+
 **Blokkering** (`Blockout`):
 Een periode waarin exemplaren van een artikel niet verhuurbaar zijn, bijvoorbeeld voor onderhoud.
 _Avoid_: onderhoud, uitsluiting

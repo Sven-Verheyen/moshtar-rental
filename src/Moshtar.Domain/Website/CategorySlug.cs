@@ -18,6 +18,7 @@ public static partial class CategorySlug
     {
         "nl", "fr", "en", "admin", "huren", "louer", "rent", "contact",
         "veelgestelde-vragen", "questions-frequentes", "faq", "privacy", "confidentialite", "toestemming",
+        "winkelkar", "panier", "cart",
         "not-found", "error",
     };
 

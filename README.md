@@ -19,6 +19,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   laadt pas na "Accepteren" en meet dan ook gecontroleerde beschikbaarheid en bevestigde reservaties, zonder
   persoonsgegevens. De keuze staat in de cookie `moshtar-analytics` (`POST /toestemming`, wijzigen via "Cookie-instellingen"
   in de footer). Elke verhuurder heeft een privacyverklaring per taal (`/privacy`, `/fr/confidentialite`, `/en/privacy`).
+  Na "Kies je datum" legt de klant artikelen en pakketten in zijn **winkelkar** (`/winkelkar`, `/fr/panier`, `/en/cart`),
+  voor één huurperiode; daar wijzigt hij aantallen, verwijdert hij lijnen of kiest hij een andere datum. De winkelkar staat
+  op de server, de klant heeft alleen de sleutel in de functionele cookie `moshtar-winkelkar` (7 dagen). Hij houdt geen
+  voorraad vast: wat intussen niet meer vrij is, staat aangeduid.
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat. De klant krijgt dan een bevestigingsmail in
   zijn taal (NL, FR of EN), ook als de reservatie in het back office ingevoerd werd.
 - **Back office** (`/admin`): reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie

@@ -98,4 +98,20 @@
   <data name="Accept" xml:space="preserve"><value>Accept</value></data>
   <data name="Decline" xml:space="preserve"><value>Decline</value></data>
   <data name="CookieSettings" xml:space="preserve"><value>Cookie settings</value></data>
+  <data name="CartTitle" xml:space="preserve"><value>Your cart</value></data>
+  <data name="CartWithCount" xml:space="preserve"><value>Cart, {0} items</value></data>
+  <data name="CartEmpty" xml:space="preserve"><value>Your cart is empty. Choose your date and add what you'd like to rent.</value></data>
+  <data name="SeeOffer" xml:space="preserve"><value>See what we offer</value></data>
+  <data name="CartPeriod" xml:space="preserve"><value>Rental period: {0}</value></data>
+  <data name="CartPeriodPast" xml:space="preserve"><value>The rental period of your cart has passed. Choose a new date.</value></data>
+  <data name="ChangeDate" xml:space="preserve"><value>Change date</value></data>
+  <data name="CartLineGone" xml:space="preserve"><value>This item can no longer be rented.</value></data>
+  <data name="Update" xml:space="preserve"><value>Update</value></data>
+  <data name="Remove" xml:space="preserve"><value>Remove</value></data>
+  <data name="CartNotAllFree" xml:space="preserve"><value>Not everything in your cart is still free on this date. Remove what isn't free or choose another date.</value></data>
+  <data name="ContinueShopping" xml:space="preserve"><value>Keep browsing</value></data>
+  <data name="AddToCart" xml:space="preserve"><value>Add to cart</value></data>
+  <data name="AddedToCart" xml:space="preserve"><value>Added to your cart.</value></data>
+  <data name="ToCart" xml:space="preserve"><value>Go to cart</value></data>
+  <data name="NotAddedToCart" xml:space="preserve"><value>This no longer fits in your cart: together with what's already in it, not enough is free on this date.</value></data>
 </root>

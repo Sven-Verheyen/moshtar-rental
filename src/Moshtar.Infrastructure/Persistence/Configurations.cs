@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
+using Moshtar.Domain.Carts;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
@@ -190,5 +191,22 @@ internal class WebsiteTextCustomizationConfiguration : IEntityTypeConfiguration<
         b.HasOne<Category>().WithMany().HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.Cascade);
         // Gebruikers worden uitgeschakeld, nooit verwijderd.
         b.HasOne<User>().WithMany().HasForeignKey(t => t.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal class CartConfiguration : IEntityTypeConfiguration<Cart>
+{
+    public void Configure(EntityTypeBuilder<Cart> b)
+    {
+        b.Property(c => c.Key).HasMaxLength(64);
+        b.HasIndex(c => c.Key).IsUnique();
+        b.HasIndex(c => c.UpdatedAtUtc);
+        b.Ignore(c => c.Period);
+        b.Ignore(c => c.Count);
+        b.OwnsMany(c => c.Lines, l =>
+        {
+            l.ToJson();
+            l.Ignore(x => x.Entry);
+        });
     }
 }

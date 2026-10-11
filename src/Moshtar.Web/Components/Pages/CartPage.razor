@@ -1,0 +1,122 @@
+@* "winkelkar" in het Nederlands, "panier" in het Frans, "cart" in het Engels (ADR 0004). *@
+@page "/winkelkar"
+@page "/panier"
+@page "/cart"
+@inject ICartService Carts
+@inject SiteLinks Links
+@inject IStringLocalizer<SharedResource> L
+@inject TimeProvider Clock
+
+<SiteHead Title="@L["CartTitle"]" NoIndex="true" />
+
+@* De winkelkar: wat de klant verzamelde, voor één huurperiode. Elke wijziging is een gewoon formulier (POST), zonder
+   JavaScript. Iets in de winkelkar houdt geen voorraad vast; wat intussen niet meer vrij is, staat hier aangeduid. *@
+<div class="page cart">
+    <h1>@L["CartTitle"]</h1>
+
+    @if (_cart is null || _cart.Lines.Count == 0)
+    {
+        <p class="lead">@L["CartEmpty"]</p>
+        <p><a class="button button-large" href="@(Links.Href(SiteRoute.Home) + "#aanbod")">@L["SeeOffer"]</a></p>
+    }
+    else
+    {
+        var period = _cart.Period;
+        <section class="cart-period" aria-labelledby="huurperiode">
+            <h2 id="huurperiode">@L["CartPeriod", SiteText.Period(period)]</h2>
+            @if (period.Start < _today)
+            {
+                <p class="alert error" role="alert">@L["CartPeriodPast"]</p>
+            }
+            @if (Problem is { Length: > 0 } problem && _problems.Contains(problem))
+            {
+                <p class="alert error" role="alert">@L[problem]</p>
+            }
+            <form id="datum" class="period-form" method="post" action="@CartEndpoints.PeriodPath">
+                <AntiforgeryToken />
+                <input type="hidden" name="terug" value="@Here" />
+                <label>@L["StartDate"] <input type="date" name="@ChosenPeriod.StartKey" value="@ChosenPeriod.Format(period.Start)" min="@ChosenPeriod.Format(_today)" required /></label>
+                <label>@L["EndDate"] <input type="date" name="@ChosenPeriod.EndKey" value="@ChosenPeriod.Format(period.End)" min="@ChosenPeriod.Format(_today)" /></label>
+                <button type="submit" class="button">@L["ChangeDate"]</button>
+            </form>
+        </section>
+
+        <ul class="cart-lines">
+            @foreach (var line in _cart.Lines)
+            {
+                <li class="cart-line @(line.Available ? null : "unavailable")">
+                    <div class="cart-line-name">
+                        @if (line.Entry is { } entry)
+                        {
+                            <a href="@(Links.Href(new RentalRoute(entry.Slug)) + Query)">@entry.Name</a>
+                            <span class="muted">@SiteText.Money(line.UnitPrice) @ForDays(period.Days)</span>
+                        }
+                        else
+                        {
+                            <span>@L["CartLineGone"]</span>
+                        }
+                        @if (line.Entry is not null && !line.Available)
+                        {
+                            <span class="badge badge-busy">@L["NotFreeOnDate"]</span>
+                        }
+                    </div>
+                    <form class="cart-quantity" method="post" action="@CartEndpoints.QuantityPath">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="terug" value="@Here" />
+                        <input type="hidden" name="soort" value="@Kind(line.Ref)" />
+                        <input type="hidden" name="id" value="@Id(line.Ref)" />
+                        @if (line.Entry is not null)
+                        {
+                            <label>@L["Quantity"] <input type="number" name="aantal" value="@line.Quantity" min="1" max="@Cart.MaxQuantity" /></label>
+                            <button type="submit" class="button button-secondary">@L["Update"]</button>
+                        }
+                        <button type="submit" class="link-button" name="aantal" value="0">@L["Remove"]</button>
+                    </form>
+                    <p class="cart-line-total">@(line.Entry is null ? "" : SiteText.Money(line.LineTotal))</p>
+                </li>
+            }
+        </ul>
+
+        <p class="price price-large cart-total">@L["Total"]: @SiteText.Money(_cart.Total)</p>
+        @if (!_cart.AllAvailable)
+        {
+            <p class="alert error" role="alert">@L["CartNotAllFree"]</p>
+        }
+        <p class="actions">
+            <a href="@(Links.Href(SiteRoute.Home) + Query + "#aanbod")">@L["ContinueShopping"]</a>
+        </p>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+    [SupplyParameterFromQuery(Name = CartEndpoints.ProblemKey)] private string? Problem { get; set; }
+
+    /// <summary>De meldingen die de datumwijziging kan teruggeven; andere waarden in de URL tonen we niet.</summary>
+    private static readonly HashSet<string> _problems =
+        ["PeriodUnreadable", "PeriodEndBeforeStart", "PeriodInPast", "PeriodTooFarAhead", "PeriodTooLong"];
+
+    private CartView? _cart;
+    private DateOnly _today;
+
+    private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+
+    /// <summary>Deze pagina, in de taal van de klant, om na een wijziging naar terug te keren.</summary>
+    private string Here => Links.Href(SiteRoute.Cart);
+
+    /// <summary>De huurperiode van de winkelkar, om ze mee te nemen naar de rest van de site.</summary>
+    private string Query => _cart is { } cart
+        ? $"?{ChosenPeriod.StartKey}={ChosenPeriod.Format(cart.Period.Start)}&{ChosenPeriod.EndKey}={ChosenPeriod.Format(cart.Period.End)}"
+        : "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _today = ChosenPeriod.Today(Clock);
+        _cart = await Carts.GetAsync(CartEndpoints.Key(HttpContext), Culture);
+    }
+
+    private static string Kind(CatalogRef entry) => entry.RentalItemId is null ? CartEndpoints.Bundle : CartEndpoints.Item;
+    private static Guid Id(CatalogRef entry) => entry.RentalItemId ?? entry.BundleId!.Value;
+
+    private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
+}

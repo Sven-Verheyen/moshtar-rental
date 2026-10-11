@@ -3,10 +3,12 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moshtar.Application.Reservations;
+using Moshtar.Application.Carts;
 using Moshtar.Application.Catalog;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Tenancy;
 using Moshtar.Infrastructure.Reservations;
+using Moshtar.Infrastructure.Carts;
 using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Mail;
 using Moshtar.Infrastructure.Persistence;
@@ -39,6 +41,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();
+        services.AddScoped<ICartService, CartService>();
 
         var mail = configuration.GetSection("Mail");
         services.Configure<MailOptions>(mail);
