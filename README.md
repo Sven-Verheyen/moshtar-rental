@@ -5,7 +5,9 @@ aan andere verhuurbedrijven aangeboden te worden.
 
 ## Wat zit er al in
 
-- **Reservatiewebsite** (`/`): catalogus met artikelen en pakketten, detailpagina met reservatieformulier.
+- **Reservatiewebsite** (`/`): de klant kiest eerst zijn huurperiode ("Kies je datum", `?van=…&tot=…` in de URL) en
+  ziet dan wat vrij is, op de home en op de pagina van elke categorie (`/springkastelen`, slug per taal). De pagina van
+  een artikel of pakket toont beschikbaarheid en totaalprijs voor die huurperiode, en pas dan het reservatieformulier.
   Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (logo, kleur en sfeerfoto, in te stellen op
   `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
   De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens en het werkgebied, in te stellen op

@@ -1,12 +1,14 @@
 @page "/"
 @inject ICatalogService Catalog
+@inject IReservationService Reservations
 @inject ITenantContext TenantContext
 @inject IStringLocalizer<SharedResource> L
 @inject SiteLinks Links
 @inject IWebsiteTexts Texts
+@inject TimeProvider Clock
 
 <PageTitle>@Tenant?.Name · @L["Catalog"]</PageTitle>
-<SiteHead Description="@_texts?.HomeSubtitle.Value" />
+<SiteHead Description="@_texts?.HomeSubtitle.Value" NoIndex="_chosen.InUrl" />
 
 <section class="hero @(HeroImage is null ? "hero-plain" : null)">
     @if (HeroImage is not null)
@@ -16,60 +18,90 @@
     <div class="hero-content">
         <h1>@_texts?.HomeTitle.Value</h1>
         <p>@_texts?.HomeSubtitle.Value</p>
-        <a class="button button-large" href="#aanbod">@L["ChooseDate"]</a>
+        <PeriodForm Action="@(Links.Href(SiteRoute.Home) + "#aanbod")" Chosen="_chosen" Today="_today" />
     </div>
 </section>
 
 <section id="aanbod" class="offer" aria-label="@L["Catalog"]">
-    @if (_entries is not null)
+    @* Geen vroege return hier: die zou de section open laten. *@
+    @if (_entries is null)
     {
-        @foreach (var group in _entries.GroupBy(e => e.Kind == CatalogEntryKind.Bundle ? L["Bundle"].Value : e.Category ?? ""))
+        // Nog aan het laden.
+    }
+    else if (_chosen.Period is { } period)
+    {
+        <h2>@L["OfferFor", SiteText.Period(period)]</h2>
+        <p class="muted">@L["AvailableCount", _entries.Count(e => !_unavailable.Contains(e.Id)), _entries.Count]</p>
+        <CatalogList Entries="_entries" Chosen="_chosen" Unavailable="_unavailable" />
+    }
+    else
+    {
+        @if (_categories.Count > 0)
         {
-            <h2>@group.Key</h2>
-            <div class="catalog-grid">
-                @foreach (var entry in group)
+            <h2>@L["Categories"]</h2>
+            <div class="category-grid">
+                @foreach (var (category, image) in _categories)
                 {
-                    var href = Links.Href(new RentalRoute(entry.Slug));
-                    <article class="catalog-card">
-                        @if (entry.ImageUrl is not null)
+                    <a class="category-tile" href="@Links.Href(category.Route)">
+                        @if (image is not null)
                         {
-                            <img src="@entry.ImageUrl" alt="@entry.Name" loading="lazy" width="640" height="480" />
+                            <img src="@image" alt="" loading="lazy" width="640" height="480" />
                         }
                         else
                         {
-                            <div class="image-placeholder" aria-hidden="true">@SiteText.Initial(entry.Name)</div>
+                            <span class="image-placeholder" aria-hidden="true">@SiteText.Initial(category.Name)</span>
                         }
-                        <div class="catalog-card-body">
-                            <h3><a href="@href">@entry.Name</a></h3>
-                            @if (entry.Description is not null)
-                            {
-                                <p>@entry.Description</p>
-                            }
-                            @if (entry.Contents.Count > 0)
-                            {
-                                <p class="muted">@L["BundleContains"]: @string.Join(", ", entry.Contents)</p>
-                            }
-                            <p class="price">@entry.DayPrice.ToString("C", Money) <span class="muted">@L["PerDay"]</span></p>
-                            <a class="button" href="@href" aria-hidden="true" tabindex="-1">@L["MoreInfo"]</a>
-                        </div>
-                    </article>
+                        <span class="category-tile-name">@category.Name</span>
+                    </a>
                 }
             </div>
         }
+        <h2>@L["Featured"]</h2>
+        <CatalogList Entries="Featured" />
     }
 </section>
 
 @code {
-    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
+    /// <summary>Hoeveel artikelen en pakketten de home uitlicht zolang er geen datum gekozen is.</summary>
+    private const int FeaturedCount = 6;
+
+    [SupplyParameterFromQuery(Name = ChosenPeriod.StartKey)] private string? Start { get; set; }
+    [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
+
     private IReadOnlyList<CatalogEntry>? _entries;
     private WebsiteTexts? _texts;
+    private ChosenPeriod _chosen = ChosenPeriod.None;
+    private DateOnly _today;
+    private IReadOnlySet<Guid> _unavailable = new HashSet<Guid>();
+    private IReadOnlyList<(CategoryLink Category, string? Image)> _categories = [];
 
     private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
     private string? HeroImage => Moshtar.Domain.Tenants.Branding.HeroImageUrl(Tenant?.HeroImageUrl);
 
+    /// <summary>
+    /// Er is nog geen vinkje "uitgelicht" bij een artikel; tot dan de pakketten en het eerste artikel van elke
+    /// categorie, aangevuld met de volgende artikelen in de volgorde van de catalogus.
+    /// </summary>
+    private IReadOnlyList<CatalogEntry> Featured =>
+        _entries!.Where(e => e.Kind == CatalogEntryKind.Bundle)
+            .Concat(_entries!.Where(e => e.Kind == CatalogEntryKind.Item).GroupBy(e => e.CategoryId).Select(g => g.First()))
+            .Concat(_entries!)
+            .DistinctBy(e => e.Id)
+            .Take(FeaturedCount)
+            .ToList();
+
     protected override async Task OnInitializedAsync()
     {
+        _today = ChosenPeriod.Today(Clock);
+        _chosen = ChosenPeriod.From(Start, End, _today);
         _texts = await Texts.GetAsync(Links.Culture);
         _entries = await Catalog.GetCatalogAsync(Links.Culture);
+        if (_chosen.Period is { } period)
+            _unavailable = await Reservations.FindUnavailableAsync(period);
+        else
+            _categories = (await CategoryLink.AllAsync(Texts, Links))
+                .Where(c => _entries.Any(e => e.CategoryId == c.Id))
+                .Select(c => (c, _entries.FirstOrDefault(e => e.CategoryId == c.Id && e.ImageUrl is not null)?.ImageUrl))
+                .ToList();
     }
 }

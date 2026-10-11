@@ -112,10 +112,52 @@ internal sealed class ReservationService(
                select new ReservationHistoryEntry(e.OccurredAtUtc, e.Kind, e.Status, u.Email))
             .ToListAsync(ct);
 
+    public async Task<IReadOnlySet<Guid>> FindUnavailableAsync(DateRange period, CancellationToken ct = default)
+    {
+        var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
+        var (reserved, blocked) = await OccupationAsync(period, tenant, ct);
+        var items = await db.RentalItems.AsNoTracking().Where(i => i.IsActive).ToListAsync(ct);
+        var bundles = await db.Bundles.AsNoTracking().Where(b => b.IsActive).ToListAsync(ct);
+        var stock = items.ToDictionary(i => i.Id, i => i.Stock);
+
+        bool Unavailable(IEnumerable<StockDemand> requested) =>
+            AvailabilityCalculator.FindShortages(stock, reserved, blocked, requested.ToList(), tenant.BufferDaysBefore, tenant.BufferDaysAfter).Count > 0;
+
+        var unavailable = items.Where(i => Unavailable([new StockDemand(i.Id, 1, period)])).Select(i => i.Id).ToHashSet();
+        // Een pakket met een inactief artikel is niet te reserveren: dat artikel heeft geen voorraad in deze berekening.
+        unavailable.UnionWith(bundles
+            .Where(b => Unavailable(b.Items.Select(x => new StockDemand(x.RentalItemId, x.Quantity, period))))
+            .Select(b => b.Id));
+        return unavailable;
+    }
+
     private async Task<(IReadOnlyList<StockShortage> Shortages, Dictionary<Guid, RentalItem> Items, Dictionary<Guid, Bundle> Bundles)> EvaluateAsync(
         DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct)
     {
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
+        var (reserved, blocked) = await OccupationAsync(period, tenant, ct);
+
+        var bundleIds = lines.Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
+        var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
+
+        var requestLines = lines.Select(l => new ReservationLine { RentalItemId = l.RentalItemId, BundleId = l.BundleId, Quantity = l.Quantity }).ToList();
+        if (requestLines.Any(l => l.BundleId is { } id && (!bundles.TryGetValue(id, out var b) || !b.IsActive)))
+            throw new ArgumentException("Onbekend of inactief pakket.");
+        var requested = DemandExpander.Expand(requestLines, period, bundles).ToList();
+
+        var itemIds = requested.Select(d => d.RentalItemId).Distinct().ToList();
+        var items = await db.RentalItems.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, ct);
+        if (lines.Any(l => l.RentalItemId is { } id && (!items.TryGetValue(id, out var i) || !i.IsActive)))
+            throw new ArgumentException("Onbekend of inactief artikel.");
+
+        var stock = items.ToDictionary(kv => kv.Key, kv => kv.Value.Stock);
+        var shortages = AvailabilityCalculator.FindShortages(stock, reserved, blocked, requested, tenant.BufferDaysBefore, tenant.BufferDaysAfter);
+        return (shortages, items, bundles);
+    }
+
+    /// <summary>De bestaande bezetting (reservaties en blokkeringen) die een vraag in deze periode kan raken.</summary>
+    private async Task<(List<StockDemand> Reserved, List<StockDemand> Blocked)> OccupationAsync(DateRange period, Tenant tenant, CancellationToken ct)
+    {
         var before = tenant.BufferDaysBefore;
         var after = tenant.BufferDaysAfter;
 
@@ -129,27 +171,12 @@ internal sealed class ReservationService(
             .Where(b => b.StartDate <= period.End.AddDays(after) && b.EndDate >= period.Start.AddDays(-before))
             .ToListAsync(ct);
 
-        var bundleIds = lines.Select(l => l.BundleId)
-            .Concat(existing.SelectMany(r => r.Lines).Select(l => l.BundleId))
-            .OfType<Guid>().Distinct().ToList();
+        var bundleIds = existing.SelectMany(r => r.Lines).Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
         var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
 
-        var requestLines = lines.Select(l => new ReservationLine { RentalItemId = l.RentalItemId, BundleId = l.BundleId, Quantity = l.Quantity }).ToList();
-        if (requestLines.Any(l => l.BundleId is { } id && (!bundles.TryGetValue(id, out var b) || !b.IsActive)))
-            throw new ArgumentException("Onbekend of inactief pakket.");
-        var requested = DemandExpander.Expand(requestLines, period, bundles).ToList();
-
-        var itemIds = requested.Select(d => d.RentalItemId).Distinct().ToList();
-        var items = await db.RentalItems.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, ct);
-        if (lines.Any(l => l.RentalItemId is { } id && (!items.TryGetValue(id, out var i) || !i.IsActive)))
-            throw new ArgumentException("Onbekend of inactief artikel.");
-
-        var reserved = existing.SelectMany(r => DemandExpander.Expand(r.Lines, r.Period, bundles));
-        var blocked = blockouts.Select(b => new StockDemand(b.RentalItemId, b.Quantity, new DateRange(b.StartDate, b.EndDate)));
-        var stock = items.ToDictionary(kv => kv.Key, kv => kv.Value.Stock);
-
-        var shortages = AvailabilityCalculator.FindShortages(stock, reserved, blocked, requested, before, after);
-        return (shortages, items, bundles);
+        var reserved = existing.SelectMany(r => DemandExpander.Expand(r.Lines, r.Period, bundles)).ToList();
+        var blocked = blockouts.Select(b => new StockDemand(b.RentalItemId, b.Quantity, new DateRange(b.StartDate, b.EndDate))).ToList();
+        return (reserved, blocked);
     }
 
     private static ReservationLine CreateLine(ReservationLineRequest l, Dictionary<Guid, RentalItem> items, Dictionary<Guid, Bundle> bundles,

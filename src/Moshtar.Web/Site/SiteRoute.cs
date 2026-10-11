@@ -47,6 +47,15 @@ public sealed record RentalRoute(string Slug) : SiteRoute
     public override string PathIn(string culture) => $"{Words[culture]}/{Slug}";
 }
 
+/// <summary>
+/// De pagina van een categorie, met een eigen slug in elke taal, bv. "/springkastelen" en "/fr/chateaux-gonflables".
+/// Die slugs staan in de databank (websiteteksten); daarom herkent <see cref="SiteLanguage"/> deze pagina en niet <see cref="SiteRoute.Parse"/>.
+/// </summary>
+public sealed record CategoryRoute(Guid CategoryId, IReadOnlyDictionary<string, string> Slugs) : SiteRoute
+{
+    public override string PathIn(string culture) => Slugs[culture];
+}
+
 /// <summary>De contactpagina, met de bedrijfsgegevens en het werkgebied van de verhuurder.</summary>
 public sealed record ContactRoute : SiteRoute
 {

@@ -8,6 +8,9 @@ public sealed record WebsiteText(string Value, bool IsCustomized);
 /// <summary>De naam, slug en inleiding van een categorie in één taal.</summary>
 public sealed record CategoryTexts(Guid CategoryId, WebsiteText Name, WebsiteText Slug, WebsiteText Intro);
 
+/// <summary>De slug van een categorie in elke taal die de verhuurder aanbiedt, om een URL in welke taal ook te herkennen.</summary>
+public sealed record CategorySlugs(Guid CategoryId, IReadOnlyDictionary<string, string> PerCulture);
+
 /// <summary>Alle aanpasbare teksten van de reservatiewebsite in één taal.</summary>
 public sealed record WebsiteTexts(
     string Culture,
@@ -28,6 +31,9 @@ public interface IWebsiteTexts
 {
     /// <summary>De teksten in deze taal, met de standaardtekst waar de verhuurder niets aanpaste.</summary>
     Task<WebsiteTexts> GetAsync(string culture, CancellationToken ct = default);
+
+    /// <summary>De slugs van alle categorieën in alle talen van de verhuurder.</summary>
+    Task<IReadOnlyList<CategorySlugs>> GetCategorySlugsAsync(CancellationToken ct = default);
 }
 
 /// <summary>

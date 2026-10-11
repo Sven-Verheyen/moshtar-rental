@@ -51,4 +51,24 @@
   <data name="Faq" xml:space="preserve"><value>Veelgestelde vragen</value></data>
   <data name="FaqDescription" xml:space="preserve"><value>Antwoorden op veelgestelde vragen over het huren bij {0}.</value></data>
   <data name="FaqShort" xml:space="preserve"><value>Vragen</value></data>
+  <data name="ShowAvailable" xml:space="preserve"><value>Toon wat vrij is</value></data>
+  <data name="NotFreeOnDate" xml:space="preserve"><value>Niet vrij op deze datum</value></data>
+  <data name="PeriodUnreadable" xml:space="preserve"><value>Die datum kunnen we niet lezen. Kies een dag in de kalender.</value></data>
+  <data name="PeriodEndBeforeStart" xml:space="preserve"><value>De einddag ligt voor de begindag. Kies een einddag op of na de begindag.</value></data>
+  <data name="PeriodInPast" xml:space="preserve"><value>Die datum ligt in het verleden. Kies een dag vanaf vandaag.</value></data>
+  <data name="OfferFor" xml:space="preserve"><value>Ons aanbod voor {0}</value></data>
+  <data name="AvailableCount" xml:space="preserve"><value>{0} van de {1} vrij</value></data>
+  <data name="Categories" xml:space="preserve"><value>Onze categorieën</value></data>
+  <data name="Featured" xml:space="preserve"><value>Populair</value></data>
+  <data name="ForOneDay" xml:space="preserve"><value>voor 1 dag</value></data>
+  <data name="ForDays" xml:space="preserve"><value>voor {0} dagen</value></data>
+  <data name="AvailableOn" xml:space="preserve"><value>Vrij op {0}</value></data>
+  <data name="NotAvailableOn" xml:space="preserve"><value>Niet vrij op {0}</value></data>
+  <data name="NotAvailableExplanation" xml:space="preserve"><value>Dit is al gereserveerd op (een deel van) deze huurperiode. Kies een andere datum, of bekijk wat er wel vrij is.</value></data>
+  <data name="OtherDate" xml:space="preserve"><value>Andere datum kiezen</value></data>
+  <data name="SeeWhatsFree" xml:space="preserve"><value>Bekijk wat wel vrij is</value></data>
+  <data name="Total" xml:space="preserve"><value>Totaal</value></data>
+  <data name="ChooseDateFirst" xml:space="preserve"><value>Kies je datum, dan zie je meteen of het vrij is en wat het kost.</value></data>
+  <data name="BackTo" xml:space="preserve"><value>Terug naar {0}</value></data>
+  <data name="Photo" xml:space="preserve"><value>Foto {0} van {1}</value></data>
 </root>

@@ -25,16 +25,17 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
             {
                 var t = i.Translations.For(culture, fallback);
                 return new CatalogEntry(i.Id, CatalogEntryKind.Item, i.Slug, t?.Name ?? i.Slug, t?.Description,
-                    i.CategoryId is { } categoryId ? categoryNames.GetValueOrDefault(categoryId) : null,
+                    i.CategoryId, i.CategoryId is { } categoryId ? categoryNames.GetValueOrDefault(categoryId) : null,
                     i.Pricing.DayPrice, i.Pricing.ExtraDayPrice,
-                    i.Images.OrderBy(x => x.SortOrder).FirstOrDefault()?.Url, []);
+                    i.Images.OrderBy(x => x.SortOrder).Select(x => x.Url).ToList(), [],
+                    new ItemSpecs(i.LengthCm, i.WidthCm, i.HeightCm, i.MinAge, i.MaxAge, i.MaxPersons, i.RequiresPower));
             })
             .Concat(bundles.Select(b =>
             {
                 var t = b.Translations.For(culture, fallback);
                 var contents = b.Items.Select(x => $"{x.Quantity} × {itemNames.GetValueOrDefault(x.RentalItemId, "?")}").ToList();
                 return new CatalogEntry(b.Id, CatalogEntryKind.Bundle, b.Slug, t?.Name ?? b.Slug, t?.Description,
-                    null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, null, contents);
+                    null, null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, [], contents);
             }));
         return entries.ToList();
     }
