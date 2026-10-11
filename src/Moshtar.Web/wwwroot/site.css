@@ -261,7 +261,7 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 /* Footer */
 .site-footer { background: var(--surface); border-top: 1px solid var(--line); margin-top: 3rem; }
 .site-footer-inner { max-width: var(--width); margin: 0 auto; padding: 2rem var(--gutter); display: flex; flex-wrap: wrap; gap: .5rem 2rem; align-items: baseline; }
-.site-footer p { margin: 0; display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+.site-footer p { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: .5rem 1.25rem; }
 .site-footer a { padding: .5rem 0; }
 .site-footer address { font-style: normal; display: flex; flex-direction: column; gap: .15rem; flex: 1 1 16rem; }
 .site-footer address a { padding: .35rem 0; }
@@ -281,3 +281,14 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .faq summary { cursor: pointer; font-weight: 700; padding: 1rem 1.25rem; min-height: 2.75rem; }
 .faq details p { margin: 0 1.25rem 1rem; white-space: pre-line; }
 .faq-more { margin-top: 2rem; }
+
+/* Toestemmingsbalk voor Google Analytics: plakt onderaan het scherm, beide keuzes even groot */
+.consent { position: sticky; bottom: 0; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem 1.5rem;
+    padding: 1rem var(--gutter); background: var(--surface); border-top: 1px solid var(--line); box-shadow: 0 -8px 24px rgba(15, 23, 42, .08); }
+.consent p { margin: 0; max-width: 44rem; }
+.consent-choices { display: flex; gap: .75rem; }
+.consent-choices .button { min-width: 8.5rem; }
+
+/* Privacyverklaring */
+.privacy { max-width: 46rem; }
+.privacy h2 { margin-top: 2rem; }

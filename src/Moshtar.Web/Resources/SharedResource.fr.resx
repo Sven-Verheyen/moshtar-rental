@@ -81,4 +81,21 @@
   <data name="OtherItems" xml:space="preserve"><value>Autres articles</value></data>
   <data name="Bundles" xml:space="preserve"><value>Forfaits</value></data>
   <data name="VatIncluded" xml:space="preserve"><value>TVA comprise</value></data>
+  <data name="Privacy" xml:space="preserve"><value>Confidentialité</value></data>
+  <data name="PrivacyTitle" xml:space="preserve"><value>Confidentialité et cookies</value></data>
+  <data name="PrivacyDescription" xml:space="preserve"><value>Comment {0} traite vos données et les cookies, et quels sont vos droits.</value></data>
+  <data name="PrivacyIntro" xml:space="preserve"><value>{0} traite vos données avec soin. Vous lisez ici quelles données nous conservons, pourquoi, et quels sont vos droits.</value></data>
+  <data name="PrivacyWhoTitle" xml:space="preserve"><value>Qui sommes-nous</value></data>
+  <data name="PrivacyReservationTitle" xml:space="preserve"><value>Votre réservation</value></data>
+  <data name="PrivacyReservationText" xml:space="preserve"><value>Lorsque vous réservez, nous vous demandons votre nom, votre adresse e-mail, votre numéro de téléphone, votre adresse et vos éventuelles remarques. Nous les utilisons uniquement pour exécuter votre réservation : pour la confirmer, pour livrer ou convenir de l'enlèvement et pour vous contacter à propos de votre réservation. Nous ne les transmettons à personne et ne les conservons pas plus longtemps que nécessaire, ou aussi longtemps que la loi l'exige.</value></data>
+  <data name="PrivacyCookiesTitle" xml:space="preserve"><value>Cookies</value></data>
+  <data name="PrivacyCookiesText" xml:space="preserve"><value>Ce site utilise des cookies nécessaires à son fonctionnement, par exemple pour envoyer le formulaire de réservation en toute sécurité et pour retenir votre choix concernant les statistiques. Ils ne nécessitent pas de consentement.</value></data>
+  <data name="PrivacyAnalyticsText" xml:space="preserve"><value>Avec votre consentement, nous utilisons Google Analytics pour voir comment les visiteurs utilisent le site, par exemple quels articles sont populaires et combien de réservations arrivent via le site. Google place pour cela des cookies et traite votre adresse IP ainsi que des données sur votre appareil et votre visite. Nous n'envoyons jamais votre nom, votre adresse e-mail ni d'autres coordonnées à Google. Sans votre consentement, nous ne chargeons pas Google Analytics. Nous conservons votre choix pendant six mois ; vous pouvez toujours le modifier via « Paramètres des cookies » en bas de chaque page.</value></data>
+  <data name="PrivacyRightsTitle" xml:space="preserve"><value>Vos droits</value></data>
+  <data name="PrivacyRightsText" xml:space="preserve"><value>Vous pouvez toujours consulter, faire corriger ou faire effacer vos données, et vous opposer à leur utilisation. Contactez-nous pour cela :</value></data>
+  <data name="PrivacyComplaint" xml:space="preserve"><value>Si vous n'êtes pas satisfait de la façon dont nous traitons vos données, vous pouvez porter plainte auprès de l'Autorité de protection des données (autoriteprotectiondonnees.be).</value></data>
+  <data name="ConsentText" xml:space="preserve"><value>Pouvons-nous suivre avec Google Analytics comment vous utilisez ce site ? Cela nous aide à l'améliorer. Nous ne transmettons jamais votre nom ni vos coordonnées.</value></data>
+  <data name="Accept" xml:space="preserve"><value>Accepter</value></data>
+  <data name="Decline" xml:space="preserve"><value>Refuser</value></data>
+  <data name="CookieSettings" xml:space="preserve"><value>Paramètres des cookies</value></data>
 </root>

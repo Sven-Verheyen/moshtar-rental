@@ -174,12 +174,14 @@ public sealed class WebsiteTextTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     [Fact]
     public void Every_fixed_word_of_the_website_is_reserved_for_category_slugs()
     {
-        foreach (var route in new SiteRoute[] { SiteRoute.Contact, SiteRoute.Faq, new RentalRoute("x") })
+        foreach (var route in new SiteRoute[] { SiteRoute.Contact, SiteRoute.Faq, SiteRoute.Privacy, new RentalRoute("x") })
             foreach (var culture in new[] { "nl", "fr", "en" })
                 Assert.Contains(route.PathIn(culture).Split('/')[0], CategorySlug.Reserved);
         // De pagina's die Blazor zelf toont.
         Assert.Contains("not-found", CategorySlug.Reserved);
         Assert.Contains("error", CategorySlug.Reserved);
+        // De keuze over Google Analytics.
+        Assert.Contains("toestemming", CategorySlug.Reserved);
     }
 
     [Fact]

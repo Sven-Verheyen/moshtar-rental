@@ -92,6 +92,7 @@ app.MapPost(IdentitySetup.LogoutPath, async (SignInManager<User> signInManager, 
 
 app.MapStaticAssets();
 app.MapSiteFiles();
+app.MapAnalyticsConsent();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

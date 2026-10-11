@@ -18,6 +18,7 @@ public abstract record SiteRoute
             [""] => Home,
             [var word] when ContactRoute.Words.ContainsValue(word) => Contact,
             [var word] when FaqRoute.Words.ContainsValue(word) => Faq,
+            [var word] when PrivacyRoute.Words.ContainsValue(word) => Privacy,
             [var word, var slug] when slug.Length > 0 && RentalRoute.Words.ContainsValue(word) => new RentalRoute(slug),
             _ => null,
         };
@@ -31,6 +32,9 @@ public abstract record SiteRoute
 
     /// <summary>De pagina met veelgestelde vragen.</summary>
     public static readonly SiteRoute Faq = new FaqRoute();
+
+    /// <summary>De privacy- en cookieverklaring.</summary>
+    public static readonly SiteRoute Privacy = new PrivacyRoute();
 }
 
 /// <summary>De home: "/" in de standaardtaal, "/fr" of "/en" in de andere.</summary>
@@ -69,6 +73,15 @@ public sealed record FaqRoute : SiteRoute
 {
     internal static readonly Dictionary<string, string> Words =
         new() { ["nl"] = "veelgestelde-vragen", ["fr"] = "questions-frequentes", ["en"] = "faq" };
+
+    public override string PathIn(string culture) => Words[culture];
+}
+
+/// <summary>De privacy- en cookieverklaring van de verhuurder.</summary>
+public sealed record PrivacyRoute : SiteRoute
+{
+    internal static readonly Dictionary<string, string> Words =
+        new() { ["nl"] = "privacy", ["fr"] = "confidentialite", ["en"] = "privacy" };
 
     public override string PathIn(string culture) => Words[culture];
 }

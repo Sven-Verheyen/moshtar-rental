@@ -39,6 +39,12 @@
     </MudPaper>
 
     <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Google Analytics</MudText>
+        <MudTextField @bind-Value="_s.GoogleAnalyticsId" Label="GA4-meet-ID" Variant="Variant.Outlined" Placeholder="G-ABC123XYZ"
+                      HelperText="Vind je in Google Analytics bij Beheer › Gegevensstreams. Leeg: geen Google Analytics en geen cookiebalk op je website." />
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
         <MudText Typo="Typo.h6" Class="mb-2">Werkgebied</MudText>
         <MudTextField @bind-Value="_serviceArea" Label="Gemeenten waar je levert" Variant="Variant.Outlined" Lines="6"
                       HelperText="Eén gemeente per regel." />
@@ -70,7 +76,7 @@
         {
             Street = s.Street, PostalCode = s.PostalCode, City = s.City, Email = s.Email, Phone = s.Phone,
             WhatsAppPhone = s.WhatsAppPhone, VatNumber = s.VatNumber, FacebookUrl = s.FacebookUrl, InstagramUrl = s.InstagramUrl,
-            TikTokUrl = s.TikTokUrl, GoogleBusinessUrl = s.GoogleBusinessUrl,
+            TikTokUrl = s.TikTokUrl, GoogleBusinessUrl = s.GoogleBusinessUrl, GoogleAnalyticsId = s.GoogleAnalyticsId,
         };
         _serviceArea = string.Join('\n', s.ServiceArea);
     }
@@ -83,7 +89,7 @@
             {
                 Street = _s.Street, PostalCode = _s.PostalCode, City = _s.City, Email = _s.Email, Phone = _s.Phone,
                 WhatsAppPhone = _s.WhatsAppPhone, VatNumber = _s.VatNumber, FacebookUrl = _s.FacebookUrl, InstagramUrl = _s.InstagramUrl,
-                TikTokUrl = _s.TikTokUrl, GoogleBusinessUrl = _s.GoogleBusinessUrl,
+                TikTokUrl = _s.TikTokUrl, GoogleBusinessUrl = _s.GoogleBusinessUrl, GoogleAnalyticsId = _s.GoogleAnalyticsId,
                 ServiceArea = Moshtar.Domain.Tenants.BusinessDetails.ServiceArea(_serviceArea),
             });
             _problems = [];
@@ -110,5 +116,6 @@
         public string? InstagramUrl { get; set; }
         public string? TikTokUrl { get; set; }
         public string? GoogleBusinessUrl { get; set; }
+        public string? GoogleAnalyticsId { get; set; }
     }
 }

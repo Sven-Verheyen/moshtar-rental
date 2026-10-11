@@ -1,0 +1,22 @@
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@inject ITenantContext TenantContext
+
+@* Een gebeurtenis voor Google Analytics, alleen als de bezoeker het aanvaardde. Nooit persoonsgegevens: alleen het
+   artikel, de periode en bedragen. *@
+@if (AnalyticsConsent.Allowed(HttpContext, TenantContext.Tenant))
+{
+    @((MarkupString)Script)
+}
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    /// <summary>De naam van de gebeurtenis, bv. <c>purchase</c>.</summary>
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    [Parameter, EditorRequired] public JsonObject Data { get; set; } = new();
+
+    /// <summary>De standaard-encoder van System.Text.Json schrijft &lt; als <, zodat een naam het script niet kan afsluiten.</summary>
+    private string Script => $"<script>gtag('event',{JsonSerializer.Serialize(Name)},{Data.ToJsonString()});</script>";
+}

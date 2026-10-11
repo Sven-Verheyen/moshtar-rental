@@ -37,6 +37,9 @@ public class Tenant
     public string? TikTokUrl { get; set; }
     /// <summary>Het Google-bedrijfsprofiel, waar klanten de reviews lezen.</summary>
     public string? GoogleBusinessUrl { get; set; }
+
+    /// <summary>Het GA4-meet-ID (G-…). Zonder: geen Google Analytics en geen toestemmingsbalk op de reservatiewebsite.</summary>
+    public string? GoogleAnalyticsId { get; set; }
     /// <summary>Het werkgebied: de gemeenten waar de verhuurder levert.</summary>
     public List<string> ServiceArea { get; set; } = [];
 

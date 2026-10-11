@@ -28,6 +28,7 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(t => t.InstagramUrl).HasMaxLength(500);
         b.Property(t => t.TikTokUrl).HasMaxLength(500);
         b.Property(t => t.GoogleBusinessUrl).HasMaxLength(500);
+        b.Property(t => t.GoogleAnalyticsId).HasMaxLength(30);
         b.Ignore(t => t.Cultures);
         b.HasMany(t => t.Hosts).WithOne().HasForeignKey(h => h.TenantId);
     }

@@ -25,8 +25,16 @@ Een gebruiker die reservaties opvolgt, maar geen prijzen, voorraad, instellingen
 _Avoid_: personeel, operator
 
 **Bedrijfsgegevens** (`BusinessDetails`):
-Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien.
+Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien, en het meet-ID van zijn Google Analytics.
 _Avoid_: profiel, contactgegevens
+
+**Toestemming** (`AnalyticsConsent`):
+De keuze van een bezoeker van de reservatiewebsite of de verhuurder hem mag meten met Google Analytics. Zonder toestemming laadt Google Analytics niet; de bezoeker kan zijn keuze altijd wijzigen.
+_Avoid_: cookie-akkoord, consent
+
+**Privacyverklaring**:
+De pagina van de reservatiewebsite die per taal uitlegt welke gegevens een verhuurder bewaart, waarom, welke cookies hij gebruikt en wat de rechten van de bezoeker zijn.
+_Avoid_: privacybeleid, cookiebeleid
 
 **Werkgebied** (`ServiceArea`):
 De lijst van gemeenten waar een verhuurder levert.
