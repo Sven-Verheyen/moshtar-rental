@@ -90,7 +90,7 @@ De hele dagen waarvoor gehuurd wordt, begin- en einddag inbegrepen. Op de reserv
 _Avoid_: periode, verhuurdagen
 
 **Winkelkar** (`Cart`):
-De artikelen en pakketten die een klant op de reservatiewebsite verzamelt om ze samen in één reservatie te reserveren, voor één huurperiode. Iets in de winkelkar leggen houdt geen voorraad vast; pas reserveren doet dat. Een winkelkar die niet gereserveerd wordt, verdwijnt na 7 dagen.
+De artikelen en pakketten die een klant op de reservatiewebsite verzamelt om ze samen in één reservatie te reserveren, voor één huurperiode. Iets in de winkelkar leggen houdt geen voorraad vast; pas reserveren doet dat. Een winkelkar die 7 dagen niet gewijzigd en niet gereserveerd werd, verdwijnt.
 _Avoid_: winkelmandje, mandje, selectie, bestelling
 
 **Marketingcontact** (`MarketingContact`):
