@@ -98,4 +98,20 @@
   <data name="Accept" xml:space="preserve"><value>Accepteren</value></data>
   <data name="Decline" xml:space="preserve"><value>Weigeren</value></data>
   <data name="CookieSettings" xml:space="preserve"><value>Cookie-instellingen</value></data>
+  <data name="CartTitle" xml:space="preserve"><value>Je winkelkar</value></data>
+  <data name="CartWithCount" xml:space="preserve"><value>Winkelkar, {0} stuks</value></data>
+  <data name="CartEmpty" xml:space="preserve"><value>Je winkelkar is leeg. Kies je datum en leg erin wat je wil huren.</value></data>
+  <data name="SeeOffer" xml:space="preserve"><value>Bekijk ons aanbod</value></data>
+  <data name="CartPeriod" xml:space="preserve"><value>Huurperiode: {0}</value></data>
+  <data name="CartPeriodPast" xml:space="preserve"><value>De huurperiode van je winkelkar ligt in het verleden. Kies een nieuwe datum.</value></data>
+  <data name="ChangeDate" xml:space="preserve"><value>Datum wijzigen</value></data>
+  <data name="CartLineGone" xml:space="preserve"><value>Dit artikel is niet meer te huren.</value></data>
+  <data name="Update" xml:space="preserve"><value>Bijwerken</value></data>
+  <data name="Remove" xml:space="preserve"><value>Verwijderen</value></data>
+  <data name="CartNotAllFree" xml:space="preserve"><value>Niet alles in je winkelkar is nog vrij op deze datum. Verwijder wat niet vrij is of kies een andere datum.</value></data>
+  <data name="ContinueShopping" xml:space="preserve"><value>Verder rondkijken</value></data>
+  <data name="AddToCart" xml:space="preserve"><value>In winkelkar</value></data>
+  <data name="AddedToCart" xml:space="preserve"><value>Toegevoegd aan je winkelkar.</value></data>
+  <data name="ToCart" xml:space="preserve"><value>Naar winkelkar</value></data>
+  <data name="NotAddedToCart" xml:space="preserve"><value>Dit past niet meer in je winkelkar: samen met wat er al in zit, is er op deze datum niet genoeg vrij.</value></data>
 </root>

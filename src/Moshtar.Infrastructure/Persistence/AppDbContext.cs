@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Tenancy;
+using Moshtar.Domain.Carts;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
@@ -26,6 +27,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<ReservationEvent> ReservationEvents => Set<ReservationEvent>();
     public DbSet<MailTemplateCustomization> MailTemplateCustomizations => Set<MailTemplateCustomization>();
     public DbSet<WebsiteTextCustomization> WebsiteTextCustomizations => Set<WebsiteTextCustomization>();
+    public DbSet<Cart> Carts => Set<Cart>();
 
     /// <summary>Wordt per query geëvalueerd door de globale tenantfilter.</summary>
     internal Guid CurrentTenantId => tenantContext.TenantId;

@@ -24,8 +24,12 @@ public record CatalogEntry(
     IReadOnlyList<string> Images,
     IReadOnlyList<string> Contents,
     ItemSpecs? Specs = null,
-    bool InStock = true)
+    bool InStock = true,
+    IReadOnlyList<Guid>? BundleItemIds = null)
 {
+    /// <summary>De artikelen in een pakket; leeg voor een los artikel.</summary>
+    public IReadOnlyList<Guid> ItemIds => BundleItemIds ?? [];
+
     /// <summary>De eerste foto, voor de kaart in een lijst.</summary>
     public string? ImageUrl => Images.Count > 0 ? Images[0] : null;
 

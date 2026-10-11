@@ -120,6 +120,28 @@
                 <p class="price price-large">@L["Total"]: @SiteText.Money(_entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span></p>
                 <p><a href="@(Here + "#reserveren")">@L["OtherDate"]</a></p>
             </div>
+            @if (CartResult == CartEndpoints.Added)
+            {
+                <div class="alert success cart-added" role="status">
+                    <p>@L["AddedToCart"]</p>
+                    <a class="button" href="@Links.Href(SiteRoute.Cart)">@L["ToCart"]</a>
+                </div>
+            }
+            else if (CartResult == CartEndpoints.NotAdded)
+            {
+                <p class="alert error" role="alert">@L["NotAddedToCart"]</p>
+            }
+            @* In de winkelkar, voor deze huurperiode. Een gewoon formulier: de winkelkar wijzigt op de server. *@
+            <form class="add-to-cart" method="post" action="@CartEndpoints.AddPath">
+                <AntiforgeryToken />
+                <input type="hidden" name="terug" value="@(Here + _chosen.Query)" />
+                <input type="hidden" name="soort" value="@(_entry.Kind == CatalogEntryKind.Item ? CartEndpoints.Item : CartEndpoints.Bundle)" />
+                <input type="hidden" name="id" value="@_entry.Id" />
+                <input type="hidden" name="@ChosenPeriod.StartKey" value="@ChosenPeriod.Format(period.Start)" />
+                <input type="hidden" name="@ChosenPeriod.EndKey" value="@ChosenPeriod.Format(period.End)" />
+                <label>@L["Quantity"] <input type="number" name="aantal" value="1" min="1" max="@Cart.MaxQuantity" /></label>
+                <button type="submit" class="button button-large">@L["AddToCart"]</button>
+            </form>
             @if (_error is not null)
             {
                 <p class="alert error" role="alert">@_error</p>
@@ -166,6 +188,7 @@
     [SupplyParameterFromForm] private ReservationForm? Form { get; set; }
     [SupplyParameterFromQuery(Name = ChosenPeriod.StartKey)] private string? Start { get; set; }
     [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
+    [SupplyParameterFromQuery(Name = CartEndpoints.ResultKey)] private string? CartResult { get; set; }
 
     private CatalogEntry? _entry;
     private CategoryLink? _category;

@@ -98,4 +98,20 @@
   <data name="Accept" xml:space="preserve"><value>Accepter</value></data>
   <data name="Decline" xml:space="preserve"><value>Refuser</value></data>
   <data name="CookieSettings" xml:space="preserve"><value>Paramètres des cookies</value></data>
+  <data name="CartTitle" xml:space="preserve"><value>Votre panier</value></data>
+  <data name="CartWithCount" xml:space="preserve"><value>Panier, {0} articles</value></data>
+  <data name="CartEmpty" xml:space="preserve"><value>Votre panier est vide. Choisissez votre date et ajoutez ce que vous voulez louer.</value></data>
+  <data name="SeeOffer" xml:space="preserve"><value>Voir notre offre</value></data>
+  <data name="CartPeriod" xml:space="preserve"><value>Période de location : {0}</value></data>
+  <data name="CartPeriodPast" xml:space="preserve"><value>La période de location de votre panier est passée. Choisissez une nouvelle date.</value></data>
+  <data name="ChangeDate" xml:space="preserve"><value>Changer la date</value></data>
+  <data name="CartLineGone" xml:space="preserve"><value>Cet article n'est plus disponible à la location.</value></data>
+  <data name="Update" xml:space="preserve"><value>Mettre à jour</value></data>
+  <data name="Remove" xml:space="preserve"><value>Retirer</value></data>
+  <data name="CartNotAllFree" xml:space="preserve"><value>Tout votre panier n'est plus disponible à cette date. Retirez ce qui n'est pas disponible ou choisissez une autre date.</value></data>
+  <data name="ContinueShopping" xml:space="preserve"><value>Continuer à regarder</value></data>
+  <data name="AddToCart" xml:space="preserve"><value>Ajouter au panier</value></data>
+  <data name="AddedToCart" xml:space="preserve"><value>Ajouté à votre panier.</value></data>
+  <data name="ToCart" xml:space="preserve"><value>Voir mon panier</value></data>
+  <data name="NotAddedToCart" xml:space="preserve"><value>Ceci ne rentre plus dans votre panier : avec ce qu'il contient déjà, il n'y a pas assez de disponibilité à cette date.</value></data>
 </root>

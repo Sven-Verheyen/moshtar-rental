@@ -87,6 +87,44 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Carts.Cart", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Key")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("UpdatedAtUtc");
+
+                    b.ToTable("Carts");
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Catalog.Bundle", b =>
                 {
                     b.Property<Guid>("Id")
@@ -704,6 +742,36 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Carts.Cart", b =>
+                {
+                    b.OwnsMany("Moshtar.Domain.Carts.CartLine", "Lines", b1 =>
+                        {
+                            b1.Property<Guid>("CartId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<Guid?>("BundleId");
+
+                            b1.Property<int>("Quantity");
+
+                            b1.Property<Guid?>("RentalItemId");
+
+                            b1.HasKey("CartId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Carts");
+
+                            b1
+                                .ToJson("Lines")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CartId");
+                        });
+
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Moshtar.Domain.Catalog.Bundle", b =>

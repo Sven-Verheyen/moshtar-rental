@@ -19,6 +19,7 @@ public abstract record SiteRoute
             [var word] when ContactRoute.Words.ContainsValue(word) => Contact,
             [var word] when FaqRoute.Words.ContainsValue(word) => Faq,
             [var word] when PrivacyRoute.Words.ContainsValue(word) => Privacy,
+            [var word] when CartRoute.Words.ContainsValue(word) => Cart,
             [var word, var slug] when slug.Length > 0 && RentalRoute.Words.ContainsValue(word) => new RentalRoute(slug),
             _ => null,
         };
@@ -35,6 +36,9 @@ public abstract record SiteRoute
 
     /// <summary>De privacy- en cookieverklaring.</summary>
     public static readonly SiteRoute Privacy = new PrivacyRoute();
+
+    /// <summary>De winkelkar van de klant.</summary>
+    public static readonly SiteRoute Cart = new CartRoute();
 }
 
 /// <summary>De home: "/" in de standaardtaal, "/fr" of "/en" in de andere.</summary>
@@ -82,6 +86,14 @@ public sealed record PrivacyRoute : SiteRoute
 {
     internal static readonly Dictionary<string, string> Words =
         new() { ["nl"] = "privacy", ["fr"] = "confidentialite", ["en"] = "privacy" };
+
+    public override string PathIn(string culture) => Words[culture];
+}
+
+/// <summary>De winkelkar van de klant. Niet geïndexeerd: elke klant ziet er iets anders.</summary>
+public sealed record CartRoute : SiteRoute
+{
+    internal static readonly Dictionary<string, string> Words = new() { ["nl"] = "winkelkar", ["fr"] = "panier", ["en"] = "cart" };
 
     public override string PathIn(string culture) => Words[culture];
 }

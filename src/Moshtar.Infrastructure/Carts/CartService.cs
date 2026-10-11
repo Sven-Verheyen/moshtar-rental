@@ -1,0 +1,119 @@
+using System.Security.Cryptography;
+using Microsoft.EntityFrameworkCore;
+using Moshtar.Application.Carts;
+using Moshtar.Application.Catalog;
+using Moshtar.Application.Reservations;
+using Moshtar.Domain.Carts;
+using Moshtar.Domain.Common;
+using Moshtar.Infrastructure.Persistence;
+
+namespace Moshtar.Infrastructure.Carts;
+
+/// <summary>
+/// Met een eigen, kortlevende context per oproep: de kop van elke pagina vraagt het aantal op terwijl de pagina zelf
+/// de gedeelde context gebruikt.
+/// </summary>
+internal sealed class CartService(
+    IDbContextFactory<AppDbContext> contexts, ICatalogService catalog, IReservationService reservations, TimeProvider clock) : ICartService
+{
+    public async Task<CartView?> GetAsync(string? key, string culture, CancellationToken ct = default)
+    {
+        if (await FindAsync(key, ct) is not { } cart) return null;
+
+        var entries = (await catalog.GetCatalogAsync(culture, ct)).ToDictionary(e => Ref(e));
+        var period = cart.Period;
+        var unavailable = await UnavailableItemsAsync(cart, entries, period, ct);
+        var lines = cart.Lines.Select(l =>
+        {
+            var entry = entries.GetValueOrDefault(l.Entry);
+            return new CartLineView(l.Entry, entry, l.Quantity, entry?.PriceFor(period.Days) ?? 0,
+                Available: entry is not null && !Occupies(l, unavailable, entry));
+        }).ToList();
+        return new CartView(period, lines);
+    }
+
+    public async Task<int> CountAsync(string? key, CancellationToken ct = default) =>
+        await FindAsync(key, ct) is { } cart ? cart.Count : 0;
+
+    public async Task<CartChange> AddAsync(string? key, CatalogRef entry, int quantity, DateRange period, CancellationToken ct = default)
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var cart = await FindAsync(db, key, ct);
+        var candidate = new Cart { Lines = cart?.Lines.Select(Copy).ToList() ?? [] };
+        candidate.Add(entry, quantity, period, now);
+
+        // Alleen weigeren als het artikel of pakket zelf, samen met de rest van de winkelkar, niet past: wat al in de
+        // winkelkar zat en in de nieuwe huurperiode niet meer vrij is, toont de winkelkar zelf.
+        // Alleen welke artikelen en pakketten bestaan telt hier, niet hun naam: de taal maakt niet uit.
+        var entries = (await catalog.GetCatalogAsync("nl", ct)).ToDictionary(e => Ref(e));
+        if (!entries.TryGetValue(entry, out var added))
+            return new CartChange(cart?.Key, false);
+        var unavailable = await UnavailableItemsAsync(candidate, entries, period, ct);
+        if (Occupies(candidate.Lines.Single(l => l.Entry == entry), unavailable, added))
+            return new CartChange(cart?.Key, false);
+
+        if (cart is null)
+        {
+            cart = Cart.Create(NewKey(), period, now);
+            db.Carts.Add(cart);
+        }
+        cart.Add(entry, quantity, period, now);
+        await db.SaveChangesAsync(ct);
+        return new CartChange(cart.Key, true);
+    }
+
+    public async Task<CartChange> SetQuantityAsync(string? key, CatalogRef entry, int quantity, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        if (await FindAsync(db, key, ct) is not { } cart) return new CartChange(null, false);
+        cart.SetQuantity(entry, quantity, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(ct);
+        return new CartChange(cart.Key, true);
+    }
+
+    public async Task<CartChange> ChangePeriodAsync(string? key, DateRange period, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        if (await FindAsync(db, key, ct) is not { } cart) return new CartChange(null, false);
+        cart.ChangePeriod(period, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(ct);
+        return new CartChange(cart.Key, true);
+    }
+
+    private async Task<Cart?> FindAsync(string? key, CancellationToken ct)
+    {
+        if (string.IsNullOrEmpty(key)) return null;
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        return await db.Carts.AsNoTracking().FirstOrDefaultAsync(c => c.Key == key, ct);
+    }
+
+    private static async Task<Cart?> FindAsync(AppDbContext db, string? key, CancellationToken ct) =>
+        string.IsNullOrEmpty(key) ? null : await db.Carts.FirstOrDefaultAsync(c => c.Key == key, ct);
+
+    /// <summary>
+    /// De artikelen waarvan te weinig vrij is als alles uit de winkelkar samen gehuurd wordt, met de bestaande
+    /// beschikbaarheidsberekening. Lijnen die niet meer op de reservatiewebsite staan, tellen niet mee.
+    /// </summary>
+    private async Task<IReadOnlySet<Guid>> UnavailableItemsAsync(Cart cart, Dictionary<CatalogRef, CatalogEntry> entries, DateRange period, CancellationToken ct)
+    {
+        var lines = cart.Lines.Where(l => entries.ContainsKey(l.Entry))
+            .Select(l => new ReservationLineRequest(l.RentalItemId, l.BundleId, l.Quantity)).ToList();
+        if (lines.Count == 0) return new HashSet<Guid>();
+        var shortages = await reservations.CheckAvailabilityAsync(period, lines, ct);
+        return shortages.Select(s => s.RentalItemId).ToHashSet();
+    }
+
+    /// <summary>Gebruikt deze lijn een artikel waarvan te weinig vrij is? Voor een pakket: een van zijn artikelen.</summary>
+    private static bool Occupies(CartLine line, IReadOnlySet<Guid> unavailable, CatalogEntry entry) =>
+        line.RentalItemId is { } itemId ? unavailable.Contains(itemId) : entry.ItemIds.Any(unavailable.Contains);
+
+    private static CatalogRef Ref(CatalogEntry e) => e.Kind == CatalogEntryKind.Item ? CatalogRef.Item(e.Id) : CatalogRef.Bundle(e.Id);
+
+    private static CartLine Copy(CartLine l) => new() { RentalItemId = l.RentalItemId, BundleId = l.BundleId, Quantity = l.Quantity };
+
+    /// <summary>32 willekeurige bytes, URL-veilig: niet te raden, ook niet door iemand die andere sleutels kent.</summary>
+    private static string NewKey() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
+
+    private static string Base64UrlEncode(byte[] bytes) => Convert.ToBase64String(bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+}

@@ -42,7 +42,8 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
                     ? item.Images.OrderBy(image => image.SortOrder).Select(image => image.Url) : []).ToList();
                 var inStock = b.Items.All(x => itemsById.TryGetValue(x.RentalItemId, out var item) && item.Stock >= x.Quantity);
                 return new CatalogEntry(b.Id, CatalogEntryKind.Bundle, b.Slug, t?.Name ?? b.Slug, t?.Description,
-                    null, null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, images, contents, InStock: inStock);
+                    null, null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, images, contents, InStock: inStock,
+                    BundleItemIds: b.Items.Select(x => x.RentalItemId).ToList());
             }));
         return entries.ToList();
     }
