@@ -170,7 +170,7 @@ internal static class SiteFiles
 
     /// <summary>
     /// De pagina's die in de sitemap horen: home, categorieën met artikelen, artikelen, pakketten, veelgestelde vragen
-    /// en contact. Zonder huurperiode: die pagina's worden niet geïndexeerd.
+    /// contact en de privacyverklaring. Zonder huurperiode: die pagina's worden niet geïndexeerd.
     /// </summary>
     private static async Task<IReadOnlyList<SiteRoute>> IndexedRoutesAsync(SiteLinks links, ICatalogService catalog, IWebsiteTexts texts, CancellationToken ct)
     {
@@ -182,6 +182,7 @@ internal static class SiteFiles
             .Concat(entries.Select(e => (SiteRoute)new RentalRoute(e.Slug)))
             .Concat(faq.Count > 0 ? [SiteRoute.Faq] : [])
             .Append(SiteRoute.Contact)
+            .Append(SiteRoute.Privacy)
             .ToList();
     }
 

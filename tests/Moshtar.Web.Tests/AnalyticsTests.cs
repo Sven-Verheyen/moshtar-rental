@@ -60,7 +60,7 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Equal("/huren/kasteel", response.Headers.Location!.OriginalString);
-        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"));
+        var cookie = Assert.Single(response.Headers.GetValues("Set-Cookie"), c => c.StartsWith("moshtar-analytics"));
         Assert.StartsWith("moshtar-analytics=ja;", cookie);
         Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("samesite=lax", cookie, StringComparison.OrdinalIgnoreCase);
@@ -86,6 +86,21 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Equal("/en/privacy", change.Headers.Location!.OriginalString);
         Assert.Contains("class=\"consent\"", again);
         Assert.DoesNotContain("googletagmanager", again);
+    }
+
+    [Fact]
+    public async Task Another_website_cannot_accept_in_the_name_of_the_visitor()
+    {
+        await NewTenantAsync("ga-vervalst", "G-TEST12345");
+        var client = app.CreateClient("ga-vervalst.test");
+
+        var response = await client.PostAsync("/toestemming", new FormUrlEncodedContent(new Dictionary<string, string> { ["keuze"] = "ja", ["terug"] = "/" }));
+        var html = await client.GetStringAsync("/");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.False(response.Headers.TryGetValues("Set-Cookie", out var cookies) && cookies.Any(c => c.StartsWith("moshtar-analytics")));
+        Assert.Contains("class=\"consent\"", html);
+        Assert.DoesNotContain("googletagmanager", html);
     }
 
     [Theory]
@@ -187,8 +202,17 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Equal("/fr/confidentialite", response.Headers.Location!.OriginalString);
     }
 
-    private static Task<HttpResponseMessage> ChooseAsync(HttpClient client, string choice, string returnUrl) =>
-        client.PostAsync("/toestemming", new FormUrlEncodedContent(new Dictionary<string, string> { ["keuze"] = choice, ["terug"] = returnUrl }));
+    /// <summary>Zoals een browser: de balk ophalen en het formulier met zijn antiforgery-token versturen.</summary>
+    private static async Task<HttpResponseMessage> ChooseAsync(HttpClient client, string choice, string returnUrl)
+    {
+        var page = await client.GetStringAsync("/");
+        return await client.PostAsync("/toestemming", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = BackOffice.Field(page, "__RequestVerificationToken"),
+            ["keuze"] = choice,
+            ["terug"] = returnUrl,
+        }));
+    }
 
     private async Task NewTenantAsync(string slug, string? measurementId)
     {

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Antiforgery;
 using Moshtar.Domain.Tenants;
 
 namespace Moshtar.Web.Site;
@@ -43,10 +44,14 @@ public static class AnalyticsConsent
 
     public static IEndpointRouteBuilder MapAnalyticsConsent(this IEndpointRouteBuilder app)
     {
-        // Geen antiforgery: de keuze verandert alleen deze cookie, en een vervalste keuze kan de bezoeker altijd wijzigen.
-        app.MapPost(ChoosePath, (HttpContext context) =>
+        // Het antiforgery-token zelf nagaan: een andere site kan geen "ja" in naam van de bezoeker versturen. Een
+        // ongeldig token verandert niets en stuurt gewoon terug (de automatische controle gaf een foutpagina).
+        app.MapPost(ChoosePath, async (HttpContext context, IAntiforgery antiforgery) =>
         {
-            var form = context.Request.Form;
+            var valid = await antiforgery.IsRequestValidAsync(context);
+            var form = await context.Request.ReadFormAsync();
+            var terug = form["terug"].ToString();
+            if (!valid) return Results.Redirect(LocalOrHome(terug));
             var choice = form["keuze"].ToString() switch
             {
                 Accepted => Accepted,
@@ -55,7 +60,7 @@ public static class AnalyticsConsent
             };
             if (choice is not null)
                 context.Response.Cookies.Append(CookieName, choice, CookieOptions(context));
-            return Results.Redirect(LocalOrHome(form["terug"]));
+            return Results.Redirect(LocalOrHome(terug));
         }).DisableAntiforgery();
 
         app.MapGet(ChangePath, (HttpContext context, string? terug) =>

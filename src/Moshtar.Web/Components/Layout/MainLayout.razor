@@ -95,6 +95,7 @@
 {
     <form class="consent" method="post" action="@AnalyticsConsent.ChoosePath" aria-label="@L["CookieSettings"]">
         <p>@L["ConsentText"] <a href="@Links.Href(SiteRoute.Privacy)">@L["Privacy"]</a></p>
+        <AntiforgeryToken />
         <input type="hidden" name="terug" value="@AnalyticsConsent.ReturnUrl(HttpContext!)" />
         <div class="consent-choices">
             <button class="button" type="submit" name="keuze" value="ja">@L["Accept"]</button>
