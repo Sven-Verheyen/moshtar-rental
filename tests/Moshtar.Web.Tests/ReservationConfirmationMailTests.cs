@@ -23,23 +23,7 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
         var day = TestReservations.FutureDay(300);
 
         var path = $"/huren/mail-website?van={day:yyyy-MM-dd}&tot={day:yyyy-MM-dd}";
-        var form = await client.GetStringAsync(path);
-        var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["_handler"] = "reservation",
-            ["__RequestVerificationToken"] = BackOffice.Field(form, "__RequestVerificationToken"),
-            ["Form.StartDate"] = day.ToString("yyyy-MM-dd"),
-            ["Form.EndDate"] = day.ToString("yyyy-MM-dd"),
-            ["Form.Quantity"] = "1",
-            ["Form.FirstName"] = "Lotte",
-            ["Form.LastName"] = "Website",
-            ["Form.Email"] = "lotte@example.test",
-            ["Form.Street"] = "Kerkstraat 1",
-            ["Form.PostalCode"] = "2000",
-            ["Form.City"] = "Antwerpen",
-            ["Form.DeliveryMethod"] = "Pickup",
-        }));
-        response.EnsureSuccessStatusCode();
+        await WebsiteCart.ReserveItemAsync(client, path, "lotte@example.test", "Lotte");
 
         var mail = Assert.Single(Outbox.Sent, m => m.To == "lotte@example.test");
         var number = await NumberOfLatestReservationAsync("lotte@example.test");

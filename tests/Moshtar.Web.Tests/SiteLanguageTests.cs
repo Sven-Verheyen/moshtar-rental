@@ -184,23 +184,7 @@ public sealed class SiteLanguageTests(MoshtarApp app) : IClassFixture<MoshtarApp
         var day = TestReservations.FutureDay(320);
         var path = $"/en/rent/{Slug}?van={day:yyyy-MM-dd}";
 
-        var form = await client.GetStringAsync(path);
-        var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["_handler"] = "reservation",
-            ["__RequestVerificationToken"] = BackOffice.Field(form, "__RequestVerificationToken"),
-            ["Form.StartDate"] = day.ToString("yyyy-MM-dd"),
-            ["Form.EndDate"] = day.ToString("yyyy-MM-dd"),
-            ["Form.Quantity"] = "1",
-            ["Form.FirstName"] = "Emma",
-            ["Form.LastName"] = "English",
-            ["Form.Email"] = "emma@example.test",
-            ["Form.Street"] = "High Street 1",
-            ["Form.PostalCode"] = "2000",
-            ["Form.City"] = "Antwerpen",
-            ["Form.DeliveryMethod"] = "Pickup",
-        }));
-        response.EnsureSuccessStatusCode();
+        await WebsiteCart.ReserveItemAsync(client, path, "emma@example.test", "Emma", cartPath: "/en/cart");
 
         await using var scope = await app.TenantScopeAsync("hopsakee");
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();

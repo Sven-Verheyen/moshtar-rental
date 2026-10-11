@@ -199,6 +199,8 @@ internal class CartConfiguration : IEntityTypeConfiguration<Cart>
     public void Configure(EntityTypeBuilder<Cart> b)
     {
         b.Property(c => c.Key).HasMaxLength(64);
+        b.Property(c => c.Email).HasMaxLength(320);
+        b.Property(c => c.Culture).HasMaxLength(10);
         b.HasIndex(c => c.Key).IsUnique();
         b.HasIndex(c => c.UpdatedAtUtc);
         b.Ignore(c => c.Period);

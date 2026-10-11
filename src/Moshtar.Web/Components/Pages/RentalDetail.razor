@@ -87,15 +87,7 @@
     <section id="reserveren" class="reservation">
         <h2>@L["ReserveThis"]</h2>
 
-        @if (_confirmation is not null)
-        {
-            <p class="alert success" role="status">@_confirmation</p>
-            @if (_confirmed is { } confirmed)
-            {
-                <AnalyticsEvent Name="purchase" Data="@Purchase(confirmed)" />
-            }
-        }
-        else if (_chosen.Period is not { } period)
+        @if (_chosen.Period is not { } period)
         {
             <p>@L["ChooseDateFirst"]</p>
             <PeriodForm Action="@(Here + "#reserveren")" Chosen="_chosen" Today="_today" />
@@ -142,42 +134,6 @@
                 <label>@L["Quantity"] <input type="number" name="aantal" value="1" min="1" max="@Cart.MaxQuantity" /></label>
                 <button type="submit" class="button button-large">@L["AddToCart"]</button>
             </form>
-            @if (_error is not null)
-            {
-                <p class="alert error" role="alert">@_error</p>
-            }
-            <EditForm Model="Form" FormName="reservation" OnValidSubmit="SubmitAsync" action="#reserveren">
-                <DataAnnotationsValidator />
-                <ValidationSummary />
-                @* De huurperiode is gekozen en getoond hierboven; een andere datum kiest de klant met de link. *@
-                <input type="hidden" name="Form.StartDate" value="@ChosenPeriod.Format(Form!.StartDate)" />
-                <input type="hidden" name="Form.EndDate" value="@ChosenPeriod.Format(Form!.EndDate)" />
-                <div class="row">
-                    <label>@L["Quantity"] <InputNumber @bind-Value="Form!.Quantity" min="1" /></label>
-                </div>
-                <div class="row">
-                    <label>@L["FirstName"] <InputText @bind-Value="Form!.FirstName" autocomplete="given-name" /></label>
-                    <label>@L["LastName"] <InputText @bind-Value="Form!.LastName" autocomplete="family-name" /></label>
-                </div>
-                <div class="row">
-                    <label>@L["Email"] <InputText type="email" @bind-Value="Form!.Email" autocomplete="email" /></label>
-                    <label>@L["Phone"] <InputText type="tel" @bind-Value="Form!.Phone" autocomplete="tel" /></label>
-                </div>
-                <label>@L["Street"] <InputText @bind-Value="Form!.Street" autocomplete="street-address" /></label>
-                <div class="row">
-                    <label>@L["PostalCode"] <InputText @bind-Value="Form!.PostalCode" autocomplete="postal-code" /></label>
-                    <label>@L["City"] <InputText @bind-Value="Form!.City" autocomplete="address-level2" /></label>
-                </div>
-                <fieldset>
-                    <legend>@L["DeliveryMethod"]</legend>
-                    <InputRadioGroup @bind-Value="Form!.DeliveryMethod">
-                        <label><InputRadio Value="DeliveryMethod.Delivery" /> @L["Delivery"]</label>
-                        <label><InputRadio Value="DeliveryMethod.Pickup" /> @L["Pickup"]</label>
-                    </InputRadioGroup>
-                </fieldset>
-                <label>@L["Notes"] <InputTextArea @bind-Value="Form!.Notes" rows="3" /></label>
-                <button type="submit" class="button button-large">@L["Submit"]</button>
-            </EditForm>
         }
     </section>
 </div>
@@ -185,7 +141,6 @@
 
 @code {
     [Parameter] public string Slug { get; set; } = "";
-    [SupplyParameterFromForm] private ReservationForm? Form { get; set; }
     [SupplyParameterFromQuery(Name = ChosenPeriod.StartKey)] private string? Start { get; set; }
     [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
     [SupplyParameterFromQuery(Name = CartEndpoints.ResultKey)] private string? CartResult { get; set; }
@@ -195,9 +150,6 @@
     private ChosenPeriod _chosen = ChosenPeriod.None;
     private DateOnly _today;
     private bool _available;
-    private string? _confirmation;
-    private (string Number, decimal Total, int Quantity)? _confirmed;
-    private string? _error;
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
@@ -232,7 +184,6 @@
 
         _today = ChosenPeriod.Today(Clock);
         _chosen = ChosenPeriod.From(Start, End, _today);
-        Form ??= new() { StartDate = _chosen.Period?.Start, EndDate = _chosen.Period?.End };
         if (_chosen.Period is { } period)
             _available = (await Reservations.CheckAvailabilityAsync(period, [Line(1)])).Count == 0;
     }
@@ -240,42 +191,6 @@
     private ReservationLineRequest Line(int quantity) => _entry!.Kind == CatalogEntryKind.Item
         ? new ReservationLineRequest(_entry.Id, null, quantity)
         : new ReservationLineRequest(null, _entry.Id, quantity);
-
-    private async Task SubmitAsync()
-    {
-        if (_entry is null || Form is null) return;
-        if (Form.EndDate < Form.StartDate)
-        {
-            _error = L["PeriodEndBeforeStart"];
-            return;
-        }
-
-        var address = new Moshtar.Domain.Common.Address { Street = Form.Street, PostalCode = Form.PostalCode, City = Form.City };
-        try
-        {
-            var result = await Reservations.ReserveAsync(new ReservationRequest(
-                new Moshtar.Domain.Common.DateRange(Form.StartDate!.Value, Form.EndDate!.Value),
-                [Line(Form.Quantity)],
-                new ReservationCustomer(Form.FirstName, Form.LastName, Form.Email, Form.Phone, address),
-                Form.DeliveryMethod,
-                address,
-                Form.Notes,
-                Culture),
-                ReservationActor.Website);
-
-            if (result.Reservation is { } reservation)
-            {
-                _confirmation = L["Confirmed", reservation.Number, SiteText.Money(reservation.TotalPrice)];
-                _confirmed = (reservation.Number, reservation.TotalPrice, Form.Quantity);
-            }
-            else
-                _error = L["NotAvailable", result.Shortages[0].Day.ToString("d", CultureInfo.CurrentUICulture)];
-        }
-        catch (ArgumentException ex)
-        {
-            _error = ex.Message;
-        }
-    }
 
     /// <summary>Voor Google Analytics: welk artikel voor welke periode, en of het vrij was. Geen persoonsgegevens.</summary>
     private System.Text.Json.Nodes.JsonObject AvailabilityChecked(Moshtar.Domain.Common.DateRange period) => new()
@@ -286,23 +201,6 @@
         ["end_date"] = ChosenPeriod.Format(period.End),
         ["days"] = period.Days,
         ["available"] = _available,
-    };
-
-    /// <summary>
-    /// De bevestigde reservatie als GA4-aankoop: het reservatienummer, het totaal in euro en het artikel. Geen naam,
-    /// e-mailadres of andere gegevens van de klant.
-    /// </summary>
-    private System.Text.Json.Nodes.JsonObject Purchase((string Number, decimal Total, int Quantity) confirmed) => new()
-    {
-        ["transaction_id"] = confirmed.Number,
-        ["value"] = confirmed.Total,
-        ["currency"] = "EUR",
-        ["items"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject
-        {
-            ["item_id"] = _entry!.Slug,
-            ["item_name"] = _entry.Name,
-            ["quantity"] = confirmed.Quantity,
-        }),
     };
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];

@@ -127,30 +127,15 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var path = $"/huren/kasteel?van={day:yyyy-MM-dd}&tot={day.AddDays(1):yyyy-MM-dd}";
 
         var form = await client.GetStringAsync(path);
-        var response = await client.PostAsync(path, new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["_handler"] = "reservation",
-            ["__RequestVerificationToken"] = BackOffice.Field(form, "__RequestVerificationToken"),
-            ["Form.StartDate"] = BackOffice.Field(form, "Form.StartDate"),
-            ["Form.EndDate"] = BackOffice.Field(form, "Form.EndDate"),
-            ["Form.Quantity"] = "1",
-            ["Form.FirstName"] = "Greta",
-            ["Form.LastName"] = "Meting",
-            ["Form.Email"] = "greta@example.test",
-            ["Form.Phone"] = "+32 470 00 00 00",
-            ["Form.Street"] = "Meetstraat 9",
-            ["Form.PostalCode"] = "2000",
-            ["Form.City"] = "Antwerpen",
-            ["Form.DeliveryMethod"] = "Delivery",
-        }));
-        var confirmed = await response.Content.ReadAsStringAsync();
+        var confirmed = await WebsiteCart.ReserveItemAsync(client, path, "greta@example.test", "Greta",
+            delivery: "Delivery", phone: "+32 470 00 00 00", street: "Meetstraat 9");
 
         Assert.Contains("<script>gtag('event',\"check_availability\",{\"item_id\":\"kasteel\",\"item_name\":\"Kasteel\"," +
             $"\"start_date\":\"{day:yyyy-MM-dd}\",\"end_date\":\"{day.AddDays(1):yyyy-MM-dd}\",\"days\":2,\"available\":true}});</script>", form);
         var purchase = System.Text.RegularExpressions.Regex.Match(confirmed, "<script>gtag\\('event',\"purchase\",(.*?)\\);</script>");
         Assert.True(purchase.Success, "De bevestigde reservatie wordt gemeten.");
         Assert.Matches("^\\{\"transaction_id\":\"[^\"]+\",\"value\":200.00,\"currency\":\"EUR\",\"items\":\\[\\{\"item_id\":\"kasteel\",\"item_name\":\"Kasteel\",\"quantity\":1\\}\\]\\}$", purchase.Groups[1].Value);
-        foreach (var personal in new[] { "Greta", "Meting", "greta@example", "470 00", "Meetstraat" })
+        foreach (var personal in new[] { "Greta", "Klant", "greta@example", "470 00", "Meetstraat" })
             Assert.DoesNotContain(personal, string.Join("", System.Text.RegularExpressions.Regex.Matches(confirmed, "<script>gtag.*?</script>").Select(m => m.Value)));
     }
 

@@ -114,4 +114,17 @@
   <data name="AddedToCart" xml:space="preserve"><value>Added to your cart.</value></data>
   <data name="ToCart" xml:space="preserve"><value>Go to cart</value></data>
   <data name="NotAddedToCart" xml:space="preserve"><value>This no longer fits in your cart: together with what's already in it, not enough is free on this date.</value></data>
+  <data name="CartFixFirst" xml:space="preserve"><value>First remove what is no longer free, or choose another date. Then you can reserve.</value></data>
+  <data name="CartStep" xml:space="preserve"><value>Step {0} of {1}</value></data>
+  <data name="EmailInvalid" xml:space="preserve"><value>That email address doesn't look right. Please check it.</value></data>
+  <data name="WantsReminder" xml:space="preserve"><value>Send me a reminder if I don't finish my reservation</value></data>
+  <data name="WantsNews" xml:space="preserve"><value>I'd like to receive news and offers from {0}</value></data>
+  <data name="Next" xml:space="preserve"><value>Continue</value></data>
+  <data name="Change" xml:space="preserve"><value>Change</value></data>
+  <data name="CartReserveShortage" xml:space="preserve"><value>Just taken on this date: {0}. Remove it from your cart or choose another date; your details stay filled in.</value></data>
+  <data name="CartGone" xml:space="preserve"><value>Your cart is empty or has expired. Choose again what you'd like to rent.</value></data>
+  <data name="CartNoEmail" xml:space="preserve"><value>Enter your email address first.</value></data>
+  <data name="CartHasGoneItems" xml:space="preserve"><value>Something in your cart can no longer be rented. Remove it, then reserve.</value></data>
+  <data name="CartCannotReserve" xml:space="preserve"><value>This reservation isn't possible. Check the rental period or contact us.</value></data>
+  <data name="ReservationThanks" xml:space="preserve"><value>Thank you for your reservation</value></data>
 </root>

@@ -25,6 +25,23 @@ public class Cart : TenantEntity
     /// <summary>De laatste wijziging; een winkelkar die zo 7 dagen blijft liggen, verdwijnt.</summary>
     public DateTime UpdatedAtUtc { get; set; }
 
+    /// <summary>Het e-mailadres van de klant, zodra hij de eerste stap van het reserveren deed.</summary>
+    public string? Email { get; set; }
+
+    /// <summary>De taal van de klant, voor de herinneringsmail.</summary>
+    public string? Culture { get; set; }
+
+    /// <summary>Wil de klant een herinnering als hij zijn reservatie niet afrondt? Standaard niet.</summary>
+    public bool WantsReminder { get; set; }
+
+    /// <summary>Wil de klant nieuws en acties van de verhuurder ontvangen? Standaard niet.</summary>
+    public bool WantsNews { get; set; }
+
+    /// <summary>Wanneer alles uit de winkelkar gereserveerd werd; daarna is de winkelkar afgesloten.</summary>
+    public DateTime? ReservedAtUtc { get; set; }
+
+    public Guid? ReservationId { get; set; }
+
     /// <summary>Het aantal stuks in de winkelkar, voor het icoon in de kop.</summary>
     public int Count => Lines.Sum(l => l.Quantity);
 
@@ -58,6 +75,27 @@ public class Cart : TenantEntity
     }
 
     public void Remove(CatalogRef entry, DateTime atUtc) => SetQuantity(entry, 0, atUtc);
+
+    /// <summary>
+    /// De eerste stap van het reserveren: het e-mailadres en de twee toestemmingen. Zo heeft de verhuurder het
+    /// e-mailadres ook als de klant daarna afhaakt.
+    /// </summary>
+    public void Identify(string email, string culture, bool wantsReminder, bool wantsNews, DateTime atUtc)
+    {
+        Email = email.Trim().ToLowerInvariant();
+        Culture = culture;
+        WantsReminder = wantsReminder;
+        WantsNews = wantsNews;
+        UpdatedAtUtc = atUtc;
+    }
+
+    /// <summary>Alles uit de winkelkar is gereserveerd: de winkelkar is afgesloten.</summary>
+    public void MarkReserved(Guid reservationId, DateTime atUtc)
+    {
+        ReservationId = reservationId;
+        ReservedAtUtc = atUtc;
+        UpdatedAtUtc = atUtc;
+    }
 
     /// <summary>Een andere huurperiode voor alles in de winkelkar.</summary>
     public void ChangePeriod(DateRange period, DateTime atUtc)

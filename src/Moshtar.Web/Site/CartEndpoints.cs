@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Microsoft.AspNetCore.Antiforgery;
 using Moshtar.Application.Carts;
 using Moshtar.Domain.Carts;
@@ -15,6 +16,14 @@ public static class CartEndpoints
     public const string AddPath = "/winkelkar/toevoegen";
     public const string QuantityPath = "/winkelkar/aantal";
     public const string PeriodPath = "/winkelkar/datum";
+    public const string ContactPath = "/winkelkar/gegevens";
+
+    /// <summary>De querystring-sleutel waarmee de winkelkarpagina stap 1 (het e-mailadres) opnieuw toont.</summary>
+    public const string StepKey = "stap";
+    public const string EmailStep = "email";
+
+    /// <summary>De waarde van een aangevinkt vakje.</summary>
+    public const string Checked = "ja";
 
     /// <summary>De querystring-sleutel waarmee de artikelpagina meldt hoe het toevoegen afliep.</summary>
     public const string ResultKey = "winkelkar";
@@ -69,7 +78,29 @@ public static class CartEndpoints
             Remember(context, await carts.ChangePeriodAsync(Key(context), period, context.RequestAborted));
             return Results.Redirect(terug);
         }).DisableAntiforgery();
+
+        // Stap 1 van het reserveren: e-mailadres en de twee toestemmingen, meteen bewaard op de winkelkar.
+        app.MapPost(ContactPath, async (HttpContext context, IAntiforgery antiforgery, ICartService carts) =>
+        {
+            var (valid, form) = await ReadAsync(context, antiforgery);
+            var terug = AnalyticsConsent.LocalOrHome(form["terug"]);
+            if (!valid) return Results.Redirect(terug);
+            var email = form["email"].ToString().Trim();
+            if (email.Length is 0 or > 320 || !new EmailAddressAttribute().IsValid(email))
+                return Results.Redirect($"{terug}?{StepKey}={EmailStep}&{ProblemKey}=EmailInvalid#reserveren");
+            var culture = SiteLanguage.Cultures.Contains(form["taal"].ToString()) ? form["taal"].ToString() : "nl";
+            Remember(context, await carts.IdentifyAsync(Key(context), email, culture,
+                wantsReminder: form["herinnering"] == Checked, wantsNews: form["nieuws"] == Checked, context.RequestAborted));
+            return Results.Redirect(terug + "#reserveren");
+        }).DisableAntiforgery();
         return app;
+    }
+
+    /// <summary>Na het reserveren is de winkelkar afgesloten: de cookie mag weg.</summary>
+    public static void Forget(HttpContext context)
+    {
+        if (!context.Response.HasStarted && Key(context) is not null)
+            context.Response.Cookies.Delete(CookieName, CookieOptions(context));
     }
 
     /// <summary>

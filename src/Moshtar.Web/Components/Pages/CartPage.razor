@@ -6,15 +6,23 @@
 @inject SiteLinks Links
 @inject IStringLocalizer<SharedResource> L
 @inject TimeProvider Clock
+@inject ITenantContext TenantContext
+@inject CartCount Count
 
 <SiteHead Title="@L["CartTitle"]" NoIndex="true" />
 
 @* De winkelkar: wat de klant verzamelde, voor één huurperiode. Elke wijziging is een gewoon formulier (POST), zonder
    JavaScript. Iets in de winkelkar houdt geen voorraad vast; wat intussen niet meer vrij is, staat hier aangeduid. *@
 <div class="page cart">
-    <h1>@L["CartTitle"]</h1>
+    <h1>@(_reservation is null ? L["CartTitle"] : L["ReservationThanks"])</h1>
 
-    @if (_cart is null || _cart.Lines.Count == 0)
+    @if (_reservation is { } reservation)
+    {
+        <p class="alert success" role="status">@L["Confirmed", reservation.Number, SiteText.Money(reservation.TotalPrice)]</p>
+        <AnalyticsEvent Name="purchase" Data="@Purchase(reservation)" />
+        <p><a href="@(Links.Href(SiteRoute.Home))">@L["Back"]</a></p>
+    }
+    else if (_cart is null || _cart.Lines.Count == 0)
     {
         <p class="lead">@L["CartEmpty"]</p>
         <p><a class="button button-large" href="@(Links.Href(SiteRoute.Home) + "#aanbod")">@L["SeeOffer"]</a></p>
@@ -85,12 +93,75 @@
         <p class="actions">
             <a href="@(Links.Href(SiteRoute.Home) + Query + "#aanbod")">@L["ContinueShopping"]</a>
         </p>
+
+        <section id="reserveren" class="reservation cart-reserve">
+            <h2>@L["ReserveThis"]</h2>
+            @* Ook als niet alles vrij is, blijft het formulier staan: de klant houdt zijn gegevens terwijl hij de winkelkar
+               aanpast, en een post naar dit formulier vindt het altijd terug. Reserveren weigert dan zelf. *@
+            @if (!CanReserve)
+            {
+                <p class="alert error" role="alert">@L["CartFixFirst"]</p>
+            }
+            @if (_cart.Email is null || Step == CartEndpoints.EmailStep)
+            {
+                @* Stap 1: het e-mailadres en de toestemmingen, meteen bewaard op de winkelkar. Beide vakjes staan standaard uit. *@
+                <p class="muted">@L["CartStep", 1, 2]</p>
+                @if (Problem == "EmailInvalid")
+                {
+                    <p class="alert error" role="alert">@L["EmailInvalid"]</p>
+                }
+                <form method="post" action="@CartEndpoints.ContactPath">
+                    <AntiforgeryToken />
+                    <input type="hidden" name="terug" value="@Here" />
+                    <input type="hidden" name="taal" value="@Culture" />
+                    <label>@L["Email"] <input type="email" name="email" value="@_cart.Email" autocomplete="email" required maxlength="320" /></label>
+                    <label class="check"><input type="checkbox" name="herinnering" value="@CartEndpoints.Checked" checked="@_cart.WantsReminder" /> @L["WantsReminder"]</label>
+                    <label class="check"><input type="checkbox" name="nieuws" value="@CartEndpoints.Checked" checked="@_cart.WantsNews" /> @L["WantsNews", TenantContext.Tenant?.Name ?? ""]</label>
+                    <button type="submit" class="button button-large">@L["Next"]</button>
+                </form>
+            }
+            else
+            {
+                @* Stap 2: de rest van de gegevens; "Reserveren" maakt één reservatie met alles uit de winkelkar. *@
+                <p class="muted">@L["CartStep", 2, 2]</p>
+                <p>@L["Email"]: <strong>@_cart.Email</strong> · <a href="@(Here + "?" + CartEndpoints.StepKey + "=" + CartEndpoints.EmailStep + "#reserveren")">@L["Change"]</a></p>
+                @if (_error is not null)
+                {
+                    <p class="alert error" role="alert">@_error</p>
+                }
+                <EditForm Model="Form" FormName="reservation" OnValidSubmit="ReserveAsync" action="#reserveren">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+                    <div class="row">
+                        <label>@L["FirstName"] <InputText @bind-Value="Form!.FirstName" autocomplete="given-name" /></label>
+                        <label>@L["LastName"] <InputText @bind-Value="Form!.LastName" autocomplete="family-name" /></label>
+                    </div>
+                    <label>@L["Phone"] <InputText type="tel" @bind-Value="Form!.Phone" autocomplete="tel" /></label>
+                    <label>@L["Street"] <InputText @bind-Value="Form!.Street" autocomplete="street-address" /></label>
+                    <div class="row">
+                        <label>@L["PostalCode"] <InputText @bind-Value="Form!.PostalCode" autocomplete="postal-code" /></label>
+                        <label>@L["City"] <InputText @bind-Value="Form!.City" autocomplete="address-level2" /></label>
+                    </div>
+                    <fieldset>
+                        <legend>@L["DeliveryMethod"]</legend>
+                        <InputRadioGroup @bind-Value="Form!.DeliveryMethod">
+                            <label><InputRadio Value="DeliveryMethod.Delivery" /> @L["Delivery"]</label>
+                            <label><InputRadio Value="DeliveryMethod.Pickup" /> @L["Pickup"]</label>
+                        </InputRadioGroup>
+                    </fieldset>
+                    <label>@L["Notes"] <InputTextArea @bind-Value="Form!.Notes" rows="3" /></label>
+                    <button type="submit" class="button button-large">@L["Submit"]</button>
+                </EditForm>
+            }
+        </section>
     }
 </div>
 
 @code {
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
     [SupplyParameterFromQuery(Name = CartEndpoints.ProblemKey)] private string? Problem { get; set; }
+    [SupplyParameterFromQuery(Name = CartEndpoints.StepKey)] private string? Step { get; set; }
+    [SupplyParameterFromForm] private CartReservationForm? Form { get; set; }
 
     /// <summary>De meldingen die de datumwijziging kan teruggeven; andere waarden in de URL tonen we niet.</summary>
     private static readonly HashSet<string> _problems =
@@ -98,6 +169,11 @@
 
     private CartView? _cart;
     private DateOnly _today;
+    private Reservation? _reservation;
+    private string? _error;
+
+    /// <summary>Reserveren kan pas als alles vrij is en de huurperiode niet voorbij is.</summary>
+    private bool CanReserve => _cart is { AllAvailable: true } cart && cart.Period.Start >= _today;
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
@@ -113,7 +189,55 @@
     {
         _today = ChosenPeriod.Today(Clock);
         _cart = await Carts.GetAsync(CartEndpoints.Key(HttpContext), Culture);
+        Form ??= new();
     }
+
+    private async Task ReserveAsync()
+    {
+        if (Form is null) return;
+        var address = new Moshtar.Domain.Common.Address { Street = Form.Street, PostalCode = Form.PostalCode, City = Form.City };
+        var result = await Carts.ReserveAsync(CartEndpoints.Key(HttpContext), new CartCustomerDetails(
+            Form.FirstName, Form.LastName, Form.Phone, address, Form.DeliveryMethod, Form.Notes, Culture));
+        if (result.Reservation is { } reservation)
+        {
+            _reservation = reservation;
+            if (HttpContext is not null) CartEndpoints.Forget(HttpContext);
+            Count.Empty();
+            return;
+        }
+        // Opnieuw inlezen: wat intussen niet meer vrij is, staat dan aangeduid in de winkelkar hierboven.
+        _cart = await Carts.GetAsync(CartEndpoints.Key(HttpContext), Culture);
+        _error = result.Problem is { } problem
+            ? L[problem]
+            : L["CartReserveShortage", string.Join(", ", ShortNames(result.UnavailableItemIds))];
+    }
+
+    /// <summary>De namen in de winkelkar die een artikel gebruiken waarvan intussen te weinig vrij is.</summary>
+    private IEnumerable<string> ShortNames(IReadOnlySet<Guid> itemIds) =>
+        (_cart?.Lines ?? []).Where(l => l.Entry is { } entry &&
+                (l.Ref.RentalItemId is { } id ? itemIds.Contains(id) : entry.ItemIds.Any(itemIds.Contains)))
+            .Select(l => l.Entry!.Name);
+
+    /// <summary>
+    /// De bevestigde reservatie als GA4-aankoop: het reservatienummer, het totaal in euro en elke lijn. Geen naam,
+    /// e-mailadres of andere gegevens van de klant.
+    /// </summary>
+    private System.Text.Json.Nodes.JsonObject Purchase(Reservation reservation) => new()
+    {
+        ["transaction_id"] = reservation.Number,
+        ["value"] = reservation.TotalPrice,
+        ["currency"] = "EUR",
+        ["items"] = new System.Text.Json.Nodes.JsonArray(reservation.Lines.Select(l =>
+        {
+            var entry = _cart?.Lines.FirstOrDefault(c => c.Ref == new CatalogRef(l.RentalItemId, l.BundleId))?.Entry;
+            return (System.Text.Json.Nodes.JsonNode)new System.Text.Json.Nodes.JsonObject
+            {
+                ["item_id"] = entry?.Slug ?? l.Description,
+                ["item_name"] = entry?.Name ?? l.Description,
+                ["quantity"] = l.Quantity,
+            };
+        }).ToArray()),
+    };
 
     private static string Kind(CatalogRef entry) => entry.RentalItemId is null ? CartEndpoints.Bundle : CartEndpoints.Item;
     private static Guid Id(CatalogRef entry) => entry.RentalItemId ?? entry.BundleId!.Value;

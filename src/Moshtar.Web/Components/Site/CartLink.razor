@@ -1,0 +1,29 @@
+@implements IDisposable
+@inject ICartService Carts
+@inject CartCount Count
+@inject SiteLinks Links
+@inject IStringLocalizer<SharedResource> L
+
+@* Het winkelkar-icoon in de kop, met het aantal stuks. *@
+<a class="cart-link" href="@Links.Href(SiteRoute.Cart)" aria-label="@L["CartWithCount", Count.Value]"
+   aria-current="@(Links.Current is CartRoute ? "page" : null)">
+    <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /><path d="M2 3h3l2.7 12.4a1.5 1.5 0 0 0 1.5 1.1h8.9a1.5 1.5 0 0 0 1.5-1.2L21 7H6" /></svg>
+    @if (Count.Value > 0)
+    {
+        <span class="cart-count">@Count.Value</span>
+    }
+</a>
+
+@code {
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Count.Changed += Refresh;
+        Count.Set(await Carts.CountAsync(CartEndpoints.Key(HttpContext)));
+    }
+
+    private void Refresh() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => Count.Changed -= Refresh;
+}

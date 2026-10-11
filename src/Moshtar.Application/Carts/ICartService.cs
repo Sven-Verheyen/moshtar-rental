@@ -1,6 +1,7 @@
 using Moshtar.Application.Catalog;
 using Moshtar.Domain.Carts;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Reservations;
 
 namespace Moshtar.Application.Carts;
 
@@ -27,13 +28,43 @@ public interface ICartService
 
     /// <summary>Een andere huurperiode voor alles in de winkelkar; wat dan niet meer vrij is, toont de winkelkar.</summary>
     Task<CartChange> ChangePeriodAsync(string? key, DateRange period, CancellationToken ct = default);
+
+    /// <summary>Stap 1 van het reserveren: het e-mailadres, de taal en de twee toestemmingen van de klant.</summary>
+    Task<CartChange> IdentifyAsync(string? key, string email, string culture, bool wantsReminder, bool wantsNews, CancellationToken ct = default);
+
+    /// <summary>
+    /// Stap 2: reserveert alles uit de winkelkar in één reservatie, met de bestaande reserveerflow (automatisch
+    /// bevestigd als de voorraad het toelaat, één bevestigingsmail). Daarna is de winkelkar afgesloten.
+    /// </summary>
+    Task<CartReservationResult> ReserveAsync(string? key, CartCustomerDetails details, CancellationToken ct = default);
+}
+
+/// <summary>De gegevens van stap 2; het e-mailadres staat al op de winkelkar.</summary>
+public record CartCustomerDetails(
+    string FirstName,
+    string LastName,
+    string? Phone,
+    Address Address,
+    DeliveryMethod DeliveryMethod,
+    string? Notes,
+    string Culture);
+
+/// <summary>
+/// De reservatie als het lukte. Anders de artikelen waarvan intussen te weinig vrij is, of de resourcesleutel van
+/// een andere melding (geen winkelkar, geen e-mailadres, iets wat niet meer te huren is, een datum in het verleden).
+/// </summary>
+public record CartReservationResult(Reservation? Reservation, IReadOnlySet<Guid> UnavailableItemIds, string? Problem)
+{
+    public bool Succeeded => Reservation is not null;
+
+    public static CartReservationResult Refused(string problem) => new(null, new HashSet<Guid>(), problem);
 }
 
 /// <summary>Het resultaat van een wijziging: de sleutel van de winkelkar (null als er geen is) en of het lukte.</summary>
 public record CartChange(string? Key, bool Succeeded);
 
 /// <summary>De winkelkar zoals de klant hem ziet.</summary>
-public record CartView(DateRange Period, IReadOnlyList<CartLineView> Lines)
+public record CartView(DateRange Period, IReadOnlyList<CartLineView> Lines, string? Email = null, bool WantsReminder = false, bool WantsNews = false)
 {
     public int Count => Lines.Sum(l => l.Quantity);
 

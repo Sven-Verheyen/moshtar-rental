@@ -2,7 +2,6 @@
 @inject ITenantContext TenantContext
 @inject SiteLinks Links
 @inject IStringLocalizer<SharedResource> L
-@inject ICartService Carts
 @using Moshtar.Domain.Tenants
 
 @* Het standaardsjabloon van de reservatiewebsite. Een ander sjabloon is later een andere layout met een eigen stylesheet. *@
@@ -33,14 +32,7 @@
                    aria-current="@(culture == Links.Culture ? "page" : null)">@culture.ToUpperInvariant()</a>
             }
         </nav>
-        <a class="cart-link" href="@Links.Href(SiteRoute.Cart)" aria-label="@L["CartWithCount", _cartCount]"
-           aria-current="@(Links.Current is CartRoute ? "page" : null)">
-            <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="20" r="1.5" /><circle cx="18" cy="20" r="1.5" /><path d="M2 3h3l2.7 12.4a1.5 1.5 0 0 0 1.5 1.1h8.9a1.5 1.5 0 0 0 1.5-1.2L21 7H6" /></svg>
-            @if (_cartCount > 0)
-            {
-                <span class="cart-count">@_cartCount</span>
-            }
-        </a>
+        <CartLink />
         <a class="button cta" href="@ChooseDateHref">@L["ChooseDate"]</a>
     </div>
 </header>
@@ -117,10 +109,6 @@
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
 
     private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
-    private int _cartCount;
-
-    protected override async Task OnInitializedAsync() =>
-        _cartCount = await Carts.CountAsync(CartEndpoints.Key(HttpContext));
     private string? PostalCodeAndCity => $"{Tenant?.PostalCode} {Tenant?.City}".Trim();
 
     private IReadOnlyList<(string Name, string Url)> SocialLinks =>
