@@ -1,0 +1,56 @@
+@page "/admin/winkelkarren"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Moshtar.Application.Carts
+@inject ICartAdministration Carts
+
+<PageTitle>Open winkelkarren</PageTitle>
+
+<AdminShell Title="Open winkelkarren">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Winkelkarren op je reservatiewebsite die nog niet gereserveerd zijn. Heeft de klant zijn e-mailadres al ingevuld,
+        dan kun je hem zelf contacteren. Een winkelkar houdt geen voorraad vast, en verdwijnt na 7 dagen zonder wijziging.
+    </MudText>
+    <MudTable Items="_carts" Loading="_carts is null" Hover="true" Dense="true">
+        <HeaderContent>
+            <MudTh>Klant</MudTh>
+            <MudTh>Huurperiode</MudTh>
+            <MudTh>Inhoud</MudTh>
+            <MudTh>Totaal</MudTh>
+            <MudTh>Laatst gewijzigd</MudTh>
+            <MudTh>Herinnering</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                @if (context.Email is { } email)
+                {
+                    <a href="mailto:@email">@email</a>
+                }
+                else
+                {
+                    <span class="mud-text-secondary">Anoniem</span>
+                }
+            </MudTd>
+            <MudTd Style="white-space:nowrap">@context.Period.Start.ToString("dd/MM/yyyy") – @context.Period.End.ToString("dd/MM/yyyy")</MudTd>
+            <MudTd>@string.Join(", ", context.Lines.Select(l => $"{l.Quantity} × {l.Name ?? "(niet meer te huren)"}"))</MudTd>
+            <MudTd Style="white-space:nowrap">@context.Total.ToString("C", Money)</MudTd>
+            <MudTd Style="white-space:nowrap">@Local(context.UpdatedAtUtc)</MudTd>
+            <MudTd>@(context.ReminderSentAtUtc is { } sent ? $"Verstuurd op {Local(sent)}" : "")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>Er zijn geen open winkelkarren.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</AdminShell>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Money = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
+    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
+
+    private IReadOnlyList<OpenCartView>? _carts;
+
+    protected override async Task OnInitializedAsync() => _carts = await Carts.ListOpenAsync();
+
+    private static string Local(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), BelgianTime).ToString("dd/MM/yyyy HH:mm");
+}
