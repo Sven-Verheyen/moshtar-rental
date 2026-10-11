@@ -1,0 +1,41 @@
+@page "/admin/marketingcontacten"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Application.Marketing
+@using Moshtar.Web.Admin
+@inject IMarketingContactAdministration Contacts
+
+<PageTitle>Marketingcontacten</PageTitle>
+
+<AdminShell Title="Marketingcontacten">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Klanten en bezoekers die op je reservatiewebsite aanvinkten dat ze nieuws en acties van je willen ontvangen.
+        Mail alleen naar deze adressen, en alleen over nieuws en acties.
+    </MudText>
+    <MudButton Href="@MarketingContactsExport.Path" data-enhance-nav="false" Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Download" Class="mb-4" Disabled="@(_contacts is not { Count: > 0 })">Exporteer als CSV</MudButton>
+    <MudTable Items="_contacts" Loading="_contacts is null" Hover="true" Dense="true">
+        <HeaderContent>
+            <MudTh>E-mailadres</MudTh>
+            <MudTh>Taal</MudTh>
+            <MudTh>Toestemming</MudTh>
+            <MudTh>Herkomst</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>@context.Culture.ToUpperInvariant()</MudTd>
+            <MudTd>@MarketingContactsExport.Local(context.ConsentedAtUtc)</MudTd>
+            <MudTd>@MarketingContactsExport.SourceName(context.Source)</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>Nog niemand gaf toestemming voor nieuws en acties.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</AdminShell>
+
+@code {
+    private IReadOnlyList<MarketingContactView>? _contacts;
+
+    protected override async Task OnInitializedAsync() => _contacts = await Contacts.ListAsync();
+}

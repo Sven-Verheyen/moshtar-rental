@@ -11,6 +11,8 @@ using Moshtar.Infrastructure.Reservations;
 using Moshtar.Infrastructure.Carts;
 using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Mail;
+using Moshtar.Application.Marketing;
+using Moshtar.Infrastructure.Marketing;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Tenancy;
 using Moshtar.Application.Website;
@@ -43,6 +45,7 @@ public static class DependencyInjection
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();
+        services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
 
         var mail = configuration.GetSection("Mail");
         services.Configure<MailOptions>(mail);

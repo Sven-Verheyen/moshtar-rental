@@ -352,6 +352,43 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("MailTemplateCustomizations");
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Marketing.MarketingContact", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ConsentedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Culture")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique();
+
+                    b.ToTable("MarketingContacts");
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Reservations.Blockout", b =>
                 {
                     b.Property<Guid>("Id")

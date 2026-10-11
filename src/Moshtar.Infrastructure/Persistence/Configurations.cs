@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Moshtar.Domain.Carts;
+using Moshtar.Domain.Marketing;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
@@ -212,5 +213,16 @@ internal class CartConfiguration : IEntityTypeConfiguration<Cart>
             l.ToJson();
             l.Ignore(x => x.Entry);
         });
+    }
+}
+
+internal sealed class MarketingContactConfiguration : IEntityTypeConfiguration<MarketingContact>
+{
+    public void Configure(EntityTypeBuilder<MarketingContact> b)
+    {
+        b.Property(c => c.Email).HasMaxLength(320);
+        b.Property(c => c.Culture).HasMaxLength(10);
+        b.Property(c => c.Source).HasConversion<string>().HasMaxLength(20);
+        b.HasIndex(c => new { c.TenantId, c.Email }).IsUnique();
     }
 }

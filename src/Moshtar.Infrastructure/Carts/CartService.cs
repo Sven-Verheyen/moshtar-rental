@@ -4,7 +4,9 @@ using Moshtar.Application.Carts;
 using Moshtar.Application.Catalog;
 using Moshtar.Application.Reservations;
 using Moshtar.Domain.Carts;
+using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Marketing;
 using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Persistence;
 
@@ -15,7 +17,8 @@ namespace Moshtar.Infrastructure.Carts;
 /// de gedeelde context gebruikt.
 /// </summary>
 internal sealed class CartService(
-    IDbContextFactory<AppDbContext> contexts, ICatalogService catalog, IReservationService reservations, TimeProvider clock) : ICartService
+    IDbContextFactory<AppDbContext> contexts, ICatalogService catalog, IReservationService reservations, ITenantContext tenantContext,
+    TimeProvider clock) : ICartService
 {
     public async Task<CartView?> GetAsync(string? key, string culture, CancellationToken ct = default)
     {
@@ -85,9 +88,23 @@ internal sealed class CartService(
     public async Task<CartChange> IdentifyAsync(string? key, string email, string culture, bool wantsReminder, bool wantsNews, CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
+        if (string.IsNullOrEmpty(key)) return new CartChange(null, false);
+        // Na elkaar met andere wijzigingen aan de toestemming en met het reserveren van deze winkelkar, zodat een
+        // trager verzoek de toestemming niet terugzet naar wat het eerder las.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockAsync(db, key, ct);
         if (await FindAsync(db, key, ct) is not { } cart) return new CartChange(null, false);
-        cart.Identify(email, culture, wantsReminder, wantsNews, clock.GetUtcNow().UtcDateTime);
+        var (previousEmail, previouslyWantedNews) = (cart.Email, cart.WantsNews);
+        var now = clock.GetUtcNow().UtcDateTime;
+        cart.Identify(email, culture, wantsReminder, wantsNews, now);
         await db.SaveChangesAsync(ct);
+        if (wantsNews)
+            await ConsentAsync(db, cart.Email!, culture, MarketingContactSource.Cart, now, ct);
+        else if (previouslyWantedNews && previousEmail is not null)
+            // De klant vinkte het nieuws in deze winkelkar uit: zijn toestemming is ingetrokken. Een vinkje dat in een
+            // nieuwe winkelkar gewoon uit blijft, laat een eerdere toestemming wel staan.
+            await db.MarketingContacts.Where(c => c.Email == previousEmail).ExecuteDeleteAsync(ct);
+        await tx.CommitAsync(ct);
         return new CartChange(cart.Key, true);
     }
 
@@ -98,7 +115,7 @@ internal sealed class CartService(
         // Eén reservatie per winkelkar, ook als de klant twee keer op "Reserveren" klikt: de tweede wacht hier tot de
         // eerste klaar is en krijgt dan dezelfde reservatie te zien, zonder tweede reservatie of mail.
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"winkelkar:" + key}, 0))", ct);
+        await LockAsync(db, key, ct);
         if (await db.Carts.AsNoTracking().FirstOrDefaultAsync(c => c.Key == key && c.ReservationId != null, ct) is { } reserved)
             return await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == reserved.ReservationId, ct) is { } earlier
                 ? new CartReservationResult(earlier, new HashSet<Guid>(), null)
@@ -133,8 +150,11 @@ internal sealed class CartService(
         if (result.Reservation is not { } reservation)
             return new CartReservationResult(null, result.Shortages.Select(s => s.RentalItemId).ToHashSet(), null);
 
-        cart.MarkReserved(reservation.Id, clock.GetUtcNow().UtcDateTime);
+        var now = clock.GetUtcNow().UtcDateTime;
+        cart.MarkReserved(reservation.Id, now);
         await db.SaveChangesAsync(CancellationToken.None);
+        if (cart.WantsNews)
+            await ConsentAsync(db, cart.Email, details.Culture, MarketingContactSource.Reservation, now, CancellationToken.None);
         await tx.CommitAsync(CancellationToken.None);
         return new CartReservationResult(reservation, new HashSet<Guid>(), null);
     }
@@ -148,6 +168,27 @@ internal sealed class CartService(
             .Select(c => new CartReminderTarget(c.Key, c.Culture))
             .FirstOrDefaultAsync(ct);
     }
+
+    /// <summary>
+    /// Bewaart de toestemming voor nieuws en acties: een nieuw marketingcontact, of een bestaand met de nieuwe taal,
+    /// het nieuwe tijdstip en de nieuwe herkomst. In één statement, zodat twee winkelkarren met hetzelfde
+    /// e-mailadres tegelijk geen dubbel contact geven.
+    /// </summary>
+    private async Task ConsentAsync(AppDbContext db, string email, string culture, MarketingContactSource source, DateTime atUtc, CancellationToken ct)
+    {
+        var tenantId = tenantContext.TenantId;
+        await db.Database.ExecuteSqlAsync($"""
+            INSERT INTO "MarketingContacts" ("Id", "TenantId", "Email", "Culture", "ConsentedAtUtc", "Source")
+            VALUES ({Guid.NewGuid()}, {tenantId}, {email}, {culture}, {atUtc}, {source.ToString()})
+            ON CONFLICT ("TenantId", "Email") DO UPDATE
+            SET "Culture" = EXCLUDED."Culture", "ConsentedAtUtc" = EXCLUDED."ConsentedAtUtc", "Source" = EXCLUDED."Source"
+            WHERE "MarketingContacts"."ConsentedAtUtc" <= EXCLUDED."ConsentedAtUtc"
+            """, ct);
+    }
+
+    /// <summary>Wijzigingen aan dezelfde winkelkar na elkaar, tot het einde van de transactie.</summary>
+    private static Task LockAsync(AppDbContext db, string key, CancellationToken ct) =>
+        db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"winkelkar:" + key}, 0))", ct);
 
     /// <summary>Een nieuwe, niet te raden sleutel, voor de cookie of de link in de herinneringsmail.</summary>
     internal static string NewKey() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
