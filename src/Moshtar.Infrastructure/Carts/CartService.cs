@@ -88,11 +88,15 @@ internal sealed class CartService(
     public async Task<CartChange> IdentifyAsync(string? key, string email, string culture, bool wantsReminder, bool wantsNews, CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
+        if (string.IsNullOrEmpty(key)) return new CartChange(null, false);
+        // Na elkaar met andere wijzigingen aan de toestemming en met het reserveren van deze winkelkar, zodat een
+        // trager verzoek de toestemming niet terugzet naar wat het eerder las.
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockAsync(db, key, ct);
         if (await FindAsync(db, key, ct) is not { } cart) return new CartChange(null, false);
         var (previousEmail, previouslyWantedNews) = (cart.Email, cart.WantsNews);
         var now = clock.GetUtcNow().UtcDateTime;
         cart.Identify(email, culture, wantsReminder, wantsNews, now);
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
         await db.SaveChangesAsync(ct);
         if (wantsNews)
             await ConsentAsync(db, cart.Email!, culture, MarketingContactSource.Cart, now, ct);
@@ -111,7 +115,7 @@ internal sealed class CartService(
         // Eén reservatie per winkelkar, ook als de klant twee keer op "Reserveren" klikt: de tweede wacht hier tot de
         // eerste klaar is en krijgt dan dezelfde reservatie te zien, zonder tweede reservatie of mail.
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"winkelkar:" + key}, 0))", ct);
+        await LockAsync(db, key, ct);
         if (await db.Carts.AsNoTracking().FirstOrDefaultAsync(c => c.Key == key && c.ReservationId != null, ct) is { } reserved)
             return await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == reserved.ReservationId, ct) is { } earlier
                 ? new CartReservationResult(earlier, new HashSet<Guid>(), null)
@@ -178,8 +182,13 @@ internal sealed class CartService(
             VALUES ({Guid.NewGuid()}, {tenantId}, {email}, {culture}, {atUtc}, {source.ToString()})
             ON CONFLICT ("TenantId", "Email") DO UPDATE
             SET "Culture" = EXCLUDED."Culture", "ConsentedAtUtc" = EXCLUDED."ConsentedAtUtc", "Source" = EXCLUDED."Source"
+            WHERE "MarketingContacts"."ConsentedAtUtc" <= EXCLUDED."ConsentedAtUtc"
             """, ct);
     }
+
+    /// <summary>Wijzigingen aan dezelfde winkelkar na elkaar, tot het einde van de transactie.</summary>
+    private static Task LockAsync(AppDbContext db, string key, CancellationToken ct) =>
+        db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"winkelkar:" + key}, 0))", ct);
 
     /// <summary>Een nieuwe, niet te raden sleutel, voor de cookie of de link in de herinneringsmail.</summary>
     internal static string NewKey() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));
