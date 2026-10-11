@@ -20,23 +20,24 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     public async Task Every_page_has_its_own_title_and_description_in_the_language_of_the_url()
     {
         await NewTenantAsync("seo-titels");
-        var pages = new Dictionary<string, string>
+        var pages = new Dictionary<string, (string Title, string Description)>
         {
-            ["/"] = "Springkastelen en feestspellen huren bij Seo Verhuur",
-            ["/springkastelen"] = "Springkastelen · Seo Verhuur",
-            ["/huren/piraat"] = "Piratenkasteel · Seo Verhuur",
-            ["/huren/feest"] = "Feestpakket · Seo Verhuur",
-            ["/veelgestelde-vragen"] = "Veelgestelde vragen · Seo Verhuur",
-            ["/contact"] = "Contact · Seo Verhuur",
-            ["/fr/questions-frequentes"] = "Questions fréquentes · Seo Verhuur",
+            ["/"] = ("Springkastelen en feestspellen huren bij Seo Verhuur", "Reserveer online, wij leveren en zetten alles op in Mortsel en Edegem."),
+            ["/springkastelen"] = ("Springkastelen · Seo Verhuur", "Springkastelen"),
+            ["/huren/piraat"] = ("Piratenkasteel · Seo Verhuur", "Een kasteel met een mast."),
+            ["/huren/feest"] = ("Feestpakket · Seo Verhuur", "Alles voor een feest."),
+            ["/veelgestelde-vragen"] = ("Veelgestelde vragen · Seo Verhuur", "Antwoorden op veelgestelde vragen over het huren bij Seo Verhuur."),
+            ["/contact"] = ("Contact · Seo Verhuur", "De contactgegevens en het werkgebied van Seo Verhuur."),
+            ["/fr/questions-frequentes"] = ("Questions fréquentes · Seo Verhuur", "Réponses aux questions fréquentes sur la location chez Seo Verhuur."),
         };
 
-        foreach (var (path, title) in pages)
+        foreach (var (path, (title, description)) in pages)
         {
             var html = await PageAsync("seo-titels", path);
             Assert.Contains($"<title>{title}</title>", html);
-            Assert.Matches("<meta name=\"description\" content=\"[^\"]+\" />", html);
+            Assert.Contains($"<meta name=\"description\" content=\"{description}\" />", html);
             Assert.Contains($"<meta property=\"og:title\" content=\"{title.Split(" · ")[0]}\" />", html);
+            Assert.Contains($"<meta property=\"og:description\" content=\"{description}\" />", html);
             Assert.Contains("<meta property=\"og:url\" content=\"https://seo-titels.test", html);
         }
         Assert.Contains("<meta property=\"og:locale\" content=\"fr_BE\" />", await PageAsync("seo-titels", "/fr/questions-frequentes"));
@@ -68,6 +69,30 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Equal(
             [("Seo Verhuur", "https://seo-artikel.test/"), ("Springkastelen", "https://seo-artikel.test/springkastelen"), ("Piratenkasteel", "https://seo-artikel.test/huren/piraat")],
             breadcrumbs);
+    }
+
+    [Fact]
+    public async Task A_package_shows_the_photos_of_its_items_and_availability_follows_the_stock()
+    {
+        await NewTenantAsync("seo-pakket");
+
+        var bundle = JsonLd(await PageAsync("seo-pakket", "/huren/feest"), "Product");
+        var outOfStock = JsonLd(await PageAsync("seo-pakket", "/huren/prinses"), "Product");
+
+        Assert.Equal("Alles voor een feest.", bundle.GetProperty("description").GetString());
+        Assert.Equal("https://seo.test/molen.jpg", bundle.GetProperty("image")[0].GetString());
+        Assert.Equal("https://schema.org/InStock", bundle.GetProperty("offers").GetProperty("availability").GetString());
+        // Het prinsessenkasteel heeft geen exemplaren meer.
+        Assert.Equal("https://schema.org/OutOfStock", outOfStock.GetProperty("offers").GetProperty("availability").GetString());
+    }
+
+    [Fact]
+    public async Task An_empty_category_page_is_not_indexed()
+    {
+        await NewTenantAsync("seo-leeg");
+
+        Assert.Contains("<meta name=\"robots\" content=\"noindex\"", await PageAsync("seo-leeg", "/spellen"));
+        Assert.DoesNotContain("noindex", await PageAsync("seo-leeg", "/springkastelen"));
     }
 
     [Fact]
@@ -177,7 +202,7 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("## Hier leveren we\n\nMortsel, Edegem\n", llms);
         Assert.Contains("### [Springkastelen](https://seo-llms.test/springkastelen)\n", llms);
         Assert.Contains("- [Piratenkasteel](https://seo-llms.test/huren/piraat): € 120,00 per dag (inclusief btw). Een kasteel met een mast\n", llms);
-        Assert.Contains("## Pakketten\n\n- [Feestpakket](https://seo-llms.test/huren/feest): € 150,00 per dag (inclusief btw). Bevat: 1 × Molen\n", llms);
+        Assert.Contains("## Pakketten\n\n- [Feestpakket](https://seo-llms.test/huren/feest): € 150,00 per dag (inclusief btw). Alles voor een feest. Bevat: 1 × Molen\n", llms);
         Assert.Contains("## [Veelgestelde vragen](https://seo-llms.test/veelgestelde-vragen)\n\n### Leveren jullie bij mij thuis?\n", llms);
     }
 
@@ -197,7 +222,7 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
     /// <summary>
     /// Een verhuurder met bedrijfsgegevens, twee categorieën (alleen springkastelen heeft artikelen), twee
-    /// springkastelen, een molen zonder categorie en een feestpakket met de molen.
+    /// springkastelen (het prinsessenkasteel zonder exemplaren), een molen zonder categorie en een feestpakket met de molen.
     /// </summary>
     private async Task NewTenantAsync(string slug, string itemName = "Piratenkasteel")
     {
@@ -221,11 +246,11 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
             Images = [new ItemImage { Url = "https://seo.test/piraat.jpg" }],
             Translations = [new Translation { Culture = "nl", Name = itemName, Description = "Een kasteel met een mast." }],
         };
-        var princess = new RentalItem { Slug = "prinses", Category = castles, Stock = 1, Pricing = new Pricing { DayPrice = 100 }, Translations = [T("nl", "Prinsessenkasteel")] };
-        var mill = new RentalItem { Slug = "molen", Stock = 1, Pricing = new Pricing { DayPrice = 30 }, Translations = [T("nl", "Molen")] };
+        var princess = new RentalItem { Slug = "prinses", Category = castles, Stock = 0, Pricing = new Pricing { DayPrice = 100 }, Translations = [T("nl", "Prinsessenkasteel")] };
+        var mill = new RentalItem { Slug = "molen", Stock = 1, Images = [new ItemImage { Url = "https://seo.test/molen.jpg" }], Pricing = new Pricing { DayPrice = 30 }, Translations = [T("nl", "Molen")] };
         db.AddRange(castles, games, pirate, princess, mill);
         await db.SaveChangesAsync();
-        db.Bundles.Add(new Bundle { Slug = "feest", Pricing = new Pricing { DayPrice = 150 }, Translations = [T("nl", "Feestpakket")], Items = [new BundleItem { RentalItemId = mill.Id }] });
+        db.Bundles.Add(new Bundle { Slug = "feest", Pricing = new Pricing { DayPrice = 150 }, Translations = [new Translation { Culture = "nl", Name = "Feestpakket", Description = "Alles voor een feest." }], Items = [new BundleItem { RentalItemId = mill.Id }] });
         await db.SaveChangesAsync();
     }
 

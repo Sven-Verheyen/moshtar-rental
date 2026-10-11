@@ -23,7 +23,8 @@ public record CatalogEntry(
     decimal? ExtraDayPrice,
     IReadOnlyList<string> Images,
     IReadOnlyList<string> Contents,
-    ItemSpecs? Specs = null)
+    ItemSpecs? Specs = null,
+    bool InStock = true)
 {
     /// <summary>De eerste foto, voor de kaart in een lijst.</summary>
     public string? ImageUrl => Images.Count > 0 ? Images[0] : null;

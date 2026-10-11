@@ -18,7 +18,7 @@
 }
 
 <SiteHead Title="@_category.Name" Description="@(_category.Intro.Length > 0 ? _category.Intro : _category.Name)"
-          Image="@_entries.FirstOrDefault(e => e.ImageUrl is not null)?.ImageUrl" NoIndex="_chosen.InUrl"
+          Image="@_entries.FirstOrDefault(e => e.ImageUrl is not null)?.ImageUrl" NoIndex="@(_chosen.InUrl || _entries.Count == 0)"
           JsonLd="@([Breadcrumbs])" />
 
 <div class="page">

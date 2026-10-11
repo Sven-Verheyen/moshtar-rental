@@ -82,7 +82,8 @@ public static class StructuredData
         offer["url"] = url;
         offer["price"] = price;
         offer["priceCurrency"] = "EUR";
-        offer["availability"] = "https://schema.org/InStock";
+        // Of het vandaag ergens vrij is, hangt van de datum af; dit zegt alleen of de verhuurder het kan verhuren.
+        offer["availability"] = entry.InStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
         offer["businessFunction"] = "http://purl.org/goodrelations/v1#LeaseOut";
         offer["priceSpecification"] = specification;
         offer["seller"] = new JsonObject { ["@id"] = BusinessId(links) };
