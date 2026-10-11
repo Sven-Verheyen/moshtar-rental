@@ -35,7 +35,7 @@
             <MudTd>@string.Join(", ", context.Lines.Select(l => $"{l.Quantity} × {l.Name ?? "(niet meer te huren)"}"))</MudTd>
             <MudTd Style="white-space:nowrap">@context.Total.ToString("C", Money)</MudTd>
             <MudTd Style="white-space:nowrap">@Local(context.UpdatedAtUtc)</MudTd>
-            <MudTd>@(context.ReminderSentAtUtc is { } sent ? $"Verstuurd op {Local(sent)}" : "")</MudTd>
+            <MudTd>@(context.ReminderSentAtUtc is { } sent ? $"Verstuurd op {Local(sent)}" : context.ReminderFailed ? "Niet gelukt" : "")</MudTd>
         </RowTemplate>
         <NoRecordsContent>
             <MudText>Er zijn geen open winkelkarren.</MudText>

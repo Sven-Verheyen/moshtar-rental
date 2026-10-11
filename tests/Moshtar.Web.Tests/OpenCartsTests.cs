@@ -1,11 +1,14 @@
 using System.Net;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Carts;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Infrastructure.Identity;
+using Moshtar.Infrastructure.Mail;
 using Moshtar.Infrastructure.Persistence;
+using Moshtar.Web.Tenancy;
 using static Moshtar.Web.Tests.WebsiteCart;
 
 namespace Moshtar.Web.Tests;
@@ -88,5 +91,39 @@ public sealed class OpenCartsTests(MoshtarApp app) : IClassFixture<MoshtarApp>, 
         Assert.Equal(["daarna@example.test", "eerst@example.test"], emails);
         Assert.NotNull(carts.Single(c => c.Email == "eerst@example.test").ReminderSentAtUtc);
         Assert.Null(carts.Single(c => c.Email == "daarna@example.test").ReminderSentAtUtc);
+    }
+
+    [Fact]
+    public async Task A_reminder_that_could_not_leave_is_not_shown_as_sent_and_not_retried()
+    {
+        var day = TestReservations.FutureDay(52);
+        var client = app.CreateClient(MoshtarApp.HopsakeeHost);
+        await AddAsync(client, $"/huren/prinses?van={day:yyyy-MM-dd}");
+        await IdentifyAsync(client, "mislukt@example.test", reminder: true);
+        using var failing = app.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<IMailTransport, FailingTransport>()));
+
+        await HousekeepingAsync(failing.Services, DateTime.UtcNow.AddHours(25));
+        var retry = await HousekeepingAsync(app.Services, DateTime.UtcNow.AddHours(26));
+
+        Assert.Equal(0, retry.RemindersSent);
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var cart = (await scope.ServiceProvider.GetRequiredService<ICartAdministration>().ListOpenAsync())
+            .Single(c => c.Email == "mislukt@example.test");
+        Assert.Null(cart.ReminderSentAtUtc);
+        Assert.True(cart.ReminderFailed);
+    }
+
+    private static async Task<CartHousekeepingResult> HousekeepingAsync(IServiceProvider services, DateTime nowUtc)
+    {
+        await using var scope = services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HostTenantContext>()
+            .UseTenant(await db.Tenants.AsNoTracking().SingleAsync(t => t.Slug == "hopsakee"));
+        return await scope.ServiceProvider.GetRequiredService<ICartHousekeeping>().RunAsync(nowUtc);
+    }
+
+    private sealed class FailingTransport : IMailTransport
+    {
+        public Task SendAsync(OutgoingMail mail, CancellationToken ct = default) => throw new InvalidOperationException("Geen verbinding");
     }
 }
