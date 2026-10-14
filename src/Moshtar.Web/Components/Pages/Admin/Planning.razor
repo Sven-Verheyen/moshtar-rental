@@ -13,19 +13,35 @@
 <PageTitle>Planning</PageTitle>
 
 <AdminShell Title="Planning">
+    <PlanningViewSwitch View="View" Day="Day" />
     <div class="planning-nav">
-        <MudButton Href="@DayUrl(Day.AddDays(-1))" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ChevronLeft" aria-label="Vorige dag">Vorige dag</MudButton>
+        <MudButton Href="@Url(View, Step(-1))" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ChevronLeft" aria-label="@($"Vorige {Unit}")">Vorige @Unit</MudButton>
         <MudDatePicker Date="@Day.ToDateTime(TimeOnly.MinValue)" DateChanged="GoTo" DateFormat="dd/MM/yyyy" Label="Datum"
                        Variant="Variant.Outlined" Margin="Margin.Dense" Class="planning-date" />
-        <MudButton Href="@DayUrl(Day.AddDays(1))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.ChevronRight" aria-label="Volgende dag">Volgende dag</MudButton>
+        <MudButton Href="@Url(View, Step(1))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.ChevronRight" aria-label="@($"Volgende {Unit}")">Volgende @Unit</MudButton>
         @if (Day != Today)
         {
-            <MudButton Href="admin/planning" Variant="Variant.Text">Vandaag</MudButton>
+            <MudButton Href="@Url(View, Today)" Variant="Variant.Text">Vandaag</MudButton>
         }
     </div>
-    <MudText Typo="Typo.h5" Class="mb-3">@Day.ToString("dddd d MMMM yyyy", Dutch)</MudText>
+    <MudText Typo="Typo.h5" Class="mb-3">@Heading</MudText>
 
-    @if (_day is null)
+    @if (View != PlanningView.Day)
+    {
+        @if (_days is null)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (View == PlanningView.Week)
+        {
+            <ScheduleWeek Days="_days" Today="Today" />
+        }
+        else
+        {
+            <ScheduleMonth Days="_days" Today="Today" />
+        }
+    }
+    else if (_day is null)
     {
         <MudProgressLinear Indeterminate="true" />
     }
@@ -70,23 +86,57 @@
 
     [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
+    /// <summary>dag (standaard), week of maand.</summary>
+    [SupplyParameterFromQuery(Name = "weergave")] private string? Weergave { get; set; }
+
     private ScheduleDay? _day;
+
+    /// <summary>De dagen van de week of maand.</summary>
+    private IReadOnlyList<ScheduleDay>? _days;
 
     private DateOnly Today => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(Clock.GetUtcNow(), BelgianTime).DateTime);
 
     private DateOnly Day => DateOnly.TryParseExact(Dag, "yyyy-MM-dd", out var day) ? day : Today;
 
+    private PlanningView View => PlanningViews.Parse(Weergave);
+
+    private DateOnly Monday => Day.AddDays(-(((int)Day.DayOfWeek + 6) % 7));
+
+    private string Unit => View switch { PlanningView.Week => "week", PlanningView.Month => "maand", _ => "dag" };
+
+    private string Heading => View switch
+    {
+        PlanningView.Week => $"Week van {Monday.ToString("d MMMM", Dutch)} tot {Monday.AddDays(6).ToString("d MMMM yyyy", Dutch)}",
+        PlanningView.Month => Day.ToString("MMMM yyyy", Dutch),
+        _ => Day.ToString("dddd d MMMM yyyy", Dutch),
+    };
+
+    /// <summary>De gekozen datum, een dag, week of maand verder of terug.</summary>
+    private DateOnly Step(int direction) => View switch
+    {
+        PlanningView.Week => Day.AddDays(7 * direction),
+        PlanningView.Month => Day.AddMonths(direction),
+        _ => Day.AddDays(direction),
+    };
+
     protected override async Task OnParametersSetAsync()
     {
         _day = null;
-        _day = await Schedule.GetDayAsync(Day);
+        _days = null;
+        if (View == PlanningView.Week) _days = await Schedule.GetDaysAsync(Monday, Monday.AddDays(6));
+        else if (View == PlanningView.Month)
+        {
+            var first = new DateOnly(Day.Year, Day.Month, 1);
+            _days = await Schedule.GetDaysAsync(first, first.AddMonths(1).AddDays(-1));
+        }
+        else _day = await Schedule.GetDayAsync(Day);
     }
 
-    private static string DayUrl(DateOnly day) => $"admin/planning?dag={day:yyyy-MM-dd}";
+    private static string Url(PlanningView view, DateOnly day) => PlanningViews.Url(view, day);
 
     private void GoTo(DateTime? date)
     {
-        if (date is { } d) Navigation.NavigateTo(DayUrl(DateOnly.FromDateTime(d)));
+        if (date is { } d) Navigation.NavigateTo(Url(View, DateOnly.FromDateTime(d)));
     }
 
     /// <summary>Afvinken: de gewone statuswijziging, met de gebruiker in de historiek.</summary>
