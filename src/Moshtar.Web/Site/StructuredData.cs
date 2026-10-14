@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Moshtar.Application.Catalog;
+using Moshtar.Application.Images;
+using Moshtar.Application.Tenancy;
 using Moshtar.Application.Website;
 using Moshtar.Domain.Tenants;
 using Moshtar.Domain.Website;
@@ -27,14 +29,14 @@ public static class StructuredData
     /// <summary>Hetzelfde id op elke pagina, zodat een Offer naar de verhuurder kan verwijzen.</summary>
     public static string BusinessId(SiteLinks links) => links.Absolute(SiteRoute.Home, links.DefaultCulture) + "#verhuurder";
 
-    public static JsonObject LocalBusiness(Tenant tenant, SiteLinks links)
+    public static JsonObject LocalBusiness(Tenant tenant, SiteLinks links, IImageStore images)
     {
         var data = Node("LocalBusiness");
         data["@id"] = BusinessId(links);
         data["name"] = tenant.Name;
         data["url"] = links.Absolute(SiteRoute.Home, links.Culture);
-        Add(data, "logo", Branding.LogoUrl(tenant.LogoUrl));
-        Add(data, "image", Branding.HeroImageUrl(tenant.HeroImageUrl) ?? Branding.LogoUrl(tenant.LogoUrl));
+        Add(data, "logo", images.LogoUrl(tenant));
+        Add(data, "image", images.HeroImageUrl(tenant) ?? images.LogoUrl(tenant));
         Add(data, "telephone", BusinessDetails.Phone(tenant.ContactPhone));
         Add(data, "email", BusinessDetails.Email(tenant.ContactEmail));
         Add(data, "vatID", tenant.VatNumber);
@@ -59,14 +61,14 @@ public static class StructuredData
     /// Een artikel of pakket met zijn dagprijs, inclusief btw. Het is een verhuring (LeaseOut), geen verkoop; de prijs
     /// geldt per dag (UN/CEFACT-code DAY).
     /// </summary>
-    public static JsonObject Product(CatalogEntry entry, SiteLinks links)
+    public static JsonObject Product(CatalogEntry entry, SiteLinks links, IImageStore images)
     {
         var url = links.Absolute(new RentalRoute(entry.Slug), links.Culture);
         var data = Node("Product");
         data["name"] = entry.Name;
         Add(data, "description", entry.Description);
-        if (entry.Images.Count > 0)
-            data["image"] = new JsonArray(entry.Images.Select(i => (JsonNode)JsonValue.Create(i)!).ToArray());
+        if (entry.Photos.Count > 0)
+            data["image"] = new JsonArray(entry.Photos.Select(key => (JsonNode)JsonValue.Create(images.ShareUrl(key))!).ToArray());
         Add(data, "category", entry.Category);
         data["url"] = url;
         data["sku"] = entry.Slug;

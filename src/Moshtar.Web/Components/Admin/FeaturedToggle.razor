@@ -1,0 +1,31 @@
+@inject IFeaturedAdministration Featured
+@inject ISnackbar Snackbar
+
+@* De vlag "Uitgelicht" van een artikel of pakket: een ster die het meteen uitlicht of niet meer. *@
+<MudTooltip Text="@(IsFeatured ? "Uitgelicht op de home; klik om niet meer uit te lichten" : "Uitlichten op de home")">
+    <MudToggleIconButton Toggled="IsFeatured" ToggledChanged="SetAsync"
+                         Icon="@Icons.Material.Filled.StarBorder" ToggledIcon="@Icons.Material.Filled.Star" ToggledColor="Color.Warning"
+                         aria-label="Uitgelicht" />
+</MudTooltip>
+
+@code {
+    [Parameter, EditorRequired] public Guid Id { get; set; }
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+    [Parameter] public bool IsFeatured { get; set; }
+    /// <summary>Na het wijzigen, om de lijst opnieuw te laden.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
+    private async Task SetAsync(bool isFeatured)
+    {
+        try
+        {
+            await Featured.SetFeaturedAsync(Id, isFeatured);
+            Snackbar.Add(isFeatured ? $"\"{Name}\" is uitgelicht op de home." : $"\"{Name}\" is niet meer uitgelicht.", Severity.Success);
+        }
+        catch (FeaturedException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        await Changed.InvokeAsync();
+    }
+}

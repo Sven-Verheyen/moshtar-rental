@@ -17,6 +17,8 @@ using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Tenancy;
 using Moshtar.Application.Website;
 using Moshtar.Infrastructure.Website;
+using Moshtar.Application.Images;
+using Moshtar.Infrastructure.Images;
 
 namespace Moshtar.Infrastructure;
 
@@ -43,6 +45,17 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();
+        services.AddScoped<ICategoryAdministration, CategoryAdministration>();
+        services.AddScoped<IRentalItemAdministration, RentalItemAdministration>();
+        services.AddScoped<IBundleAdministration, BundleAdministration>();
+        services.AddScoped<IFeaturedAdministration, FeaturedAdministration>();
+        services.AddScoped<PhotoAlbum>();
+        services.AddScoped<IBlockoutAdministration, BlockoutAdministration>();
+        services.AddScoped<ShortageQuery>();
+        services.AddScoped<IShortageOverview, ShortageOverview>();
+        services.AddScoped<IReservationAlternatives, ReservationAlternatives>();
+        services.AddScoped<OldSlugs>();
+        services.AddScoped<IOldSlugs>(sp => sp.GetRequiredService<OldSlugs>());
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();
         services.AddScoped<ICartAdministration, CartAdministration>();
@@ -61,6 +74,24 @@ public static class DependencyInjection
         else
         {
             services.AddSingleton<IMailTransport, AzureMailTransport>();
+        }
+
+        // Afbeeldingen (ADR 0005): Azure Blob Storage, of zonder connection string een lokale map, zoals bij mail.
+        var images = configuration.GetSection("Images");
+        services.Configure<ImageOptions>(images);
+        if (string.IsNullOrWhiteSpace(images[nameof(ImageOptions.AzureBlobStorageConnectionString)]))
+        {
+            var path = images[nameof(ImageOptions.LocalPath)] is { Length: > 0 } configured
+                ? configured
+                : Path.Combine(Directory.GetCurrentDirectory(), "App_Data", "afbeeldingen");
+            Directory.CreateDirectory(path);
+            services.AddSingleton(new LocalImageFolder(Path.GetFullPath(path)));
+            services.AddScoped<IImageStore, LocalImageStore>();
+        }
+        else
+        {
+            services.AddSingleton<ImageContainer>();
+            services.AddScoped<IImageStore, AzureBlobImageStore>();
         }
         return services;
     }

@@ -1,0 +1,10 @@
+@page "/admin/blokkeringen"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+
+<PageTitle>Blokkeringen</PageTitle>
+
+<AdminShell Title="Blokkeringen">
+    <BlockoutsEditor />
+</AdminShell>

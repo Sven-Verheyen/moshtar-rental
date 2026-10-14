@@ -106,7 +106,10 @@
         _form.Culture = TenantContext.Tenant?.DefaultCulture ?? "nl";
         await using var db = await DbFactory.CreateDbContextAsync();
         var items = await db.RentalItems.AsNoTracking().ToListAsync();
-        var bundles = await db.Bundles.AsNoTracking().Where(b => b.IsActive).ToListAsync();
+        var active = items.Where(i => i.IsActive).Select(i => i.Id).ToHashSet();
+        // Een pakket met een uitgezet artikel kan niet gereserveerd worden, net als op de reservatiewebsite.
+        var bundles = (await db.Bundles.AsNoTracking().Where(b => b.IsActive).ToListAsync())
+            .Where(b => b.Items.All(x => active.Contains(x.RentalItemId))).ToList();
         _itemNames = items.ToDictionary(i => i.Id, i => Name(i.Translations, i.Slug));
         _choices = items.Where(i => i.IsActive).Select(i => ($"item:{i.Id}", _itemNames[i.Id]))
             .Concat(bundles.Select(b => ($"bundle:{b.Id}", $"Pakket: {Name(b.Translations, b.Slug)}")))

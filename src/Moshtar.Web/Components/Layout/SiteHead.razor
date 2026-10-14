@@ -1,5 +1,6 @@
 @inject SiteLinks Links
 @inject ITenantContext TenantContext
+@inject IImageStore Images
 
 @* De titel, de beschrijving en Open Graph voor zoekmachines, sociale media en AI-bots; de canonieke URL op het
    hoofddomein en hreflang-links naar dezelfde pagina in elke taal (ADR 0004); en de gestructureerde gegevens (JSON-LD).
@@ -39,7 +40,7 @@
             <meta property="og:image:alt" content="@(Title ?? tenant.Name)" />
             <meta name="twitter:card" content="summary_large_image" />
         }
-        @((MarkupString)StructuredData.Script(StructuredData.LocalBusiness(tenant, Links)))
+        @((MarkupString)StructuredData.Script(StructuredData.LocalBusiness(tenant, Links, Images)))
         @foreach (var data in JsonLd)
         {
             @((MarkupString)StructuredData.Script(data))
@@ -77,7 +78,7 @@
         : $"{Title} · {TenantName}";
 
     private string? OgImage(Moshtar.Domain.Tenants.Tenant tenant) =>
-        Image ?? Moshtar.Domain.Tenants.Branding.HeroImageUrl(tenant.HeroImageUrl) ?? Moshtar.Domain.Tenants.Branding.LogoUrl(tenant.LogoUrl);
+        Image ?? Images.HeroImageUrl(tenant) ?? Images.LogoUrl(tenant);
 
     /// <summary>Open Graph wil taal en land; de reservatiewebsite is Belgisch, Engels als Brits Engels.</summary>
     private static string OgLocale(string culture) => culture switch

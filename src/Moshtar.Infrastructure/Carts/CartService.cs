@@ -188,7 +188,7 @@ internal sealed class CartService(
 
     /// <summary>Wijzigingen aan dezelfde winkelkar na elkaar, tot het einde van de transactie.</summary>
     private static Task LockAsync(AppDbContext db, string key, CancellationToken ct) =>
-        db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({"winkelkar:" + key}, 0))", ct);
+        db.Database.AcquireAdvisoryLockAsync("winkelkar:" + key, ct);
 
     /// <summary>Een nieuwe, niet te raden sleutel, voor de cookie of de link in de herinneringsmail.</summary>
     internal static string NewKey() => Base64UrlEncode(RandomNumberGenerator.GetBytes(32));

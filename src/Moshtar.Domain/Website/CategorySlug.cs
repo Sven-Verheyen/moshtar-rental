@@ -1,6 +1,4 @@
-using System.Globalization;
-using System.Text;
-using System.Text.RegularExpressions;
+using Moshtar.Domain.Common;
 
 namespace Moshtar.Domain.Website;
 
@@ -8,7 +6,7 @@ namespace Moshtar.Domain.Website;
 /// De slug van een categorie in de URL van de reservatiewebsite, per taal (ADR 0004): kleine letters, cijfers en
 /// koppeltekens, bv. "springkastelen" of "chateaux-gonflables".
 /// </summary>
-public static partial class CategorySlug
+public static class CategorySlug
 {
     /// <summary>
     /// Woorden die al een vaste betekenis hebben in de URL (taalvoorvoegsels, padwoorden van de reservatiewebsite,
@@ -22,30 +20,13 @@ public static partial class CategorySlug
         "not-found", "error",
     };
 
-    public const int MaxLength = 100;
+    public const int MaxLength = SlugText.MaxLength;
 
     /// <summary>Maakt een slug van een naam: "Châteaux gonflables" wordt "chateaux-gonflables".</summary>
-    public static string From(string name)
-    {
-        var withoutAccents = new StringBuilder();
-        foreach (var c in name.Normalize(NormalizationForm.FormD))
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                withoutAccents.Append(c);
-        var slug = NotSlug().Replace(withoutAccents.ToString().ToLowerInvariant(), "-").Trim('-');
-        return slug.Length > MaxLength ? slug[..MaxLength].TrimEnd('-') : slug;
-    }
+    public static string From(string name) => SlugText.From(name);
 
     /// <summary>Wat er mis is met deze slug, of null als ze goed is.</summary>
     public static string? Problem(string slug) =>
-        slug.Length == 0 ? "De slug is leeg."
-        : slug.Length > MaxLength ? $"De slug is langer dan {MaxLength} tekens."
-        : !Valid().IsMatch(slug) ? $"De slug \"{slug}\" mag alleen kleine letters, cijfers en koppeltekens bevatten, bv. springkastelen."
-        : Reserved.Contains(slug) ? $"\"{slug}\" heeft al een andere betekenis op je reservatiewebsite; kies een andere slug."
-        : null;
-
-    [GeneratedRegex("[^a-z0-9]+")]
-    private static partial Regex NotSlug();
-
-    [GeneratedRegex("^[a-z0-9]+(?:-[a-z0-9]+)*$")]
-    private static partial Regex Valid();
+        SlugText.Problem(slug, "springkastelen")
+        ?? (Reserved.Contains(slug) ? $"\"{slug}\" heeft al een andere betekenis op je reservatiewebsite; kies een andere slug." : null);
 }

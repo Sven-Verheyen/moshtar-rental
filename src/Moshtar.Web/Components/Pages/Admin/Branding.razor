@@ -12,45 +12,61 @@
     <MudText Typo="Typo.body1" Class="mb-4">
         Je logo en je kleur komen bovenaan de mails die je klanten krijgen en op je reservatiewebsite.
         De sfeerfoto staat groot bovenaan de home van je reservatiewebsite.
+        Moshtar verkleint je afbeeldingen zelf, zodat je site vlot laadt; een JPG, PNG, WebP of GIF tot 10 MB kan.
     </MudText>
 
+    @if (_problems.Count > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">
+            @foreach (var problem in _problems)
+            {
+                <div>@problem</div>
+            }
+        </MudAlert>
+    }
+
     <MudPaper Class="pa-4 mb-4" Elevation="1">
-        <MudTextField @bind-Value="_logoUrl" @bind-Value:after="Refresh" Immediate="true" Label="Adres van je logo" Variant="Variant.Outlined"
-                      Placeholder="https://www.jouwsite.be/logo.png" Class="mb-3"
-                      HelperText="Een afbeelding op je eigen website, met een volledig adres dat begint met https://. Laat leeg voor geen logo." />
+        <MudText Typo="Typo.h6" Class="mb-2">Logo</MudText>
+        @if (_settings.LogoUrl is { } logo)
+        {
+            <img src="@logo" alt="Voorbeeld van je logo" style="display: block; max-width: 240px; max-height: 64px" class="mb-3" />
+        }
+        else
+        {
+            <MudText Typo="Typo.body2" Class="mb-3">Nog geen logo: je site en je mails tonen dan de naam van je bedrijf.</MudText>
+        }
+        @ImageButtons(BrandingImage.Logo, "logo")
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Kleur</MudText>
         <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
             <input type="color" aria-label="Kies een kleur" value="@(ColorForPicker)" @onchange="PickColor"
                    style="width: 3rem; height: 3rem; border: none; background: none; cursor: pointer" />
             <MudTextField @bind-Value="_color" @bind-Value:after="Refresh" Immediate="true" Label="Kleur" Variant="Variant.Outlined"
                           Placeholder="#e91e63" HelperText="Een hexcode, bv. #e91e63. Laat leeg voor geen kleur." Style="max-width: 16rem" />
         </MudStack>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveColorAsync">Kleur opslaan</MudButton>
+    </MudPaper>
 
-        <MudTextField @bind-Value="_heroImageUrl" Immediate="true" Label="Adres van je sfeerfoto" Variant="Variant.Outlined"
-                      Placeholder="https://www.jouwsite.be/feest.jpg" Class="mb-3"
-                      HelperText="Een liggende foto op je eigen website, met een volledig adres dat begint met https://. Laat leeg voor een vlak in je kleur." />
-        @if (Moshtar.Domain.Tenants.Branding.HeroImageUrl(_heroImageUrl) is { } hero)
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Sfeerfoto</MudText>
+        @if (_settings.HeroImageUrl is { } hero)
         {
             <img src="@hero" alt="Voorbeeld van je sfeerfoto" style="display: block; max-width: 100%; max-height: 12rem; border-radius: .5rem" class="mb-3" />
         }
-
-        @if (_problems.Count > 0)
+        else
         {
-            <MudAlert Severity="Severity.Error" Class="mb-3">
-                @foreach (var problem in _problems)
-                {
-                    <div>@problem</div>
-                }
-            </MudAlert>
+            <MudText Typo="Typo.body2" Class="mb-3">Nog geen sfeerfoto: bovenaan de home staat dan een vlak in je kleur. Een liggende foto werkt het best.</MudText>
         }
-
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Opslaan</MudButton>
+        @ImageButtons(BrandingImage.HeroImage, "sfeerfoto")
     </MudPaper>
 
     <MudPaper Outlined="true" Class="pa-4">
         <MudText Typo="Typo.overline">Voorbeeld van de kop van een mail</MudText>
         @if (_preview.Length > 0)
         {
-            @* De HTML komt uit de mailopbouw, die alleen een geldig https-adres en een hexkleur gebruikt en alle tekst escapet. *@
+            @* De HTML komt uit de mailopbouw, die alleen een volledig webadres en een hexkleur gebruikt en alle tekst escapet. *@
             <div class="mt-2">@((MarkupString)_preview)</div>
         }
         else
@@ -61,20 +77,44 @@
 </AdminShell>
 
 @code {
-    private string? _logoUrl;
+    private BrandingSettings _settings = new(null, null);
     private string? _color;
-    private string? _heroImageUrl;
     private string _preview = "";
+    private BrandingImage? _uploading;
     private IReadOnlyList<string> _problems = [];
 
-    protected override async Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    /// <summary>Uploaden, vervangen en verwijderen van het logo of de sfeerfoto.</summary>
+    private RenderFragment ImageButtons(BrandingImage which, string label) => __builder =>
     {
-        var settings = await BrandingAdmin.GetAsync();
-        (_logoUrl, _color, _heroImageUrl) = (settings.LogoUrl, settings.PrimaryColor, settings.HeroImageUrl);
+        var id = $"upload-{which}".ToLowerInvariant();
+        var present = (which == BrandingImage.Logo ? _settings.LogoUrl : _settings.HeroImageUrl) is not null;
+        <MudStack Row="true" AlignItems="AlignItems.Center">
+            <InputFile id="@id" accept="@ImageUpload.Accept" style="display: none" OnChange="e => UploadAsync(which, e)" />
+            <MudButton HtmlTag="label" Variant="Variant.Outlined" Color="Color.Primary" for="@id" Disabled="_uploading is not null"
+                       StartIcon="@Icons.Material.Filled.Upload">
+                @(present ? $"Ander {label} uploaden" : $"{char.ToUpperInvariant(label[0])}{label[1..]} uploaden")
+            </MudButton>
+            @if (present)
+            {
+                <MudButton Variant="Variant.Text" Color="Color.Error" Disabled="_uploading is not null" OnClick="() => RemoveAsync(which, label)">
+                    @($"{char.ToUpperInvariant(label[0])}{label[1..]} verwijderen")
+                </MudButton>
+            }
+            @if (_uploading == which)
+            {
+                <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+            }
+        </MudStack>
+    };
+
+    private async Task ReloadAsync()
+    {
+        _settings = await BrandingAdmin.GetAsync();
+        _color = _settings.PrimaryColor;
         Refresh();
     }
-
-    private BrandingSettings Settings => new(_logoUrl, _color, _heroImageUrl);
 
     /// <summary>De kleurkiezer kent alleen #rrggbb.</summary>
     private string ColorForPicker =>
@@ -88,22 +128,50 @@
         Refresh();
     }
 
-    private void Refresh() => _preview = BrandingAdmin.PreviewHeader(Settings);
+    private void Refresh() => _preview = BrandingAdmin.PreviewHeader(_settings with { PrimaryColor = _color });
 
-    private async Task SaveAsync()
+    private async Task SaveColorAsync()
     {
         try
         {
-            await BrandingAdmin.SaveAsync(Settings);
+            await BrandingAdmin.SaveColorAsync(_color);
             _problems = [];
-            var saved = await BrandingAdmin.GetAsync();
-            (_logoUrl, _color, _heroImageUrl) = (saved.LogoUrl, saved.PrimaryColor, saved.HeroImageUrl);
-            Refresh();
-            Snackbar.Add("Je huisstijl is bewaard.", Severity.Success);
+            await ReloadAsync();
+            Snackbar.Add("Je kleur is bewaard.", Severity.Success);
         }
         catch (BrandingException e)
         {
             _problems = e.Problems;
         }
+    }
+
+    private async Task UploadAsync(BrandingImage which, InputFileChangeEventArgs e)
+    {
+        _problems = [];
+        _uploading = which;
+        try
+        {
+            if (e.File.Size > ImageUpload.MaxBytes) throw new ImageRejectedException(ImageUpload.TooLarge);
+            await using var stream = e.File.OpenReadStream(ImageUpload.MaxBytes);
+            await BrandingAdmin.UploadAsync(which, stream);
+            await ReloadAsync();
+            Snackbar.Add(which == BrandingImage.Logo ? "Je logo is bewaard." : "Je sfeerfoto is bewaard.", Severity.Success);
+        }
+        catch (ImageRejectedException ex)
+        {
+            _problems = [ex.Message];
+        }
+        finally
+        {
+            _uploading = null;
+        }
+    }
+
+    private async Task RemoveAsync(BrandingImage which, string label)
+    {
+        _problems = [];
+        await BrandingAdmin.RemoveAsync(which);
+        await ReloadAsync();
+        Snackbar.Add($"Je {label} is verwijderd.", Severity.Success);
     }
 }

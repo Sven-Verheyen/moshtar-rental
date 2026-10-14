@@ -1,0 +1,97 @@
+@page "/admin/tekorten"
+@layout AdminLayout
+@rendermode InteractiveServer
+@inject IShortageOverview ShortageOverview
+@inject IReservationAlternatives ReservationAlternatives
+
+<PageTitle>Tekorten</PageTitle>
+
+<AdminShell Title="Tekorten">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Dagen vanaf vandaag waarop van een artikel meer gereserveerd is dan verhuurbaar, door een blokkering of een lagere
+        voorraad, met de reservaties die het artikel op die dagen gebruiken (bufferdagen inbegrepen). Een tekort verdwijnt
+        vanzelf zodra het opgelost is: door een reservatie te annuleren, een blokkering in te korten of de voorraad te verhogen.
+    </MudText>
+    <MudText Typo="Typo.body2" Class="mb-4">
+        Onder elke reservatie staan de alternatieven: artikelen uit dezelfde categorie die vrij zijn in de volledige huurperiode.
+        Vink aan wat je voorstelt, vul eventueel een meerprijs in (leeg is zonder meerprijs; het prijsverschil is een hulp) en
+        mail de klant in zijn eigen taal. De tekst pas je aan bij Mailsjablonen. Heeft de klant gekozen, dan vervangt
+        "Vervangen" het artikel in de reservatie, in een pakket enkel binnen het pakket; een meerprijs komt als aparte lijn.
+    </MudText>
+
+    @if (_items is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_items.Count == 0)
+    {
+        <MudAlert Severity="Severity.Success">Er zijn geen tekorten.</MudAlert>
+    }
+    else
+    {
+        @foreach (var item in _items)
+        {
+            <MudPaper Class="pa-4 mb-4" Elevation="1" id="@($"artikel-{item.RentalItemId}")">
+                <MudText Typo="Typo.h6">@item.RentalItemName</MudText>
+                <MudText Typo="Typo.body2" Class="mb-2">Tekort op @DaysText(item.Days)</MudText>
+                <MudSimpleTable Dense="true" Hover="true" Elevation="0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Reservatie</th>
+                            <th scope="col">Klant</th>
+                            <th scope="col">Huurperiode</th>
+                            <th scope="col">Aantal</th>
+                            <th scope="col">Via pakket</th>
+                            <th scope="col">Getroffen dagen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var reservation in item.Reservations)
+                        {
+                            <tr data-reservation="@reservation.ReservationId">
+                                <td><MudLink Href="@($"admin/reservaties?nummer={Uri.EscapeDataString(reservation.Number)}")">@reservation.Number</MudLink></td>
+                                <td>@reservation.CustomerName</td>
+                                <td style="white-space:nowrap">@reservation.Period.Start.ToString("dd/MM/yyyy") – @reservation.Period.End.ToString("dd/MM/yyyy")</td>
+                                <td>@reservation.Quantity</td>
+                                <td>@(reservation.BundleName ?? "")</td>
+                                <td>@string.Join(", ", reservation.ShortageDays.Select(d => d.ToString("dd/MM/yyyy")))</td>
+                            </tr>
+                            <tr class="alternatives-row">
+                                <td colspan="6" style="padding-left:2rem">
+                                    <AlternativesPanel @key="(reservation.ReservationId, item.RentalItemId, reservation.AlternativesMailed)"
+                                                       ReservationId="reservation.ReservationId" RentalItemId="item.RentalItemId"
+                                                       Mailed="reservation.AlternativesMailed" OnMailed="LoadAsync" OnReplaced="LoadAsync"
+                                                       Alternatives="@_alternatives.GetValueOrDefault((reservation.ReservationId, item.RentalItemId), [])" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        }
+    }
+</AdminShell>
+
+@code {
+    private static readonly CultureInfo Dutch = CultureInfo.GetCultureInfo("nl-BE");
+
+    private IReadOnlyList<ItemShortages>? _items;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var items = await ShortageOverview.GetAsync();
+        var alternatives = new Dictionary<(Guid, Guid), IReadOnlyList<Alternative>>();
+        foreach (var item in items)
+            foreach (var reservation in item.Reservations)
+                alternatives[(reservation.ReservationId, item.RentalItemId)] = await ReservationAlternatives.GetAsync(reservation.ReservationId, item.RentalItemId);
+        (_items, _alternatives) = (items, alternatives);
+    }
+
+    private Dictionary<(Guid, Guid), IReadOnlyList<Alternative>> _alternatives = [];
+
+    private static string DaysText(IReadOnlyList<ShortageDay> days) =>
+        string.Join(", ", days.Select(d =>
+            $"{d.Day.ToString("ddd d MMMM yyyy", Dutch)} ({d.Reserved} gereserveerd, {d.Rentable} verhuurbaar)"));
+}

@@ -1,6 +1,8 @@
 using System.Globalization;
+using Moshtar.Application.Catalog;
 using Moshtar.Application.Tenancy;
 using Moshtar.Application.Website;
+using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Website;
 
 namespace Moshtar.Web.Site;
@@ -64,6 +66,8 @@ internal static class SiteLanguage
 
             culture ??= tenant.DefaultCulture;
             var route = SiteRoute.Parse(path) ?? await CategoryRouteAsync(context, path, culture);
+            if (route is RentalRoute rental && await CurrentRentalRouteAsync(context, rental.Slug, culture) is { } current)
+                route = current;
             if (route is not null && route.PathIn(culture) != path)
             {
                 context.Response.Redirect(SiteLinks.Href(route, culture, tenant.DefaultCulture) + request.QueryString, permanent: true);
@@ -76,7 +80,7 @@ internal static class SiteLanguage
 
     /// <summary>
     /// Een pad van één woord kan een categorie zijn. Eerst de slug in de taal van de URL; een slug uit een andere taal
-    /// wordt herkend en daarna doorgestuurd, net als de vaste padwoorden.
+    /// of een oude slug in de taal van de URL wordt herkend en daarna doorgestuurd, net als de vaste padwoorden.
     /// </summary>
     private static async Task<CategoryRoute?> CategoryRouteAsync(HttpContext context, string path, string culture)
     {
@@ -84,7 +88,28 @@ internal static class SiteLanguage
         var categories = await context.RequestServices.GetRequiredService<IWebsiteTexts>().GetCategorySlugsAsync(context.RequestAborted);
         var category = categories.FirstOrDefault(c => c.PerCulture.GetValueOrDefault(culture) == path)
             ?? categories.FirstOrDefault(c => c.PerCulture.Values.Contains(path));
+        if (category is null
+            && await context.RequestServices.GetRequiredService<IOldSlugs>().FindAsync(SlugKind.Category, culture, path, context.RequestAborted) is { } id)
+            category = categories.FirstOrDefault(c => c.CategoryId == id);
         return category is null ? null : new CategoryRoute(category.CategoryId, category.PerCulture);
+    }
+
+    /// <summary>
+    /// Een oude slug van een artikel of pakket stuurt door naar zijn huidige pagina, tenzij een artikel of pakket die
+    /// slug nu heeft. Null als de slug geen oude slug is.
+    /// </summary>
+    private static async Task<RentalRoute?> CurrentRentalRouteAsync(HttpContext context, string slug, string culture)
+    {
+        var oldSlugs = context.RequestServices.GetRequiredService<IOldSlugs>();
+        var (kind, id) = await oldSlugs.FindAsync(SlugKind.RentalItem, culture, slug, context.RequestAborted) is { } itemId
+            ? (CatalogEntryKind.Item, itemId)
+            : await oldSlugs.FindAsync(SlugKind.Bundle, culture, slug, context.RequestAborted) is { } bundleId
+                ? (CatalogEntryKind.Bundle, bundleId)
+                : (default, Guid.Empty);
+        if (id == Guid.Empty) return null;
+        var catalog = await context.RequestServices.GetRequiredService<ICatalogService>().GetCatalogAsync(culture, context.RequestAborted);
+        if (catalog.Any(e => e.Slug == slug)) return null;
+        return catalog.FirstOrDefault(e => e.Kind == kind && e.Id == id) is { } entry ? new RentalRoute(entry.Slug) : null;
     }
 
     private static void UseCulture(HttpContext context, string culture, SiteRoute? route)

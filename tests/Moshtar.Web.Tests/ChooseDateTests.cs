@@ -1,8 +1,8 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Catalog;
 using Moshtar.Application.Reservations;
-using Moshtar.Application.Website;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Reservations;
@@ -89,15 +89,18 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         await using (var scope = await app.TenantScopeAsync("datum-slug"))
         {
             var user = await app.CreateUserAsync("datum-slug", "beheerder@datum-slug.test");
-            await scope.ServiceProvider.GetRequiredService<IWebsiteTextAdministration>()
-                .SaveCategoryAsync(tenant.Castles, "nl", "Luchtkastelen", "luchtkastelen", "", user.Id);
+            await scope.ServiceProvider.GetRequiredService<ICategoryAdministration>()
+                .SaveAsync(tenant.Castles, "nl", "Luchtkastelen", "luchtkastelen", "", user.Id);
         }
         var client = app.CreateClient("datum-slug.test");
 
         var html = WebUtility.HtmlDecode(await client.GetStringAsync("/luchtkastelen"));
 
         Assert.Contains("<h1>Luchtkastelen</h1>", html);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync("/springkastelen")).StatusCode);
+        // Het oude adres stuurt door naar het nieuwe.
+        var old = await client.GetAsync("/springkastelen");
+        Assert.Equal(HttpStatusCode.MovedPermanently, old.StatusCode);
+        Assert.Equal("/luchtkastelen", old.Headers.Location?.OriginalString);
     }
 
     [Fact]
@@ -306,8 +309,8 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         if (castlesIntro.Length > 0)
         {
             var user = await app.CreateUserAsync(slug, $"beheerder@{slug}.test");
-            await scope.ServiceProvider.GetRequiredService<IWebsiteTextAdministration>()
-                .SaveCategoryAsync(castles.Id, "nl", "Springkastelen", "springkastelen", castlesIntro, user.Id);
+            await scope.ServiceProvider.GetRequiredService<ICategoryAdministration>()
+                .SaveAsync(castles.Id, "nl", "Springkastelen", "springkastelen", castlesIntro, user.Id);
         }
         return new TestTenant(castles.Id, pirate.Id, mill.Id);
     }

@@ -11,7 +11,10 @@ public sealed record CategoryTexts(Guid CategoryId, WebsiteText Name, WebsiteTex
 /// <summary>De slug van een categorie in elke taal die de verhuurder aanbiedt, om een URL in welke taal ook te herkennen.</summary>
 public sealed record CategorySlugs(Guid CategoryId, IReadOnlyDictionary<string, string> PerCulture);
 
-/// <summary>Alle aanpasbare teksten van de reservatiewebsite in één taal.</summary>
+/// <summary>
+/// Alle teksten van de reservatiewebsite in één taal. Home en veelgestelde vragen worden bij de websiteteksten
+/// aangepast, de teksten van de categorieën bij de categorieën.
+/// </summary>
 public sealed record WebsiteTexts(
     string Culture,
     WebsiteText HomeTitle,
@@ -37,7 +40,7 @@ public interface IWebsiteTexts
 }
 
 /// <summary>
-/// De teksten van de reservatiewebsite beheren, in het back office. Alleen aanpassingen worden bewaard; een tekst
+/// De teksten van de home en de veelgestelde vragen beheren, in het back office. Alleen aanpassingen worden bewaard; een tekst
 /// gelijk aan de standaardtekst is geen aanpassing. Elke methode gooit een <see cref="WebsiteTextException"/> als er
 /// iets mis is, en bewaart dan niets.
 /// </summary>
@@ -45,12 +48,12 @@ public interface IWebsiteTextAdministration : IWebsiteTexts
 {
     Task SaveHomeAsync(string culture, string title, string subtitle, Guid userId, CancellationToken ct = default);
 
-    /// <summary>Bewaart naam, slug en inleiding; de slug moet uniek zijn onder de categorieën in deze taal.</summary>
-    Task SaveCategoryAsync(Guid categoryId, string culture, string name, string slug, string intro, Guid userId, CancellationToken ct = default);
-
     /// <summary>Bewaart de veelgestelde vragen in deze volgorde. Een lege lijst betekent: geen veelgestelde vragen.</summary>
     Task SaveFaqAsync(string culture, IReadOnlyList<FaqEntry> faq, Guid userId, CancellationToken ct = default);
 
-    /// <summary>Verwijdert de aanpassing van één tekst in deze taal, zodat de standaardtekst weer geldt.</summary>
-    Task ResetAsync(string culture, WebsiteTextKey key, Guid? categoryId = null, CancellationToken ct = default);
+    /// <summary>
+    /// Verwijdert de aanpassing van één tekst in deze taal, zodat de standaardtekst weer geldt. De teksten van een
+    /// categorie horen bij <c>ICategoryAdministration</c>.
+    /// </summary>
+    Task ResetAsync(string culture, WebsiteTextKey key, CancellationToken ct = default);
 }

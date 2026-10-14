@@ -69,7 +69,7 @@ internal class RentalItemConfiguration : IEntityTypeConfiguration<RentalItem>
             p.Property(x => x.ExtraDayPrice).HasColumnName("ExtraDayPrice").HasPrecision(10, 2);
         });
         b.OwnsMany(i => i.Translations, t => t.ToJson());
-        b.OwnsMany(i => i.Images, t => t.ToJson());
+        b.OwnsMany(i => i.Photos, t => t.ToJson());
         b.HasOne(i => i.Category).WithMany().HasForeignKey(i => i.CategoryId).OnDelete(DeleteBehavior.SetNull);
     }
 }
@@ -85,6 +85,7 @@ internal class BundleConfiguration : IEntityTypeConfiguration<Bundle>
             p.Property(x => x.ExtraDayPrice).HasColumnName("ExtraDayPrice").HasPrecision(10, 2);
         });
         b.OwnsMany(x => x.Translations, t => t.ToJson());
+        b.OwnsMany(x => x.Photos, t => t.ToJson());
         b.OwnsMany(x => x.Items, i =>
         {
             i.ToTable("BundleItems");
@@ -122,7 +123,17 @@ internal class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
             l.ToTable("ReservationLines");
             l.WithOwner().HasForeignKey("ReservationId");
             l.HasKey(x => x.Id);
+            // Lijnen krijgen hun Id in de code; zo ziet EF een meerprijslijn bij het vervangen als nieuw.
+            l.Property(x => x.Id).ValueGeneratedNever();
             l.Property(x => x.UnitPrice).HasPrecision(10, 2);
+            l.OwnsMany(x => x.Replacements, r =>
+            {
+                r.ToTable("ReservationLineReplacements");
+                r.WithOwner().HasForeignKey("ReservationLineId");
+                r.HasKey("ReservationLineId", nameof(BundleItemReplacement.RentalItemId));
+                r.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Restrict);
+                r.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.ReplacementRentalItemId).OnDelete(DeleteBehavior.Restrict);
+            });
             l.Ignore(x => x.LineTotal);
             l.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Restrict);
             l.HasOne<Bundle>().WithMany().HasForeignKey(x => x.BundleId).OnDelete(DeleteBehavior.Restrict);
@@ -141,6 +152,23 @@ internal class ReservationEventConfiguration : IEntityTypeConfiguration<Reservat
         // Gebruikers worden uitgeschakeld, nooit verwijderd: de historiek blijft naar hen verwijzen.
         b.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(e => new { e.ReservationId, e.OccurredAtUtc });
+        b.Property(e => e.Note).HasMaxLength(ReservationEvent.MaxNoteLength);
+    }
+}
+
+internal class AlternativeProposalConfiguration : IEntityTypeConfiguration<AlternativeProposal>
+{
+    public void Configure(EntityTypeBuilder<AlternativeProposal> b)
+    {
+        b.ToTable("AlternativeProposals");
+        b.Property(p => p.Surcharge).HasPrecision(10, 2);
+        b.HasOne<Reservation>().WithMany().HasForeignKey(p => p.ReservationId).OnDelete(DeleteBehavior.Cascade);
+        // Een artikel dat ooit gereserveerd werd, wordt niet verwijderd; een voorgesteld alternatief mag wel weg.
+        b.HasOne<RentalItem>().WithMany().HasForeignKey(p => p.RentalItemId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<RentalItem>().WithMany().HasForeignKey(p => p.AlternativeRentalItemId).OnDelete(DeleteBehavior.Cascade);
+        // Gebruikers worden uitgeschakeld, nooit verwijderd.
+        b.HasOne<User>().WithMany().HasForeignKey(p => p.MailedByUserId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(p => new { p.ReservationId, p.RentalItemId, p.AlternativeRentalItemId }).IsUnique();
     }
 }
 
@@ -149,6 +177,7 @@ internal class BlockoutConfiguration : IEntityTypeConfiguration<Blockout>
     public void Configure(EntityTypeBuilder<Blockout> b)
     {
         b.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Cascade);
+        b.Property(x => x.Reason).HasMaxLength(200);
     }
 }
 
@@ -192,6 +221,19 @@ internal class WebsiteTextCustomizationConfiguration : IEntityTypeConfiguration<
         b.HasOne<Category>().WithMany().HasForeignKey(t => t.CategoryId).OnDelete(DeleteBehavior.Cascade);
         // Gebruikers worden uitgeschakeld, nooit verwijderd.
         b.HasOne<User>().WithMany().HasForeignKey(t => t.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal class OldSlugConfiguration : IEntityTypeConfiguration<OldSlug>
+{
+    public void Configure(EntityTypeBuilder<OldSlug> b)
+    {
+        b.Property(s => s.Kind).HasConversion<string>().HasMaxLength(20);
+        b.Property(s => s.Culture).HasMaxLength(10);
+        b.Property(s => s.Slug).HasMaxLength(CategorySlug.MaxLength);
+        // Een oude slug wijst per soort en taal naar precies één categorie, artikel of pakket.
+        b.HasIndex(s => new { s.TenantId, s.Kind, s.Culture, s.Slug }).IsUnique();
+        b.HasIndex(s => new { s.TenantId, s.Kind, s.TargetId });
     }
 }
 

@@ -30,11 +30,15 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         Database = $"moshtar_test_{Guid.NewGuid():N}",
     }.ConnectionString;
 
+    private readonly string _imageFolder = Path.Combine(Path.GetTempPath(), $"moshtar_test_{Guid.NewGuid():N}");
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
         builder.UseSetting("ConnectionStrings:Moshtar", _connectionString);
         builder.UseSetting("Tenancy:FallbackTenantSlug", "");
+        // De lokale afbeeldingenopslag, per testklasse een eigen map.
+        builder.UseSetting("Images:LocalPath", _imageFolder);
         // Elke request controleert of de login nog geldig is, zodat uitschakelen meteen te testen is.
         builder.ConfigureTestServices(s => s.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero));
     }
@@ -48,6 +52,16 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
             NewTenant("Hopsakee.fun", "hopsakee", HopsakeeHost, "noreply@hopsakee.test", "info@hopsakee.test"),
             NewTenant("Andere", "andere", AndereHost, "noreply@andere.test", "contact@andere.test"));
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// Hoeveel afbeeldingen deze verhuurder in de lokale afbeeldingenopslag heeft, om te zien dat er niets achterblijft
+    /// van een geweigerde upload of een verwijderd artikel (een sleutel om naar te vragen is er dan niet).
+    /// </summary>
+    public int StoredImageCount(Guid tenantId)
+    {
+        var folder = Path.Combine(_imageFolder, tenantId.ToString("N"));
+        return Directory.Exists(folder) ? Directory.GetDirectories(folder).Length : 0;
     }
 
     /// <summary>Een extra verhuurder voor tests die een eigen, lege verhuurder nodig hebben.</summary>
@@ -71,7 +85,7 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
     {
         var scope = Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var tenant = await db.Tenants.AsNoTracking().SingleAsync(t => t.Slug == tenantSlug);
+        var tenant = await db.Tenants.AsNoTracking().Include(t => t.Hosts).SingleAsync(t => t.Slug == tenantSlug);
         scope.ServiceProvider.GetRequiredService<HostTenantContext>().UseTenant(tenant);
         return scope;
     }
@@ -95,6 +109,7 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         await using (var scope = Services.CreateAsyncScope())
             await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.EnsureDeletedAsync();
         await DisposeAsync();
+        if (Directory.Exists(_imageFolder)) Directory.Delete(_imageFolder, recursive: true);
     }
 
     private static Tenant NewTenant(string name, string slug, string host, string senderEmail, string contactEmail)

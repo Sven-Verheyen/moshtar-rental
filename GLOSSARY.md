@@ -66,6 +66,22 @@ _Avoid_: soort, type, rubriek
 Een vaste combinatie van artikelen met een eigen prijs, die als één geheel gereserveerd wordt.
 _Avoid_: bundel, combo, set
 
+**Uitgezet** (`IsActive = false`):
+Een artikel of pakket dat de verhuurder bewust uitzette: het staat niet meer op de reservatiewebsite en kan niet meer gereserveerd worden, maar blijft bestaan in oude reservaties. Een pakket dat zelf aan staat maar verborgen is omdat een van zijn artikelen uitgezet is, is niet uitgezet. Een artikel of pakket dat al eens gereserveerd werd, kan alleen uitgezet worden, niet verwijderd.
+_Avoid_: gearchiveerd, inactief, verborgen
+
+**Uitgelicht** (`IsFeatured`):
+Een artikel of pakket dat de verhuurder bovenaan de home van zijn reservatiewebsite toont, in een volgorde die hij zelf kiest.
+_Avoid_: populair, aanbevolen, in de kijker
+
+**Kenmerken**:
+De vaste eigenschappen van een artikel die de klant helpen kiezen: afmetingen, leeftijd, maximum aantal personen en of er stroom nodig is. Ze zijn allemaal optioneel.
+_Avoid_: specificaties, eigenschappen, specs
+
+**Slug**:
+Het stuk van het webadres dat een artikel, pakket of categorie aanduidt, zoals `springkasteel-jungle`. Wordt het gewijzigd, dan stuurt het oude adres door naar het nieuwe.
+_Avoid_: url, link, permalink
+
 ## Verhuur
 
 **Reservatie** (`Reservation`):
@@ -81,7 +97,7 @@ Een reservatie aanmaken, door een klant op de website of door een gebruiker in h
 _Avoid_: boeken, bestellen
 
 **Historiek** (`History`):
-De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd of geannuleerd, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
+De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd, alternatieven gemaild of een artikel vervangen, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
 _Avoid_: audit log, logboek, geschiedenis
 
 **Huurperiode** (`DateRange`):
@@ -98,8 +114,20 @@ Een e-mailadres van een klant of bezoeker die uitdrukkelijk toestemming gaf om n
 _Avoid_: nieuwsbriefabonnee, lead, prospect
 
 **Blokkering** (`Blockout`):
-Een periode waarin exemplaren van een artikel niet verhuurbaar zijn, bijvoorbeeld voor onderhoud.
-_Avoid_: onderhoud, uitsluiting
+Een periode waarin exemplaren van een artikel niet verhuurbaar zijn, bijvoorbeeld omdat ze kapot zijn of in onderhoud. Een blokkering zonder einddatum loopt tot de verhuurder er een invult. Is een exemplaar definitief weg, dan verlaagt de verhuurder de voorraad in plaats van te blokkeren.
+_Avoid_: onderhoud, uitsluiting, buiten dienst
+
+**Tekort** (`Shortage`):
+Een dag, vanaf vandaag, waarop van een artikel meer exemplaren gereserveerd zijn dan er verhuurbaar zijn, door een blokkering of een lagere voorraad. Een tekort verdwijnt zodra er niet meer gereserveerd is dan verhuurbaar. De reservaties die het artikel op zo'n dag gebruiken, los of in een gereserveerd pakket, zijn de getroffen reservaties.
+_Avoid_: overboeking, conflict, dubbele reservatie
+
+**Alternatief** (`Alternative`):
+Een ander artikel uit dezelfde categorie dat vrij is in de huurperiode van een reservatie met een tekort, en dat de verhuurder de klant voorstelt in plaats van het artikel dat niet verhuurbaar is. Kiest de klant het, dan vervangt de verhuurder het artikel in de reservatie: op een losse lijn aan dezelfde prijs, in een pakket enkel binnen het pakket voor die reservatie.
+_Avoid_: vervanger, suggestie
+
+**Meerprijs** (`Surcharge`):
+Wat een klant extra betaalt als hij een bepaald alternatief kiest. De verhuurder beslist per alternatief of er een meerprijs is en hoeveel; standaard is er geen. De meerprijs komt bovenop de reservatie, de prijs van een pakket blijft dezelfde.
+_Avoid_: supplement, toeslag, prijsverschil
 
 **Bufferdag** (`BufferDays`):
 Een dag voor of na een huurperiode waarop het exemplaar nog niet vrij is, voor levering, opbouw of poetsen.
@@ -146,5 +174,5 @@ Een tekst van de reservatiewebsite die een verhuurder per taal kan aanpassen: ti
 _Avoid_: content, pagina-inhoud, copy
 
 **Huisstijl** (`Branding`):
-Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto zijn adressen van afbeeldingen op de eigen website van de verhuurder.
+Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office.
 _Avoid_: branding, thema, look

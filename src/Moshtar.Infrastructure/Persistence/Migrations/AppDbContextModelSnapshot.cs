@@ -161,7 +161,13 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("FeaturedOrder")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFeatured")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Slug")
@@ -207,6 +213,48 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("Categories");
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Catalog.OldSlug", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Culture")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Slug")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Kind", "TargetId");
+
+                    b.HasIndex("TenantId", "Kind", "Culture", "Slug")
+                        .IsUnique();
+
+                    b.ToTable("OldSlugs");
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Catalog.RentalItem", b =>
                 {
                     b.Property<Guid>("Id")
@@ -216,10 +264,16 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("FeaturedOrder")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("HeightCm")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFeatured")
                         .HasColumnType("boolean");
 
                     b.Property<int?>("LengthCm")
@@ -240,6 +294,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
 
                     b.Property<int>("Stock")
                         .HasColumnType("integer");
@@ -389,20 +446,68 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("MarketingContacts");
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Reservations.AlternativeProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AlternativeRentalItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("MailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("MailedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RentalItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReservationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("Surcharge")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlternativeRentalItemId");
+
+                    b.HasIndex("MailedByUserId");
+
+                    b.HasIndex("RentalItemId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("ReservationId", "RentalItemId", "AlternativeRentalItemId")
+                        .IsUnique();
+
+                    b.ToTable("AlternativeProposals", (string)null);
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Reservations.Blockout", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<DateOnly>("EndDate")
+                    b.Property<DateOnly?>("EndDate")
                         .HasColumnType("date");
 
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
                     b.Property<string>("Reason")
-                        .HasColumnType("text");
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<Guid>("RentalItemId")
                         .HasColumnType("uuid");
@@ -427,6 +532,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AlternativesMailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -486,6 +594,10 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Kind")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<DateTime>("OccurredAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -555,14 +667,14 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("HeroImageUrl")
+                    b.Property<string>("HeroImageKey")
                         .HasColumnType("text");
 
                     b.Property<string>("InstagramUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("LogoUrl")
+                    b.Property<string>("LogoImageKey")
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
@@ -846,6 +958,30 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Moshtar.Domain.Catalog.Bundle", b =>
                 {
+                    b.OwnsMany("Moshtar.Domain.Catalog.Photo", "Photos", b1 =>
+                        {
+                            b1.Property<Guid>("BundleId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<string>("Key")
+                                .IsRequired();
+
+                            b1.Property<int>("SortOrder");
+
+                            b1.HasKey("BundleId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Bundles");
+
+                            b1
+                                .ToJson("Photos")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("BundleId");
+                        });
+
                     b.OwnsOne("Moshtar.Domain.Catalog.Pricing", "Pricing", b1 =>
                         {
                             b1.Property<Guid>("BundleId")
@@ -925,6 +1061,8 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Items");
 
+                    b.Navigation("Photos");
+
                     b.Navigation("Pricing")
                         .IsRequired();
 
@@ -970,24 +1108,24 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.OwnsMany("Moshtar.Domain.Catalog.ItemImage", "Images", b1 =>
+                    b.OwnsMany("Moshtar.Domain.Catalog.Photo", "Photos", b1 =>
                         {
                             b1.Property<Guid>("RentalItemId");
 
                             b1.Property<int>("__synthesizedOrdinal")
                                 .ValueGeneratedOnAdd();
 
-                            b1.Property<int>("SortOrder");
-
-                            b1.Property<string>("Url")
+                            b1.Property<string>("Key")
                                 .IsRequired();
+
+                            b1.Property<int>("SortOrder");
 
                             b1.HasKey("RentalItemId", "__synthesizedOrdinal");
 
                             b1.ToTable("RentalItems");
 
                             b1
-                                .ToJson("Images")
+                                .ToJson("Photos")
                                 .HasColumnType("jsonb");
 
                             b1.WithOwner()
@@ -1046,7 +1184,7 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Category");
 
-                    b.Navigation("Images");
+                    b.Navigation("Photos");
 
                     b.Navigation("Pricing")
                         .IsRequired();
@@ -1095,6 +1233,32 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UpdatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Reservations.AlternativeProposal", b =>
+                {
+                    b.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                        .WithMany()
+                        .HasForeignKey("AlternativeRentalItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Moshtar.Infrastructure.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("MailedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                        .WithMany()
+                        .HasForeignKey("RentalItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Moshtar.Domain.Reservations.Reservation", null)
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 
@@ -1147,7 +1311,6 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.OwnsMany("Moshtar.Domain.Reservations.ReservationLine", "Lines", b1 =>
                         {
                             b1.Property<Guid>("Id")
-                                .ValueGeneratedOnAdd()
                                 .HasColumnType("uuid");
 
                             b1.Property<Guid?>("BundleId")
@@ -1192,6 +1355,51 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("ReservationId");
+
+                            b1.OwnsMany("Moshtar.Domain.Reservations.BundleItemReplacement", "Replacements", b2 =>
+                                {
+                                    b2.Property<Guid>("ReservationLineId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<Guid>("RentalItemId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<string>("RentalItemName")
+                                        .IsRequired()
+                                        .HasColumnType("text");
+
+                                    b2.Property<string>("ReplacementName")
+                                        .IsRequired()
+                                        .HasColumnType("text");
+
+                                    b2.Property<Guid>("ReplacementRentalItemId")
+                                        .HasColumnType("uuid");
+
+                                    b2.HasKey("ReservationLineId", "RentalItemId");
+
+                                    b2.HasIndex("RentalItemId");
+
+                                    b2.HasIndex("ReplacementRentalItemId");
+
+                                    b2.ToTable("ReservationLineReplacements", (string)null);
+
+                                    b2.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                                        .WithMany()
+                                        .HasForeignKey("RentalItemId")
+                                        .OnDelete(DeleteBehavior.Restrict)
+                                        .IsRequired();
+
+                                    b2.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                                        .WithMany()
+                                        .HasForeignKey("ReplacementRentalItemId")
+                                        .OnDelete(DeleteBehavior.Restrict)
+                                        .IsRequired();
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("ReservationLineId");
+                                });
+
+                            b1.Navigation("Replacements");
                         });
 
                     b.Navigation("Customer");

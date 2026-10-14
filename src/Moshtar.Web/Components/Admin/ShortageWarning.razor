@@ -1,0 +1,29 @@
+@using Moshtar.Domain.Availability
+@*
+    De tekorten na het bewaren van een blokkering of een lagere voorraad: per dag vanaf vandaag meer gereserveerd dan
+    verhuurbaar, met een link naar de lijst Tekorten.
+*@
+@if (Shortages is { Count: > 0 })
+{
+    <MudAlert Severity="Severity.Warning" Class="mb-4">
+        <div>Bewaard, maar op deze dagen is @(ItemName is null ? "" : $"van \"{ItemName}\" ")meer gereserveerd dan verhuurbaar:</div>
+        <ul>
+            @foreach (var shortage in Shortages)
+            {
+                <li>@Text(shortage)</li>
+            }
+        </ul>
+        <MudLink Href="admin/tekorten">Bekijk de getroffen reservaties bij Tekorten</MudLink>
+    </MudAlert>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<Shortage>? Shortages { get; set; }
+
+    /// <summary>Het artikel van de tekorten, als dat niet al uit het scherm blijkt.</summary>
+    [Parameter] public string? ItemName { get; set; }
+
+    private static string Text(Shortage shortage) =>
+        $"{shortage.Day.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("nl-BE"))}: {shortage.Reserved} gereserveerd, "
+        + $"{shortage.Rentable} verhuurbaar ({(shortage.ReservationIds.Count == 1 ? "1 reservatie" : $"{shortage.ReservationIds.Count} reservaties")})";
+}

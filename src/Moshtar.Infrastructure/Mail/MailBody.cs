@@ -15,10 +15,10 @@ internal sealed record MailBlock(string Html, string Text);
 internal static class MailBody
 {
     public static (string Html, string Text) Compose(
-        Tenant tenant, string body, Func<string, string?> value, IReadOnlyDictionary<string, MailBlock> blocks)
+        Tenant tenant, string? logoUrl, string body, Func<string, string?> value, IReadOnlyDictionary<string, MailBlock> blocks)
     {
         var text = new List<string>();
-        var html = new StringBuilder(MailHeader.Html(tenant));
+        var html = new StringBuilder(MailHeader.Html(tenant, logoUrl));
         var pattern = new Regex(@"\{(" + string.Join('|', blocks.Keys.Select(Regex.Escape)) + @")\}");
         foreach (var paragraph in Paragraphs(body))
         {

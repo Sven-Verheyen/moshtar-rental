@@ -9,9 +9,16 @@ public class RentalItem : TenantEntity
     public Guid? CategoryId { get; set; }
     public Category? Category { get; set; }
 
+    /// <summary>De plaats binnen de categorie, zoals de verhuurder ze versleept; nieuwe artikelen komen achteraan.</summary>
+    public int SortOrder { get; set; }
+
     /// <summary>Aantal exemplaren dat de verhuurder bezit.</summary>
     public int Stock { get; set; } = 1;
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Uitgelicht op de home, op plaats <see cref="FeaturedOrder"/> tussen de uitgelichte artikelen en pakketten samen.</summary>
+    public bool IsFeatured { get; set; }
+    public int FeaturedOrder { get; set; }
     public Pricing Pricing { get; set; } = new();
 
     public int? LengthCm { get; set; }
@@ -23,11 +30,7 @@ public class RentalItem : TenantEntity
     public bool RequiresPower { get; set; }
 
     public List<Translation> Translations { get; set; } = [];
-    public List<ItemImage> Images { get; set; } = [];
-}
 
-public class ItemImage
-{
-    public string Url { get; set; } = "";
-    public int SortOrder { get; set; }
+    /// <summary>De foto's, de hoofdfoto eerst (zie <see cref="Photo"/>).</summary>
+    public List<Photo> Photos { get; set; } = [];
 }
