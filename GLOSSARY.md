@@ -114,8 +114,16 @@ Een e-mailadres van een klant of bezoeker die uitdrukkelijk toestemming gaf om n
 _Avoid_: nieuwsbriefabonnee, lead, prospect
 
 **Blokkering** (`Blockout`):
-Een periode waarin exemplaren van een artikel niet verhuurbaar zijn, bijvoorbeeld voor onderhoud.
-_Avoid_: onderhoud, uitsluiting
+Een periode waarin exemplaren van een artikel niet verhuurbaar zijn, bijvoorbeeld omdat ze kapot zijn of in onderhoud. Een blokkering zonder einddatum loopt tot de verhuurder er een invult. Is een exemplaar definitief weg, dan verlaagt de verhuurder de voorraad in plaats van te blokkeren.
+_Avoid_: onderhoud, uitsluiting, buiten dienst
+
+**Tekort** (`Shortage`):
+Een dag, vanaf vandaag, waarop van een artikel meer exemplaren gereserveerd zijn dan er verhuurbaar zijn, door een blokkering of een lagere voorraad. Een tekort verdwijnt zodra er niet meer gereserveerd is dan verhuurbaar.
+_Avoid_: overboeking, conflict, dubbele reservatie
+
+**Alternatief** (`Alternative`):
+Een ander artikel uit dezelfde categorie dat vrij is in de huurperiode van een reservatie met een tekort, en dat de verhuurder de klant voorstelt in plaats van het artikel dat niet verhuurbaar is.
+_Avoid_: vervanger, suggestie
 
 **Bufferdag** (`BufferDays`):
 Een dag voor of na een huurperiode waarop het exemplaar nog niet vrij is, voor levering, opbouw of poetsen.
