@@ -13,6 +13,7 @@ public sealed record ShortageDay(DateOnly Day, int Rentable, int Reserved)
 /// Een reservatie die door een tekort van een artikel getroffen is: ze gebruikt het artikel op
 /// <see cref="ShortageDays"/>, <see cref="Quantity"/> keer (het meeste op één van die dagen).
 /// <see cref="BundleName"/> is het gereserveerde pakket waarin het artikel zit, of null voor een los artikel.
+/// <see cref="AlternativesMailed"/> zegt wanneer en door wie de klant het laatst alternatieven gemaild kreeg, of is null.
 /// </summary>
 public sealed record ShortageReservation(
     Guid ReservationId,
@@ -21,7 +22,8 @@ public sealed record ShortageReservation(
     DateRange Period,
     int Quantity,
     string? BundleName,
-    IReadOnlyList<DateOnly> ShortageDays);
+    IReadOnlyList<DateOnly> ShortageDays,
+    AlternativesMailed? AlternativesMailed = null);
 
 /// <summary>De tekorten van één artikel: de dagen en alle getroffen reservaties, op begindatum.</summary>
 public sealed record ItemShortages(

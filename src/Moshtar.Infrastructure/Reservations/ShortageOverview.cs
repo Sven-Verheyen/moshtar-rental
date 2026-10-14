@@ -3,6 +3,7 @@ using Moshtar.Application.Reservations;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Availability;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Reservations;
@@ -26,6 +27,16 @@ internal sealed class ShortageOverview(IDbContextFactory<AppDbContext> contexts,
         var reservationIds = found.SelectMany(s => s.ReservationIds).Distinct().ToList();
         var reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
             .Where(r => reservationIds.Contains(r.Id)).ToDictionaryAsync(r => r.Id, ct);
+        // Wie de alternatieven het laatst mailde: de jongste gebeurtenis van die soort per reservatie.
+        var mailed = (await (
+                from e in db.ReservationEvents.AsNoTracking()
+                where reservationIds.Contains(e.ReservationId) && e.Kind == ReservationEventKind.AlternativesMailed
+                join u in db.Users on e.UserId equals u.Id into users
+                from u in users.DefaultIfEmpty()
+                select new { e.ReservationId, e.OccurredAtUtc, Email = u == null ? null : u.Email })
+            .ToListAsync(ct))
+            .GroupBy(e => e.ReservationId)
+            .ToDictionary(g => g.Key, g => g.MaxBy(e => e.OccurredAtUtc)!);
 
         return found
             .GroupBy(s => s.RentalItemId)
@@ -51,7 +62,8 @@ internal sealed class ShortageOverview(IDbContextFactory<AppDbContext> contexts,
                             reservation.Period,
                             a.Max(x => x.Affected.Quantity),
                             bundleNames.Count > 0 ? string.Join(", ", bundleNames) : null,
-                            a.Select(x => x.Day).Order().ToList());
+                            a.Select(x => x.Day).Order().ToList(),
+                            mailed.TryGetValue(reservation.Id, out var last) ? new AlternativesMailed(last.OccurredAtUtc, last.Email) : null);
                     })
                     .OrderBy(r => r.Period.Start).ThenBy(r => r.Number)
                     .ToList()))

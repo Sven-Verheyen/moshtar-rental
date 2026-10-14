@@ -2,6 +2,7 @@
 @layout AdminLayout
 @rendermode InteractiveServer
 @inject IShortageOverview ShortageOverview
+@inject IReservationAlternatives ReservationAlternatives
 
 <PageTitle>Tekorten</PageTitle>
 
@@ -10,6 +11,11 @@
         Dagen vanaf vandaag waarop van een artikel meer gereserveerd is dan verhuurbaar, door een blokkering of een lagere
         voorraad, met de reservaties die het artikel op die dagen gebruiken (bufferdagen inbegrepen). Een tekort verdwijnt
         vanzelf zodra het opgelost is: door een reservatie te annuleren, een blokkering in te korten of de voorraad te verhogen.
+    </MudText>
+    <MudText Typo="Typo.body2" Class="mb-4">
+        Onder elke reservatie staan de alternatieven: artikelen uit dezelfde categorie die vrij zijn in de volledige huurperiode.
+        Vink aan wat je voorstelt, vul eventueel een meerprijs in (leeg is zonder meerprijs; het prijsverschil is een hulp) en
+        mail de klant in zijn eigen taal. De tekst pas je aan bij Mailsjablonen.
     </MudText>
 
     @if (_items is null)
@@ -49,6 +55,14 @@
                                 <td>@(reservation.BundleName ?? "")</td>
                                 <td>@string.Join(", ", reservation.ShortageDays.Select(d => d.ToString("dd/MM/yyyy")))</td>
                             </tr>
+                            <tr class="alternatives-row">
+                                <td colspan="6" style="padding-left:2rem">
+                                    <AlternativesPanel @key="(reservation.ReservationId, item.RentalItemId, reservation.AlternativesMailed)"
+                                                       ReservationId="reservation.ReservationId" RentalItemId="item.RentalItemId"
+                                                       Mailed="reservation.AlternativesMailed" OnMailed="LoadAsync"
+                                                       Alternatives="@_alternatives.GetValueOrDefault((reservation.ReservationId, item.RentalItemId), [])" />
+                                </td>
+                            </tr>
                         }
                     </tbody>
                 </MudSimpleTable>
@@ -62,7 +76,20 @@
 
     private IReadOnlyList<ItemShortages>? _items;
 
-    protected override async Task OnInitializedAsync() => _items = await ShortageOverview.GetAsync();
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        var items = await ShortageOverview.GetAsync();
+        // Na elkaar: de services delen de databankcontext van het scherm.
+        var alternatives = new Dictionary<(Guid, Guid), IReadOnlyList<Alternative>>();
+        foreach (var item in items)
+            foreach (var reservation in item.Reservations)
+                alternatives[(reservation.ReservationId, item.RentalItemId)] = await ReservationAlternatives.GetAsync(reservation.ReservationId, item.RentalItemId);
+        (_items, _alternatives) = (items, alternatives);
+    }
+
+    private Dictionary<(Guid, Guid), IReadOnlyList<Alternative>> _alternatives = [];
 
     private static string DaysText(IReadOnlyList<ShortageDay> days) =>
         string.Join(", ", days.Select(d =>

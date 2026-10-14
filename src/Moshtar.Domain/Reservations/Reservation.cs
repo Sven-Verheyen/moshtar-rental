@@ -37,6 +37,9 @@ public class Reservation : TenantEntity
     public decimal TotalPrice { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
 
+    /// <summary>Wanneer de klant het laatst een mail met alternatieven kreeg, of null.</summary>
+    public DateTime? AlternativesMailedAtUtc { get; set; }
+
     public List<ReservationLine> Lines { get; set; } = [];
 
     /// <summary>Wie wat deed met deze reservatie, en wanneer.</summary>
@@ -45,6 +48,14 @@ public class Reservation : TenantEntity
     /// <summary>Noteert in de historiek dat de reservatie aangemaakt is.</summary>
     public void RecordCreated(ReservationActor actor, DateTime atUtc) =>
         Record(ReservationEventKind.Created, actor, atUtc);
+
+    /// <summary>Noteert op de reservatie en in de historiek dat de klant een mail met alternatieven kreeg.</summary>
+    /// <param name="note">Welke alternatieven, met hun meerprijs, voor de historiek.</param>
+    public void RecordAlternativesMailed(ReservationActor actor, DateTime atUtc, string note)
+    {
+        AlternativesMailedAtUtc = atUtc;
+        Record(ReservationEventKind.AlternativesMailed, actor, atUtc, note);
+    }
 
     /// <summary>
     /// Zet de reservatie in een nieuwe status en noteert dat in de historiek. Een geannuleerde reservatie
@@ -59,8 +70,12 @@ public class Reservation : TenantEntity
         Record(status == ReservationStatus.Cancelled ? ReservationEventKind.Cancelled : ReservationEventKind.StatusChanged, actor, atUtc);
     }
 
-    private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc) =>
-        History.Add(new ReservationEvent { ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId });
+    private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc, string? note = null) =>
+        History.Add(new ReservationEvent
+        {
+            ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId,
+            Note = note is { Length: > ReservationEvent.MaxNoteLength } ? note[..(ReservationEvent.MaxNoteLength - 1)] + "…" : note,
+        });
 
     /// <summary>Telt deze reservatie mee voor de bezetting van de voorraad?</summary>
     public bool OccupiesStock => Status is not ReservationStatus.Cancelled and not ReservationStatus.Completed;

@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<IBlockoutAdministration, BlockoutAdministration>();
         services.AddScoped<ShortageQuery>();
         services.AddScoped<IShortageOverview, ShortageOverview>();
+        services.AddScoped<IReservationAlternatives, ReservationAlternatives>();
         services.AddScoped<OldSlugs>();
         services.AddScoped<IOldSlugs>(sp => sp.GetRequiredService<OldSlugs>());
         services.AddScoped<ICartService, CartService>();

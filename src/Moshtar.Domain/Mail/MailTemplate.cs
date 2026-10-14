@@ -13,6 +13,7 @@ public enum MailKind
 {
     ReservationConfirmation,
     CartReminder,
+    ReservationAlternatives,
 }
 
 /// <summary>
@@ -76,6 +77,7 @@ public static class MailKinds
     public const string ReservationDetails = "reservationDetails";
     public const string CartContents = "cartContents";
     public const string CartLink = "cartLink";
+    public const string Alternatives = "alternatives";
 
     /// <summary>Wat een blokplaatshouder invoegt, voor de beheerder.</summary>
     public static string Describe(string block) => block switch
@@ -83,6 +85,7 @@ public static class MailKinds
         ReservationDetails => "voegt het vaste overzicht van de reservatie in",
         CartContents => "voegt de huurperiode en wat in de winkelkar zit in",
         CartLink => "voegt de link in die de winkelkar opent, ook op een ander toestel",
+        Alternatives => "voegt de aangevinkte alternatieven in, elk met foto, naam, meerprijs of \"zonder meerprijs\" en een link naar de artikelpagina",
         _ => "voegt een vast blok in",
     };
 
@@ -190,7 +193,56 @@ public static class MailKinds
                 """),
         });
 
-    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation, CartReminder];
+    public static readonly MailKindDefinition ReservationAlternatives = new(
+        MailKind.ReservationAlternatives,
+        "Alternatieven bij een tekort",
+        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", "unavailableItem", ReservationDetails, Alternatives],
+        requiredInBody: [Alternatives],
+        blocks: [ReservationDetails, Alternatives],
+        standardByCulture: new Dictionary<string, MailTemplateText>
+        {
+            ["nl"] = new(
+                "Een alternatief voor {unavailableItem} in je reservatie {reservationNumber}",
+                """
+                Hallo {firstName},
+
+                Helaas is {unavailableItem} niet beschikbaar in je huurperiode ({rentalPeriod}). Het spijt ons. Deze artikelen zijn wel vrij:
+
+                {alternatives}
+
+                Laat je ons weten welk alternatief je kiest? Antwoord gewoon op deze mail of bel ons.
+
+                {companyName}
+                """),
+            ["fr"] = new(
+                "Une alternative pour {unavailableItem} dans votre réservation {reservationNumber}",
+                """
+                Bonjour {firstName},
+
+                Malheureusement, {unavailableItem} n'est pas disponible pendant votre période de location ({rentalPeriod}). Nous en sommes désolés. Ces articles sont bien libres :
+
+                {alternatives}
+
+                Pouvez-vous nous dire quelle alternative vous choisissez ? Répondez simplement à cet e-mail ou appelez-nous.
+
+                {companyName}
+                """),
+            ["en"] = new(
+                "An alternative for {unavailableItem} in your reservation {reservationNumber}",
+                """
+                Hello {firstName},
+
+                Unfortunately, {unavailableItem} is not available during your rental period ({rentalPeriod}). We are sorry. These items are available:
+
+                {alternatives}
+
+                Could you let us know which alternative you choose? Simply reply to this email or call us.
+
+                {companyName}
+                """),
+        });
+
+    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation, CartReminder, ReservationAlternatives];
 
     public static MailKindDefinition For(MailKind kind) => All.Single(d => d.Kind == kind);
 }

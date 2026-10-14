@@ -7,6 +7,8 @@ public enum ReservationEventKind
     Created = 1,
     StatusChanged = 2,
     Cancelled = 3,
+    /// <summary>De klant kreeg een mail met alternatieven voor een artikel dat niet verhuurbaar is.</summary>
+    AlternativesMailed = 4,
 }
 
 /// <summary>Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, of de klant via de reservatiewebsite.</summary>
@@ -26,4 +28,8 @@ public class ReservationEvent : TenantEntity
     public DateTime OccurredAtUtc { get; set; }
     /// <summary>De gebruiker die het deed; leeg als de klant het zelf deed via de reservatiewebsite.</summary>
     public Guid? UserId { get; set; }
+    /// <summary>Wat er precies gebeurde, voor de historiek, bv. welke alternatieven gemaild werden; anders null.</summary>
+    public string? Note { get; set; }
+
+    public const int MaxNoteLength = 1000;
 }

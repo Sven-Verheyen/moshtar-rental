@@ -80,9 +80,17 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
             MailKind.ReservationConfirmation => ReservationConfirmation.Create(ReservationConfirmation.Example(culture, today), Tenant, images.LogoUrl(Tenant), text),
             MailKind.CartReminder => CartReminder.Create(CartReminder.Example(culture, today), CartReminder.LanguageOf(culture, Tenant), Tenant, images.LogoUrl(Tenant), text,
                 $"https://{host ?? "www.example.com"}{CartReminderPath.For("voorbeeld")}"),
+            MailKind.ReservationAlternatives => AlternativesExample(culture, today, host ?? "www.example.com", text),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
         return mail with { To = to };
+    }
+
+    private MailMessage AlternativesExample(string culture, DateOnly today, string host, MailTemplateText text)
+    {
+        var reservation = ReservationConfirmation.Example(culture, today);
+        var (unavailable, alternatives) = AlternativesMail.Example(ReservationConfirmation.LanguageOf(reservation, Tenant), host, Tenant.DefaultCulture);
+        return AlternativesMail.Create(reservation, Tenant, images.LogoUrl(Tenant), text, unavailable, alternatives);
     }
 
     /// <summary>De tekst zoals hij bewaard en verstuurd wordt, of een <see cref="MailTemplateException"/> met wat er mis is.</summary>

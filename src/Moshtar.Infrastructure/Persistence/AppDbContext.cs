@@ -26,6 +26,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<Reservation> Reservations => Set<Reservation>();
     public DbSet<Blockout> Blockouts => Set<Blockout>();
     public DbSet<ReservationEvent> ReservationEvents => Set<ReservationEvent>();
+    public DbSet<AlternativeProposal> AlternativeProposals => Set<AlternativeProposal>();
     public DbSet<MailTemplateCustomization> MailTemplateCustomizations => Set<MailTemplateCustomization>();
     public DbSet<WebsiteTextCustomization> WebsiteTextCustomizations => Set<WebsiteTextCustomization>();
     public DbSet<Cart> Carts => Set<Cart>();

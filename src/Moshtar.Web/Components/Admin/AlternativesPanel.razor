@@ -1,0 +1,133 @@
+@using Moshtar.Application.Reservations
+@using Moshtar.Web.Identity
+@inject IReservationAlternatives ReservationAlternatives
+@inject ISnackbar Snackbar
+@inject ILogger<AlternativesPanel> Logger
+@*
+    De alternatieven voor een artikel in een getroffen reservatie (Tekorten): artikelen uit dezelfde categorie die aan
+    staan en vrij zijn in de volledige huurperiode. Aanvinken wat in de mail komt (standaard alle), eventueel een
+    meerprijs per alternatief, en met één klik mailen in de taal van de klant.
+*@
+<div class="alternatives" data-alternatives-for="@ReservationId">
+    @if (Mailed is { } mailed)
+    {
+        <MudText Typo="Typo.body2" Class="mb-2" Color="Color.Success">
+            Alternatieven gemaild op @LocalTime(mailed.AtUtc)@(mailed.UserEmail is null ? "" : $" door {mailed.UserEmail}")
+        </MudText>
+    }
+    @if (_choices is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_choices.Count == 0)
+    {
+        <MudText Typo="Typo.body2">Geen alternatieven: geen ander artikel uit dezelfde categorie is vrij in deze huurperiode.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Elevation="0">
+            <thead>
+                <tr>
+                    <th scope="col">In de mail</th>
+                    <th scope="col">Alternatief</th>
+                    <th scope="col">Prijsverschil</th>
+                    <th scope="col">Meerprijs</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var choice in _choices)
+                {
+                    <tr data-alternative="@choice.Alternative.RentalItemId">
+                        <td><MudCheckBox T="bool" @bind-Value="choice.Checked" Color="Color.Primary" aria-label="@($"{choice.Alternative.Name} in de mail")" /></td>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:.75rem">
+                                @if (choice.Alternative.PhotoUrl is { } photo)
+                                {
+                                    <img src="@photo" alt="@choice.Alternative.Name" style="width:64px;height:48px;object-fit:cover;border-radius:.25rem" />
+                                }
+                                <span>@choice.Alternative.Name</span>
+                            </div>
+                        </td>
+                        <td title="Verschil in artikelprijs voor deze huurperiode en dit aantal">@Difference(choice.Alternative.PriceDifference)</td>
+                        <td>
+                            <MudNumericField T="decimal?" @bind-Value="choice.Surcharge" Placeholder="Geen" Min="0" Format="N2"
+                                             Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentText="€"
+                                             Style="width:9rem" aria-label="@($"Meerprijs voor {choice.Alternative.Name}")" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" Class="mt-2" StartIcon="@Icons.Material.Filled.Send"
+                   Disabled="@(_sending || !_choices.Any(c => c.Checked))" OnClick="MailAsync">
+            Mail versturen
+        </MudButton>
+    }
+</div>
+
+@code {
+    private static readonly CultureInfo Dutch = CultureInfo.GetCultureInfo("nl-BE");
+    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
+
+    private sealed class Choice(Alternative alternative)
+    {
+        public Alternative Alternative { get; } = alternative;
+        public bool Checked { get; set; } = true;
+        public decimal? Surcharge { get; set; } = alternative.Surcharge;
+    }
+
+    [Parameter, EditorRequired] public Guid ReservationId { get; set; }
+    [Parameter, EditorRequired] public Guid RentalItemId { get; set; }
+    [Parameter] public AlternativesMailed? Mailed { get; set; }
+
+    /// <summary>De alternatieven; de lijst Tekorten leest ze na elkaar in, want de services delen één databankcontext.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<Alternative> Alternatives { get; set; } = [];
+
+    /// <summary>Na het mailen, zodat de lijst Tekorten het tijdstip opnieuw inleest.</summary>
+    [Parameter] public EventCallback OnMailed { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private List<Choice>? _choices;
+    private bool _sending;
+
+    protected override void OnInitialized() => _choices = Alternatives.Select(a => new Choice(a)).ToList();
+
+    private async Task MailAsync()
+    {
+        if (_choices is null) return;
+        _sending = true;
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            await ReservationAlternatives.MailAsync(ReservationId, RentalItemId,
+                _choices.Where(c => c.Checked).Select(c => new ChosenAlternative(c.Alternative.RentalItemId, c.Surcharge)).ToList(), actor);
+            Snackbar.Add("De alternatieven zijn gemaild.", Severity.Success);
+            await OnMailed.InvokeAsync();
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        {
+            Snackbar.Add($"Niet gemaild: {e.Message}", Severity.Error);
+        }
+        catch (Exception e)
+        {
+            // Een fout van de mailserver mag het scherm niet doen crashen.
+            Logger.LogError(e, "Mail met alternatieven voor reservatie {Reservation} kon niet vertrekken.", ReservationId);
+            Snackbar.Add("Niet gemaild: de mailserver gaf een fout. Probeer het later opnieuw.", Severity.Error);
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private static string Difference(decimal difference) => difference switch
+    {
+        > 0 => $"+ {difference.ToString("C", Dutch)}",
+        < 0 => $"- {(-difference).ToString("C", Dutch)}",
+        _ => "geen verschil",
+    };
+
+    private static string LocalTime(DateTime utc) =>
+        TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc, DateTimeKind.Utc), BelgianTime).ToString("dd/MM/yyyy 'om' HH:mm", Dutch);
+}

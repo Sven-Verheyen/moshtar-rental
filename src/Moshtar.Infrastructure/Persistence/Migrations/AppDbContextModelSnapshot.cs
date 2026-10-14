@@ -434,6 +434,48 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("MarketingContacts");
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Reservations.AlternativeProposal", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AlternativeRentalItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("MailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RentalItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ReservationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("Surcharge")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AlternativeRentalItemId");
+
+                    b.HasIndex("RentalItemId");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("ReservationId", "RentalItemId", "AlternativeRentalItemId")
+                        .IsUnique();
+
+                    b.ToTable("AlternativeProposals", (string)null);
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Reservations.Blockout", b =>
                 {
                     b.Property<Guid>("Id")
@@ -473,6 +515,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AlternativesMailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -532,6 +577,10 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Kind")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<DateTime>("OccurredAtUtc")
                         .HasColumnType("timestamp with time zone");
@@ -1141,6 +1190,27 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UpdatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Reservations.AlternativeProposal", b =>
+                {
+                    b.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                        .WithMany()
+                        .HasForeignKey("AlternativeRentalItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                        .WithMany()
+                        .HasForeignKey("RentalItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Moshtar.Domain.Reservations.Reservation", null)
+                        .WithMany()
+                        .HasForeignKey("ReservationId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
 

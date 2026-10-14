@@ -36,7 +36,13 @@
             <MudTd>@string.Join(", ", context.Lines.Select(l => $"{l.Quantity} × {l.Description}"))</MudTd>
             <MudTd>@(context.DeliveryMethod == DeliveryMethod.Delivery ? "Leveren" : "Afhalen")</MudTd>
             <MudTd>@context.TotalPrice.ToString("C", Money)</MudTd>
-            <MudTd><MudChip T="string" Size="Size.Small" Color="StatusColor(context.Status)">@StatusLabel(context.Status)</MudChip></MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="StatusColor(context.Status)">@StatusLabel(context.Status)</MudChip>
+                @if (context.AlternativesMailedAtUtc is { } mailed)
+                {
+                    <br /><small>Alternatieven gemaild op @LocalTime(mailed)</small>
+                }
+            </MudTd>
             <MudTd>
                 <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.History"
                            OnClick="() => ToggleHistoryAsync(context.Id)">Historiek</MudButton>
@@ -144,6 +150,7 @@
     {
         ReservationEventKind.Created => "Aangemaakt",
         ReservationEventKind.Cancelled => "Geannuleerd",
+        ReservationEventKind.AlternativesMailed => entry.Note is { } note ? $"Alternatieven gemaild: {note}" : "Alternatieven gemaild",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",
     };
 

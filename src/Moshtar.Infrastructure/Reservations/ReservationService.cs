@@ -111,7 +111,7 @@ internal sealed class ReservationService(
                join u in db.Users on e.UserId equals u.Id into users
                from u in users.DefaultIfEmpty()
                orderby e.OccurredAtUtc descending, e.Kind descending
-               select new ReservationHistoryEntry(e.OccurredAtUtc, e.Kind, e.Status, u.Email))
+               select new ReservationHistoryEntry(e.OccurredAtUtc, e.Kind, e.Status, u.Email, e.Note))
             .ToListAsync(ct);
 
     public async Task<IReadOnlySet<Guid>> FindUnavailableAsync(DateRange period, CancellationToken ct = default)

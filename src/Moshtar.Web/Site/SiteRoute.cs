@@ -1,3 +1,5 @@
+using Moshtar.Application.Catalog;
+
 namespace Moshtar.Web.Site;
 
 /// <summary>
@@ -20,7 +22,7 @@ public abstract record SiteRoute
             [var word] when FaqRoute.Words.ContainsValue(word) => Faq,
             [var word] when PrivacyRoute.Words.ContainsValue(word) => Privacy,
             [var word] when CartRoute.Words.ContainsValue(word) => Cart,
-            [var word, var slug] when slug.Length > 0 && RentalRoute.Words.ContainsValue(word) => new RentalRoute(slug),
+            [var word, var slug] when slug.Length > 0 && RentalPath.Words.Values.Contains(word) => new RentalRoute(slug),
             _ => null,
         };
     }
@@ -50,9 +52,7 @@ public sealed record HomeRoute : SiteRoute
 /// <summary>De pagina van een artikel of pakket, met één slug in alle talen.</summary>
 public sealed record RentalRoute(string Slug) : SiteRoute
 {
-    internal static readonly Dictionary<string, string> Words = new() { ["nl"] = "huren", ["fr"] = "louer", ["en"] = "rent" };
-
-    public override string PathIn(string culture) => $"{Words[culture]}/{Slug}";
+    public override string PathIn(string culture) => $"{RentalPath.Words[culture]}/{Slug}";
 }
 
 /// <summary>

@@ -37,6 +37,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   verwijst. Een voorraad onder wat al gereserveerd is, mag, met een waarschuwing per dag (`ShortageCalculator`).
   De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
   dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
+  Per getroffen reservatie staan er de alternatieven (artikelen uit dezelfde categorie, aan en vrij in de volledige
+  huurperiode) met het prijsverschil als hulp; de aangevinkte gaan met één klik en een optionele meerprijs naar de klant,
+  in zijn taal (mailsjabloon "Alternatieven bij een tekort"). Het tijdstip komt op de reservatie en in de historiek, de
+  meerprijzen worden bewaard voor het vervangen (`IReservationAlternatives`).
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

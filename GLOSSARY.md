@@ -97,7 +97,7 @@ Een reservatie aanmaken, door een klant op de website of door een gebruiker in h
 _Avoid_: boeken, bestellen
 
 **Historiek** (`History`):
-De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd of geannuleerd, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
+De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd of alternatieven gemaild, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
 _Avoid_: audit log, logboek, geschiedenis
 
 **Huurperiode** (`DateRange`):

@@ -141,6 +141,21 @@ internal class ReservationEventConfiguration : IEntityTypeConfiguration<Reservat
         // Gebruikers worden uitgeschakeld, nooit verwijderd: de historiek blijft naar hen verwijzen.
         b.HasOne<User>().WithMany().HasForeignKey(e => e.UserId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(e => new { e.ReservationId, e.OccurredAtUtc });
+        b.Property(e => e.Note).HasMaxLength(ReservationEvent.MaxNoteLength);
+    }
+}
+
+internal class AlternativeProposalConfiguration : IEntityTypeConfiguration<AlternativeProposal>
+{
+    public void Configure(EntityTypeBuilder<AlternativeProposal> b)
+    {
+        b.ToTable("AlternativeProposals");
+        b.Property(p => p.Surcharge).HasPrecision(10, 2);
+        b.HasOne<Reservation>().WithMany().HasForeignKey(p => p.ReservationId).OnDelete(DeleteBehavior.Cascade);
+        // Een artikel dat ooit gereserveerd werd, wordt niet verwijderd; een voorgesteld alternatief mag wel weg.
+        b.HasOne<RentalItem>().WithMany().HasForeignKey(p => p.RentalItemId).OnDelete(DeleteBehavior.Cascade);
+        b.HasOne<RentalItem>().WithMany().HasForeignKey(p => p.AlternativeRentalItemId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(p => new { p.ReservationId, p.RentalItemId, p.AlternativeRentalItemId }).IsUnique();
     }
 }
 
