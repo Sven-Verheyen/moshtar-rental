@@ -32,11 +32,19 @@ internal sealed class OldSlugs(AppDbContext db, TimeProvider clock) : IOldSlugs
         var existing = await db.OldSlugs.Where(s => s.Kind == kind).ToListAsync(ct);
         var current = after.Select(kv => (kv.Key.Culture, kv.Value)).ToHashSet();
         db.OldSlugs.RemoveRange(existing.Where(s => current.Contains((s.Culture, s.Slug))));
+        // Artikelen en pakketten delen hun padwoord: een slug die nu bij deze soort hoort, is ook bij de andere soort
+        // geen oude slug meer.
+        var shared = SharesSlugsWith(kind) is { } other
+            ? await db.OldSlugs.Where(s => s.Kind == other).ToListAsync(ct)
+            : [];
+        db.OldSlugs.RemoveRange(shared.Where(s => current.Contains((s.Culture, s.Slug))));
 
         foreach (var ((targetId, culture), oldSlug) in before)
         {
             if (after.GetValueOrDefault((targetId, culture)) is not { } newSlug || newSlug == oldSlug) continue;
             if (current.Contains((culture, oldSlug))) continue;
+            // Hetzelfde oude adres kan maar naar één pagina doorsturen: de jongste oude slug gaat voor.
+            db.OldSlugs.RemoveRange(shared.Where(s => s.Culture == culture && s.Slug == oldSlug));
             if (existing.FirstOrDefault(s => s.Culture == culture && s.Slug == oldSlug) is { } known)
             {
                 known.TargetId = targetId;
@@ -48,6 +56,14 @@ internal sealed class OldSlugs(AppDbContext db, TimeProvider clock) : IOldSlugs
             });
         }
     }
+
+    /// <summary>De soort waarmee deze soort haar slugs deelt, zoals artikelen en pakketten onder "/huren/…".</summary>
+    private static SlugKind? SharesSlugsWith(SlugKind kind) => kind switch
+    {
+        SlugKind.RentalItem => SlugKind.Bundle,
+        SlugKind.Bundle => SlugKind.RentalItem,
+        _ => null,
+    };
 
     /// <summary>Vergeet de oude slugs van iets wat verwijderd wordt: hun adres toont voortaan een 404.</summary>
     public Task ForgetAsync(SlugKind kind, Guid targetId, CancellationToken ct = default) =>

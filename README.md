@@ -35,6 +35,11 @@ aan andere verhuurbedrijven aangeboden te worden.
   vertalingen ontbreken), categorie, kenmerken, voorraad, prijzen en slug, met een volgorde binnen de categorie die de
   beheerder versleept. Een artikel kan uitgezet worden, en verwijderd zolang geen reservatie, pakket of winkelkar ernaar
   verwijst. Een voorraad onder wat al gereserveerd is, mag, met een waarschuwing per dag (`ShortageCalculator`).
+  Pakketten aanmaken en wijzigen (`/admin/pakketten`): naam en beschrijving per taal, artikelen met aantallen, eigen
+  prijs, slug (gedeeld met de artikelen) en optioneel tot 10 eigen foto's; zonder eigen foto's toont de
+  reservatiewebsite die van de artikelen. Een pakket staat niet op de reservatiewebsite zolang een artikel erin
+  uitgezet is; het back office zegt welk. Uitzetten en verwijderen (zolang geen reservatie of winkelkar ernaar
+  verwijst) zoals bij artikelen.
   De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
   dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
   Per getroffen reservatie staan er de alternatieven (artikelen uit dezelfde categorie, aan en vrij in de volledige

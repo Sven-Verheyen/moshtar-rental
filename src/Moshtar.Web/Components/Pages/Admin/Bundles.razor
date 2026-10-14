@@ -1,0 +1,109 @@
+@page "/admin/pakketten"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject IBundleAdministration Admin
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+<PageTitle>Pakketten</PageTitle>
+
+<AdminShell Title="Pakketten">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.body1" Class="flex-grow-1">
+            Een pakket is een vaste combinatie van artikelen met een eigen prijs. Het is vrij zolang al zijn artikelen vrij
+            zijn, en staat niet op je reservatiewebsite zolang een van zijn artikelen uitgezet is.
+        </MudText>
+        <MudButton Href="admin/pakketten/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Nieuw pakket</MudButton>
+    </MudStack>
+
+    @if (_bundles is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_bundles.Count == 0)
+    {
+        <MudText Typo="Typo.body2">Je hebt nog geen pakketten.</MudText>
+    }
+    else
+    {
+        <MudPaper Class="pa-4" Elevation="1">
+            @foreach (var bundle in _bundles)
+            {
+                <MudPaper Outlined="true" Class="pa-2 mb-2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        <MudStack Spacing="0" Class="flex-grow-1">
+                            <MudLink Href="@($"admin/pakketten/{bundle.Id}")"><strong>@bundle.Name</strong></MudLink>
+                            <MudText Typo="Typo.body2">
+                                @string.Join(", ", bundle.Contents) · @bundle.DayPrice.ToString("C", Money) per dag@(bundle.ExtraDayPrice is { } extra ? $" · {extra.ToString("C", Money)} per extra dag" : "")
+                            </MudText>
+                        </MudStack>
+                        @if (bundle.IsActive && bundle.SwitchedOffItems.Count > 0)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.VisibilityOff">@HiddenBecause(bundle.SwitchedOffItems)</MudChip>
+                        }
+                        @if (bundle.MissingTranslations.Count > 0)
+                        {
+                            <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Vertaling ontbreekt: @string.Join(", ", bundle.MissingTranslations.Select(c => c.ToUpperInvariant()))</MudChip>
+                        }
+                        <MudSwitch T="bool" Value="bundle.IsActive" ValueChanged="active => SetActiveAsync(bundle, active)" Color="Color.Primary"
+                                   Label="@(bundle.IsActive ? "Aan" : "Uitgezet")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Edit" aria-label="Wijzigen" Href="@($"admin/pakketten/{bundle.Id}")" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Verwijderen" Color="Color.Error" OnClick="() => DeleteAsync(bundle)" />
+                    </MudStack>
+                </MudPaper>
+            }
+        </MudPaper>
+    }
+</AdminShell>
+
+@code {
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
+
+    private IReadOnlyList<BundleSummary>? _bundles;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() => _bundles = await Admin.GetAllAsync();
+
+    /// <summary>Waarom een pakket dat aan staat niet op de reservatiewebsite staat.</summary>
+    internal static string HiddenBecause(IReadOnlyList<string> switchedOffItems) =>
+        $"Niet op je reservatiewebsite: {string.Join(", ", switchedOffItems)} {(switchedOffItems.Count == 1 ? "is" : "zijn")} uitgezet.";
+
+    private async Task SetActiveAsync(BundleSummary bundle, bool isActive)
+    {
+        try
+        {
+            await Admin.SetActiveAsync(bundle.Id, isActive);
+            Snackbar.Add(isActive ? $"\"{bundle.Name}\" staat weer aan." : $"\"{bundle.Name}\" is uitgezet.", Severity.Success);
+        }
+        catch (BundleException e)
+        {
+            Snackbar.Add(string.Join(" ", e.Problems), Severity.Error);
+        }
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(BundleSummary bundle)
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Pakket verwijderen",
+            $"Wil je het pakket \"{bundle.Name}\" verwijderen? Het verdwijnt van je reservatiewebsite; de artikelen erin blijven.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        try
+        {
+            await Admin.DeleteAsync(bundle.Id);
+            Snackbar.Add("Pakket verwijderd.", Severity.Success);
+        }
+        catch (BundleException e) when (e.CanSwitchOff && bundle.IsActive)
+        {
+            var switchOff = await Dialogs.ShowMessageBoxAsync("Pakket uitzetten?", e.Message, yesText: "Uitzetten", cancelText: "Annuleren");
+            if (switchOff == true) await SetActiveAsync(bundle, false);
+        }
+        catch (BundleException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        await LoadAsync();
+    }
+}
