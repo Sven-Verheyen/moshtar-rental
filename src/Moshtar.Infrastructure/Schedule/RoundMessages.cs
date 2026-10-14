@@ -10,13 +10,14 @@ using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Schedule;
 
-internal sealed class RoundMessages(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<RoundMessages> logger)
+/// <summary>Met een eigen, kortlevende context per oproep, zoals <see cref="RoundPlanner"/>.</summary>
+internal sealed class RoundMessages(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<RoundMessages> logger)
     : IRoundMessages
 {
     public async Task<int> MailExpectedTimesAsync(DateOnly day, RoundKind kind, ReservationActor actor, CancellationToken ct = default)
     {
         var tenantId = tenantContext.TenantId;
-        db.ChangeTracker.Clear();
+        await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await RoundRules.LockAsync(db, tenantId, ct);
         var mailed = 0;
@@ -67,36 +68,25 @@ internal sealed class RoundMessages(AppDbContext db, ITenantContext tenantContex
             await CommitQuietlyAsync(tx);
             throw;
         }
-        finally
-        {
-            db.ChangeTracker.Clear();
-        }
         await tx.CommitAsync(ct);
         return mailed;
     }
 
     public async Task RecordWhatsAppAsync(DateOnly day, RoundKind kind, Guid reservationId, CancellationToken ct = default)
     {
-        db.ChangeTracker.Clear();
+        await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await RoundRules.LockAsync(db, tenantContext.TenantId, ct);
-        try
-        {
-            var round = await db.Rounds.SingleOrDefaultAsync(r => r.Day == day && r.Kind == kind, ct)
-                ?? throw new InvalidOperationException(RoundRules.NoRoute);
-            var stop = round.Stops.SingleOrDefault(s => s.ReservationId == reservationId)
-                ?? throw new InvalidOperationException(RoundRules.NotInRound);
-            var point = await db.Reservations.AsNoTracking().InRound(day, kind).Where(r => r.Id == reservationId).Select(r => r.DeliveryPoint).ToListAsync(ct);
-            if (point is not [{ } current] || current != stop.Point)
-                throw new InvalidOperationException(RoundRules.NotInRound);
-            stop.WhatsAppAt = clock.GetUtcNow();
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        }
-        finally
-        {
-            db.ChangeTracker.Clear();
-        }
+        var round = await db.Rounds.SingleOrDefaultAsync(r => r.Day == day && r.Kind == kind, ct)
+            ?? throw new InvalidOperationException(RoundRules.NoRoute);
+        var stop = round.Stops.SingleOrDefault(s => s.ReservationId == reservationId)
+            ?? throw new InvalidOperationException(RoundRules.NotInRound);
+        var point = await db.Reservations.AsNoTracking().InRound(day, kind).Where(r => r.Id == reservationId).Select(r => r.DeliveryPoint).ToListAsync(ct);
+        if (point is not [{ } current] || current != stop.Point)
+            throw new InvalidOperationException(RoundRules.NotInRound);
+        stop.WhatsAppAt = clock.GetUtcNow();
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
     }
 
     private async Task CommitQuietlyAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction tx)

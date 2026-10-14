@@ -14,7 +14,11 @@ using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Schedule;
 
-internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantContext, IMapService maps, ILogger<ScheduleService> logger) : ISchedule
+/// <summary>
+/// Met een eigen, kortlevende context per oproep: de Planning laadt de dag opnieuw na elke knop, ook als een andere
+/// knop in hetzelfde scherm nog bezig is.
+/// </summary>
+internal sealed class ScheduleService(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, IMapService maps, ILogger<ScheduleService> logger) : ISchedule
 {
     /// <summary>Het back office is Nederlandstalig.</summary>
     private const string Culture = "nl";
@@ -32,6 +36,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     private async Task<IReadOnlyList<ScheduleDay>> LoadAsync(DateOnly from, DateOnly to, bool findPoints, CancellationToken ct)
     {
         if (to < from) throw new ArgumentException("Het einde ligt voor het begin.", nameof(to));
+        await using var db = await contexts.CreateDbContextAsync(ct);
         var reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
             .Where(r => r.Status != ReservationStatus.Cancelled
                 && ((r.StartDate >= from && r.StartDate <= to) || (r.EndDate >= from && r.EndDate <= to)))
@@ -39,14 +44,14 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
         GeoPoint? businessPoint = null;
         if (findPoints)
         {
-            await FindMissingPointsAsync(reservations, ct);
-            businessPoint = await BusinessPointAsync(ct);
+            await FindMissingPointsAsync(db, reservations, ct);
+            businessPoint = await BusinessPointAsync(db, ct);
         }
-        var names = await NamesAsync(reservations, ct);
+        var names = await NamesAsync(db, reservations, ct);
         var rounds = await db.Rounds.AsNoTracking().Where(r => r.Day >= from && r.Day <= to).ToListAsync(ct);
         var tenant = await db.Tenants.AsNoTracking().SingleOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct);
         var settings = tenant?.RoundSettings ?? RoundSettings.Default;
-        var whatsApp = await WhatsAppLinksAsync(tenant, rounds, ct);
+        var whatsApp = await WhatsAppLinksAsync(db, tenant, rounds, ct);
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
         return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
@@ -111,7 +116,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// Maakt de WhatsApp-links met het bericht uit het sjabloon Verwacht leveruur of Verwacht ophaaluur, in de taal van
     /// elke reservatie. Zonder rondes worden de sjablonen niet opgehaald.
     /// </summary>
-    private async Task<WhatsAppLinks> WhatsAppLinksAsync(Tenant? tenant, IReadOnlyList<Round> rounds, CancellationToken ct)
+    private static async Task<WhatsAppLinks> WhatsAppLinksAsync(AppDbContext db, Tenant? tenant, IReadOnlyList<Round> rounds, CancellationToken ct)
     {
         if (tenant is null || rounds.Count == 0) return (_, _, _) => null;
         MailKind[] kinds = [MailKind.ExpectedDeliveryTime, MailKind.ExpectedCollectionTime];
@@ -127,7 +132,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// Zoekt de punten op van leveradressen die er nog geen hebben: reservaties van voor er punten waren, of waarvan
     /// de kaartdienst niet antwoordde bij het reserveren. Een adres dat niet gevonden wordt, blijft zonder punt.
     /// </summary>
-    private async Task FindMissingPointsAsync(IReadOnlyList<Reservation> reservations, CancellationToken ct)
+    private async Task FindMissingPointsAsync(AppDbContext db, IReadOnlyList<Reservation> reservations, CancellationToken ct)
     {
         var missing = reservations.Where(r => r is { DeliveryMethod: DeliveryMethod.Delivery, DeliveryAddress: not null, DeliveryPoint: null }).ToList();
         var found = new Dictionary<Guid, GeoPoint>();
@@ -145,7 +150,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     }
 
     /// <summary>Het punt van het bedrijfsadres, opgezocht bij het eerste gebruik (en opnieuw na een adreswijziging).</summary>
-    private async Task<GeoPoint?> BusinessPointAsync(CancellationToken ct)
+    private async Task<GeoPoint?> BusinessPointAsync(AppDbContext db, CancellationToken ct)
     {
         var id = tenantContext.TenantId;
         var tenant = await db.Tenants.SingleOrDefaultAsync(t => t.Id == id, ct);
@@ -181,7 +186,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     }
 
     /// <summary>De Nederlandse namen van de artikelen en pakketten op deze reservaties, ook van artikelen in een pakket.</summary>
-    private async Task<CatalogNames> NamesAsync(IReadOnlyList<Reservation> reservations, CancellationToken ct)
+    private async Task<CatalogNames> NamesAsync(AppDbContext db, IReadOnlyList<Reservation> reservations, CancellationToken ct)
     {
         var fallback = tenantContext.Tenant?.DefaultCulture ?? Culture;
         var bundleIds = reservations.SelectMany(r => r.Lines).Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();

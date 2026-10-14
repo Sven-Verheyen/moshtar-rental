@@ -11,20 +11,24 @@ using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Schedule;
 
-internal sealed class RoundPlanner(AppDbContext db, ITenantContext tenantContext, IMapService maps, ILogger<RoundPlanner> logger) : IRoundPlanner
+/// <summary>
+/// Elke oproep werkt met een eigen, kortlevende context: in het back office kan een tweede knop vertrekken terwijl de
+/// eerste nog op de kaartdienst wacht, en die mag de wijzigingen of de transactie van de eerste niet raken.
+/// </summary>
+internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, IMapService maps, ILogger<RoundPlanner> logger) : IRoundPlanner
 {
     public Task ProposeAsync(DateOnly day, RoundKind kind, CancellationToken ct = default) =>
-        LockedAsync(ct, () => ProposeLockedAsync(day, kind, ct));
+        LockedAsync(ct, db => ProposeLockedAsync(db, day, kind, ct));
 
-    private async Task ProposeLockedAsync(DateOnly day, RoundKind kind, CancellationToken ct)
+    private async Task ProposeLockedAsync(AppDbContext db, DateOnly day, RoundKind kind, CancellationToken ct)
     {
-        var tenant = await TenantAsync(ct);
+        var tenant = await TenantAsync(db, ct);
         var start = await BusinessPointAsync(tenant, ct);
-        var candidates = await CandidatesAsync(day, kind, ct);
+        var candidates = await CandidatesAsync(db, day, kind, ct);
         if (candidates.Count == 0)
             throw new InvalidOperationException("Er is geen stop met een adres op de kaart om een route mee te maken.");
 
-        var round = await FindAsync(day, kind, ct);
+        var round = await FindAsync(db, day, kind, ct);
         if (round is null)
         {
             round = new Round { Day = day, Kind = kind, Departure = tenant.RoundSettings.Departure(kind) };
@@ -48,11 +52,11 @@ internal sealed class RoundPlanner(AppDbContext db, ITenantContext tenantContext
             stop.Point = candidate.Point;
         }
         ApplyLegs(round, route.Legs);
-        await SaveAsync(round, tenant, ct);
+        await SaveAsync(db, round, tenant, ct);
     }
 
     public Task MoveAsync(DateOnly day, RoundKind kind, Guid reservationId, int position, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, async (round, tenant) =>
+        ChangeAsync(day, kind, ct, async (_, round, tenant) =>
         {
             var ordered = round.Ordered.ToList();
             var stop = Stop(round, reservationId);
@@ -63,14 +67,14 @@ internal sealed class RoundPlanner(AppDbContext db, ITenantContext tenantContext
         });
 
     public Task SetFixedTimeAsync(DateOnly day, RoundKind kind, Guid reservationId, TimeOnly? time, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, (round, _) =>
+        ChangeAsync(day, kind, ct, (_, round, _) =>
         {
             Stop(round, reservationId).FixedTime = time;
             return Task.CompletedTask;
         });
 
     public Task SetHandlingMinutesAsync(DateOnly day, RoundKind kind, Guid reservationId, int? minutes, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, (round, _) =>
+        ChangeAsync(day, kind, ct, (_, round, _) =>
         {
             if (minutes is { } m && !RoundSettings.IsHandlingTime(m))
                 throw new InvalidOperationException("De opbouw- of afbouwtijd moet tussen 0 en 480 minuten liggen.");
@@ -80,17 +84,17 @@ internal sealed class RoundPlanner(AppDbContext db, ITenantContext tenantContext
 
     /// <summary>Een ander vertrekuur is ander verkeer: de reistijden worden opnieuw gevraagd.</summary>
     public Task SetDepartureAsync(DateOnly day, RoundKind kind, TimeOnly departure, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, async (round, tenant) =>
+        ChangeAsync(day, kind, ct, async (_, round, tenant) =>
         {
             round.Departure = departure;
             await RefreshLegsAsync(round, tenant, ct);
         });
 
     public Task UpdateAsync(DateOnly day, RoundKind kind, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, async (round, tenant) =>
+        ChangeAsync(day, kind, ct, async (db, round, tenant) =>
         {
             var start = await BusinessPointAsync(tenant, ct);
-            var candidates = await CandidatesAsync(day, kind, ct);
+            var candidates = await CandidatesAsync(db, day, kind, ct);
             // Weggevallen: eruit. Een ander punt (een verbeterd adres): de stop houdt haar plaats, vast uur, eigen tijd en
             // wat de klant al kreeg; enkel de reistijden en dus de uren worden opnieuw berekend.
             foreach (var stop in round.Stops.ToList())
@@ -124,37 +128,30 @@ internal sealed class RoundPlanner(AppDbContext db, ITenantContext tenantContext
         });
 
     /// <summary>Laadt de ronde, past ze aan, rekent de uren opnieuw uit en bewaart ze.</summary>
-    private Task ChangeAsync(DateOnly day, RoundKind kind, CancellationToken ct, Func<Round, Tenant, Task> change) =>
-        LockedAsync(ct, async () =>
+    private Task ChangeAsync(DateOnly day, RoundKind kind, CancellationToken ct, Func<AppDbContext, Round, Tenant, Task> change) =>
+        LockedAsync(ct, async db =>
         {
-            var tenant = await TenantAsync(ct);
-            var round = await FindAsync(day, kind, ct) ?? throw new InvalidOperationException(RoundRules.NoRoute);
-            await change(round, tenant);
-            await SaveAsync(round, tenant, ct);
+            var tenant = await TenantAsync(db, ct);
+            var round = await FindAsync(db, day, kind, ct) ?? throw new InvalidOperationException(RoundRules.NoRoute);
+            await change(db, round, tenant);
+            await SaveAsync(db, round, tenant, ct);
         });
 
     /// <summary>
     /// Laden, aanpassen en bewaren in één transactie, na elkaar per tenant (<see cref="RoundRules.LockAsync"/>): wie
-    /// tegelijk op een ronde drukt, ziet de ronde zoals de vorige ze bewaarde. Wat mislukt, blijft niet hangen in de
-    /// context, die in het back office de hele sessie meegaat.
+    /// tegelijk op een ronde drukt, ziet de ronde zoals de vorige ze bewaarde. Met een eigen context, die met de
+    /// oproep verdwijnt: wat mislukt, blijft nergens hangen.
     /// </summary>
-    private async Task LockedAsync(CancellationToken ct, Func<Task> work)
+    private async Task LockedAsync(CancellationToken ct, Func<AppDbContext, Task> work)
     {
-        db.ChangeTracker.Clear();
-        try
-        {
-            await using var tx = await db.Database.BeginTransactionAsync(ct);
-            await RoundRules.LockAsync(db, tenantContext.TenantId, ct);
-            await work();
-            await tx.CommitAsync(ct);
-        }
-        finally
-        {
-            db.ChangeTracker.Clear();
-        }
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await RoundRules.LockAsync(db, tenantContext.TenantId, ct);
+        await work(db);
+        await tx.CommitAsync(ct);
     }
 
-    private async Task SaveAsync(Round round, Tenant tenant, CancellationToken ct)
+    private static async Task SaveAsync(AppDbContext db, Round round, Tenant tenant, CancellationToken ct)
     {
         var settings = tenant.RoundSettings;
         round.Recalculate(settings.HandlingMinutes(round.Kind), settings.WindowMinutes);
@@ -193,14 +190,14 @@ internal sealed class RoundPlanner(AppDbContext db, ITenantContext tenantContext
     /// <summary>Het vertrek op die dag, in Belgische tijd: daarop rekent de kaartdienst het verwachte verkeer.</summary>
     private static DateTimeOffset Departure(DateOnly day, TimeOnly departure) => Belgium.At(day, departure);
 
-    private Task<Round?> FindAsync(DateOnly day, RoundKind kind, CancellationToken ct) =>
+    private static Task<Round?> FindAsync(AppDbContext db, DateOnly day, RoundKind kind, CancellationToken ct) =>
         db.Rounds.SingleOrDefaultAsync(r => r.Day == day && r.Kind == kind, ct);
 
     /// <summary>
     /// De reservaties die in de ronde horen (<see cref="RoundRules.InRound"/>) met een punt op de kaart. Op postcode,
     /// zodat nieuwe stops altijd in dezelfde volgorde komen.
     /// </summary>
-    private async Task<IReadOnlyList<(Guid ReservationId, GeoPoint Point)>> CandidatesAsync(DateOnly day, RoundKind kind, CancellationToken ct)
+    private static async Task<IReadOnlyList<(Guid ReservationId, GeoPoint Point)>> CandidatesAsync(AppDbContext db, DateOnly day, RoundKind kind, CancellationToken ct)
     {
         var reservations = await db.Reservations.AsNoTracking().InRound(day, kind).ToListAsync(ct);
         return reservations
@@ -210,7 +207,7 @@ internal sealed class RoundPlanner(AppDbContext db, ITenantContext tenantContext
             .ToList();
     }
 
-    private async Task<Tenant> TenantAsync(CancellationToken ct)
+    private async Task<Tenant> TenantAsync(AppDbContext db, CancellationToken ct)
     {
         var id = tenantContext.TenantId;
         return await db.Tenants.SingleAsync(t => t.Id == id, ct);
