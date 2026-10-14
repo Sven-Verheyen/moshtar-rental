@@ -195,6 +195,19 @@ internal class WebsiteTextCustomizationConfiguration : IEntityTypeConfiguration<
     }
 }
 
+internal class OldSlugConfiguration : IEntityTypeConfiguration<OldSlug>
+{
+    public void Configure(EntityTypeBuilder<OldSlug> b)
+    {
+        b.Property(s => s.Kind).HasConversion<string>().HasMaxLength(20);
+        b.Property(s => s.Culture).HasMaxLength(10);
+        b.Property(s => s.Slug).HasMaxLength(CategorySlug.MaxLength);
+        // Een oude slug wijst per soort en taal naar precies één categorie, artikel of pakket.
+        b.HasIndex(s => new { s.TenantId, s.Kind, s.Culture, s.Slug }).IsUnique();
+        b.HasIndex(s => new { s.TenantId, s.Kind, s.TargetId });
+    }
+}
+
 internal class CartConfiguration : IEntityTypeConfiguration<Cart>
 {
     public void Configure(EntityTypeBuilder<Cart> b)

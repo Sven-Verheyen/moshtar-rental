@@ -30,6 +30,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<WebsiteTextCustomization> WebsiteTextCustomizations => Set<WebsiteTextCustomization>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<MarketingContact> MarketingContacts => Set<MarketingContact>();
+    public DbSet<OldSlug> OldSlugs => Set<OldSlug>();
 
     /// <summary>Wordt per query geëvalueerd door de globale tenantfilter.</summary>
     internal Guid CurrentTenantId => tenantContext.TenantId;

@@ -1,6 +1,8 @@
 using System.Globalization;
+using Moshtar.Application.Catalog;
 using Moshtar.Application.Tenancy;
 using Moshtar.Application.Website;
+using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Website;
 
 namespace Moshtar.Web.Site;
@@ -76,7 +78,7 @@ internal static class SiteLanguage
 
     /// <summary>
     /// Een pad van één woord kan een categorie zijn. Eerst de slug in de taal van de URL; een slug uit een andere taal
-    /// wordt herkend en daarna doorgestuurd, net als de vaste padwoorden.
+    /// of een oude slug in de taal van de URL wordt herkend en daarna doorgestuurd, net als de vaste padwoorden.
     /// </summary>
     private static async Task<CategoryRoute?> CategoryRouteAsync(HttpContext context, string path, string culture)
     {
@@ -84,6 +86,9 @@ internal static class SiteLanguage
         var categories = await context.RequestServices.GetRequiredService<IWebsiteTexts>().GetCategorySlugsAsync(context.RequestAborted);
         var category = categories.FirstOrDefault(c => c.PerCulture.GetValueOrDefault(culture) == path)
             ?? categories.FirstOrDefault(c => c.PerCulture.Values.Contains(path));
+        if (category is null
+            && await context.RequestServices.GetRequiredService<IOldSlugs>().FindAsync(SlugKind.Category, culture, path, context.RequestAborted) is { } id)
+            category = categories.FirstOrDefault(c => c.CategoryId == id);
         return category is null ? null : new CategoryRoute(category.CategoryId, category.PerCulture);
     }
 

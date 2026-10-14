@@ -1,0 +1,261 @@
+@page "/admin/categorieen"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject ICategoryAdministration Admin
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+
+<PageTitle>Categorieën</PageTitle>
+
+<AdminShell Title="Categorieën">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Elke categorie heeft een eigen pagina op je reservatiewebsite, met haar naam, slug en inleiding in elke taal die je
+        aanbiedt. Versleep de categorieën om hun volgorde op je reservatiewebsite te kiezen.
+    </MudText>
+
+    @if (_categories is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Volgorde</MudText>
+            @if (_categories.Count == 0)
+            {
+                <MudText Typo="Typo.body2">Je hebt nog geen categorieën.</MudText>
+            }
+            <MudDropContainer T="CategoryDetails" @ref="_order" Items="_categories" ItemsSelector="@((_, _) => true)" ItemDropped="DroppedAsync">
+                <ChildContent>
+                    <MudDropZone T="CategoryDetails" Identifier="volgorde" AllowReorder="true" />
+                </ChildContent>
+                <ItemRenderer>
+                    @{ var index = _categories.IndexOf(context); }
+                    <MudPaper Outlined="true" Class="pa-2 mb-2" Style="cursor: grab">
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" />
+                            <MudText Class="flex-grow-1"><strong>@Name(context)</strong> · @ItemCount(context)</MudText>
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" aria-label="Naar boven" Disabled="index == 0" OnClick="() => MoveAsync(index, -1)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" aria-label="Naar beneden" Disabled="index == _categories.Count - 1" OnClick="() => MoveAsync(index, 1)" />
+                        </MudStack>
+                    </MudPaper>
+                </ItemRenderer>
+            </MudDropContainer>
+        </MudPaper>
+
+        @foreach (var category in _categories)
+        {
+            var id = category.Id;
+            <MudPaper Class="pa-4 mb-4" Elevation="1">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                    <MudText Typo="Typo.h6" Class="flex-grow-1">@Name(category)</MudText>
+                    <MudText Typo="Typo.body2">@ItemCount(category)</MudText>
+                    <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="() => DeleteAsync(category)">Verwijderen</MudButton>
+                </MudStack>
+                <Problems Items="@_problems.GetValueOrDefault((id, ""))" />
+                <MudTabs Elevation="0" Rounded="true" TabPanelsClass="pt-4">
+                    @foreach (var culture in Cultures)
+                    {
+                        var texts = category.Texts[culture];
+                        var draft = _drafts[(id, culture)];
+                        <MudTabPanel Text="@LanguageName(culture)">
+                            <MudTextField @bind-Value="draft.Name" Label="Naam" Variant="Variant.Outlined" Class="mb-1" />
+                            <TextStatus Text="texts.Name" OnReset="() => ResetAsync(id, culture, WebsiteTextKey.CategoryName)" />
+                            <MudTextField @bind-Value="draft.Slug" Label="Slug in de URL" Variant="Variant.Outlined" Class="mb-1 mt-3"
+                                          HelperText="Kleine letters, cijfers en koppeltekens, bv. springkastelen. Het oude adres stuurt door naar het nieuwe." />
+                            <TextStatus Text="texts.Slug" OnReset="() => ResetAsync(id, culture, WebsiteTextKey.CategorySlug)" />
+                            <MudTextField @bind-Value="draft.Intro" Label="Inleiding" Variant="Variant.Outlined" Lines="3" Class="mb-1 mt-3"
+                                          HelperText="Staat bovenaan de pagina van de categorie. Laat een lege regel tussen twee alinea's." />
+                            <TextStatus Text="texts.Intro" OnReset="() => ResetAsync(id, culture, WebsiteTextKey.CategoryIntro)" />
+                            <Problems Items="@_problems.GetValueOrDefault((id, culture))" />
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="() => SaveAsync(id, culture)">Opslaan</MudButton>
+                        </MudTabPanel>
+                    }
+                </MudTabs>
+            </MudPaper>
+        }
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Nieuwe categorie</MudText>
+            <MudText Typo="Typo.body2" Class="mb-3">
+                Alleen de naam in het @LanguageName(DefaultCulture) is verplicht. Een taal zonder naam toont de naam in het
+                @LanguageName(DefaultCulture). Laat je de slug leeg, dan wordt ze uit de naam gemaakt.
+            </MudText>
+            @foreach (var culture in Cultures)
+            {
+                var draft = _new[culture];
+                <MudStack Row="true" Class="mb-2">
+                    <MudTextField @bind-Value="draft.Name" Label="@($"Naam ({LanguageName(culture)})")" Required="@(culture == DefaultCulture)"
+                                  Variant="Variant.Outlined" Immediate="true" />
+                    <MudTextField @bind-Value="draft.Slug" Label="@($"Slug ({LanguageName(culture)})")" Variant="Variant.Outlined"
+                                  Placeholder="@CategorySlug.From(draft.Name ?? "")" />
+                </MudStack>
+            }
+            <Problems Items="@_problems.GetValueOrDefault((Guid.Empty, "nieuw"))" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mt-2" OnClick="CreateAsync">Aanmaken</MudButton>
+        </MudPaper>
+    }
+</AdminShell>
+
+@code {
+    private sealed class Draft { public string Name { get; set; } = ""; public string Slug { get; set; } = ""; public string Intro { get; set; } = ""; }
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private List<CategoryDetails>? _categories;
+    private MudDropContainer<CategoryDetails>? _order;
+    private readonly Dictionary<(Guid, string), Draft> _drafts = [];
+    private readonly Dictionary<string, Draft> _new = [];
+    /// <summary>Problemen per categorie en taal; taal "" voor de hele categorie, Guid.Empty en "nieuw" voor een nieuwe.</summary>
+    private readonly Dictionary<(Guid, string), IReadOnlyList<string>> _problems = [];
+
+    private IReadOnlyList<string> Cultures => TenantContext.Tenant?.Cultures ?? [];
+    private string DefaultCulture => TenantContext.Tenant?.DefaultCulture ?? "nl";
+
+    protected override async Task OnInitializedAsync()
+    {
+        foreach (var culture in Cultures) _new[culture] = new Draft();
+        await LoadAsync();
+    }
+
+    /// <summary>Laadt de categorieën opnieuw. Concepten die nog niet bewaard zijn, blijven staan.</summary>
+    private async Task LoadAsync(Guid? refreshDraftOf = null, string? culture = null, WebsiteTextKey? key = null)
+    {
+        _categories = (await Admin.GetAllAsync()).ToList();
+        foreach (var category in _categories)
+            foreach (var (c, texts) in category.Texts)
+            {
+                if (_drafts.TryGetValue((category.Id, c), out var draft) && (category.Id != refreshDraftOf || c != culture))
+                    continue;
+                draft ??= _drafts[(category.Id, c)] = new Draft();
+                if (key is null or WebsiteTextKey.CategoryName) draft.Name = texts.Name.Value;
+                if (key is null or WebsiteTextKey.CategorySlug) draft.Slug = texts.Slug.Value;
+                if (key is null or WebsiteTextKey.CategoryIntro) draft.Intro = texts.Intro.Value;
+            }
+        _order?.Refresh();
+    }
+
+    private async Task CreateAsync()
+    {
+        try
+        {
+            var user = (await AuthenticationState).User.Id();
+            await Admin.CreateAsync(Cultures.Select(c => new NewCategoryText(c, _new[c].Name ?? "", _new[c].Slug)).ToList(), user);
+            foreach (var culture in Cultures) _new[culture] = new Draft();
+            _problems.Remove((Guid.Empty, "nieuw"));
+            await LoadAsync();
+            Snackbar.Add("Categorie aangemaakt.", Severity.Success);
+        }
+        catch (CategoryException e)
+        {
+            _problems[(Guid.Empty, "nieuw")] = e.Problems;
+        }
+    }
+
+    private async Task SaveAsync(Guid id, string culture)
+    {
+        try
+        {
+            var draft = _drafts[(id, culture)];
+            await Admin.SaveAsync(id, culture, draft.Name ?? "", draft.Slug ?? "", draft.Intro ?? "", (await AuthenticationState).User.Id());
+            _problems.Remove((id, culture));
+            await LoadAsync(id, culture);
+            Snackbar.Add($"Bewaard in het {LanguageName(culture)}.", Severity.Success);
+        }
+        catch (CategoryException e)
+        {
+            _problems[(id, culture)] = e.Problems;
+        }
+    }
+
+    private async Task ResetAsync(Guid id, string culture, WebsiteTextKey key)
+    {
+        try
+        {
+            await Admin.ResetAsync(id, culture, key);
+            _problems.Remove((id, culture));
+            await LoadAsync(id, culture, key);
+            Snackbar.Add($"De standaardtekst geldt weer in het {LanguageName(culture)}.", Severity.Success);
+        }
+        catch (CategoryException e)
+        {
+            _problems[(id, culture)] = e.Problems;
+        }
+    }
+
+    private async Task DroppedAsync(MudItemDropInfo<CategoryDetails> dropped)
+    {
+        if (dropped.Item is not { } item || _categories is null) return;
+        var order = _categories.Where(c => c.Id != item.Id).ToList();
+        order.Insert(Math.Clamp(dropped.IndexInZone, 0, order.Count), item);
+        await ReorderAsync(order);
+    }
+
+    private Task MoveAsync(int index, int offset)
+    {
+        var order = _categories!.ToList();
+        (order[index], order[index + offset]) = (order[index + offset], order[index]);
+        return ReorderAsync(order);
+    }
+
+    private async Task ReorderAsync(List<CategoryDetails> order)
+    {
+        try
+        {
+            await Admin.ReorderAsync(order.Select(c => c.Id).ToList());
+            await LoadAsync();
+            Snackbar.Add("Volgorde bewaard.", Severity.Success);
+        }
+        catch (CategoryException e)
+        {
+            await LoadAsync();
+            Snackbar.Add(string.Join(" ", e.Problems), Severity.Error);
+        }
+    }
+
+    private async Task DeleteAsync(CategoryDetails category)
+    {
+        if (category.ItemCount > 0)
+        {
+            // Dezelfde melding als de service, zonder eerst te vragen of het zeker is.
+            try { await Admin.DeleteAsync(category.Id); }
+            catch (CategoryException e) { _problems[(category.Id, "")] = e.Problems; }
+            return;
+        }
+        var sure = await Dialogs.ShowMessageBoxAsync("Categorie verwijderen",
+            $"Wil je de categorie \"{Name(category)}\" verwijderen? Haar pagina verdwijnt van je reservatiewebsite.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        try
+        {
+            await Admin.DeleteAsync(category.Id);
+            foreach (var culture in Cultures) _drafts.Remove((category.Id, culture));
+            await LoadAsync();
+            Snackbar.Add("Categorie verwijderd.", Severity.Success);
+        }
+        catch (CategoryException e)
+        {
+            _problems[(category.Id, "")] = e.Problems;
+            await LoadAsync();
+        }
+    }
+
+    private string Name(CategoryDetails category) => category.Texts[DefaultCulture].Name.Value;
+
+    private static string ItemCount(CategoryDetails category) => category.ItemCount switch
+    {
+        0 => "geen artikelen",
+        1 => "1 artikel",
+        var n => $"{n} artikelen",
+    };
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+}

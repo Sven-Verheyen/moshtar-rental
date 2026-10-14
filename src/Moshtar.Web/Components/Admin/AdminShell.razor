@@ -22,7 +22,10 @@
             <MudNavLink Href="admin/reservaties" Icon="@Icons.Material.Filled.EventNote">Reservaties</MudNavLink>
             <MudNavLink Href="admin/winkelkarren" Icon="@Icons.Material.Filled.ShoppingCart">Open winkelkarren</MudNavLink>
             <AuthorizeView Roles="@Roles.Administrator">
-                <MudNavLink Href="admin/artikelen" Icon="@Icons.Material.Filled.Toys">Artikelen</MudNavLink>
+                <MudNavGroup Title="Artikelen" Icon="@Icons.Material.Filled.Toys" Expanded="true">
+                    <MudNavLink Href="admin/artikelen" Icon="@Icons.Material.Filled.Toys">Artikelen</MudNavLink>
+                    <MudNavLink Href="admin/categorieen" Icon="@Icons.Material.Filled.Category">Categorieën</MudNavLink>
+                </MudNavGroup>
                 <MudNavLink Href="admin/gebruikers" Icon="@Icons.Material.Filled.People">Gebruikers</MudNavLink>
                 <MudNavLink Href="admin/mailsjablonen" Icon="@Icons.Material.Filled.Email">Mailsjablonen</MudNavLink>
                 <MudNavLink Href="admin/marketingcontacten" Icon="@Icons.Material.Filled.Campaign">Marketingcontacten</MudNavLink>
