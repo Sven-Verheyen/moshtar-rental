@@ -87,3 +87,32 @@ h1:focus {
     .planning-month .planning-cell { padding: .2rem; min-height: 3.5rem; }
     .planning-count { font-size: .6rem; }
 }
+
+/* Leverlijst: één ronde op een A4 staand, zonder menu of knoppen op de print. */
+.leverlijst { max-width: 190mm; margin: 0 auto; padding: 1rem; font-size: 11pt; line-height: 1.3; color: #000; background: #fff; }
+.leverlijst h1 { font-size: 16pt; margin: 0; }
+.leverlijst h2 { font-size: 12pt; margin: .75rem 0 .35rem; border-bottom: 1px solid #000; }
+.leverlijst-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.leverlijst-day { margin: .15rem 0 0; }
+.leverlijst-screen-only { display: flex; gap: .75rem; align-items: center; }
+.leverlijst-screen-only button { font: inherit; padding: .35rem .9rem; cursor: pointer; }
+.leverlijst-load ul { columns: 3; column-gap: 1.5rem; margin: 0; padding: 0; list-style: none; }
+.leverlijst-stop { display: flex; gap: .5rem; align-items: flex-start; padding: .35rem 0; border-bottom: 1px solid #bbb; break-inside: avoid; page-break-inside: avoid; }
+.leverlijst-check { flex: none; width: 1rem; height: 1rem; border: 1.5px solid #000; margin-top: .1rem; }
+.leverlijst-number { flex: none; min-width: 1.4rem; font-weight: 700; }
+.leverlijst-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.leverlijst-line { display: flex; flex-wrap: wrap; gap: .25rem .75rem; }
+.leverlijst-kind { text-transform: uppercase; font-size: 9pt; letter-spacing: .03em; }
+.leverlijst-lines { display: flex; flex-wrap: wrap; gap: 0 1rem; font-size: 10pt; }
+.leverlijst-notes { font-size: 10pt; }
+.leverlijst-route { margin-top: .75rem; break-inside: avoid; page-break-inside: avoid; }
+.leverlijst-map { display: block; width: 100%; max-height: 80mm; }
+@media (max-width: 600px) {
+    .leverlijst-head { flex-direction: column; }
+    .leverlijst-load ul { columns: 2; }
+}
+@page { size: A4 portrait; margin: 12mm; }
+@media print {
+    .leverlijst-screen-only, #components-reconnect-modal { display: none !important; }
+    .leverlijst { max-width: none; padding: 0; font-size: 10pt; }
+}

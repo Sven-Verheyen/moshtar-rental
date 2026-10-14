@@ -79,7 +79,8 @@
                 <RoundTools Round="_day.DeliveryRound" OnPropose="() => ProposeAsync(RoundKind.Delivery)"
                             OnUpdate="() => UpdateRoundAsync(RoundKind.Delivery)"
                             OnDeparture="t => DepartureAsync(RoundKind.Delivery, t)"
-                            OnMail="() => MailAsync(RoundKind.Delivery)" />
+                            OnMail="() => MailAsync(RoundKind.Delivery)"
+                            SheetUrl="@($"admin/planning/leverlijst?dag={Day:yyyy-MM-dd}&ronde=levering")" />
             }
             <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Opbouwtijd"
@@ -93,7 +94,8 @@
                 <RoundTools Round="_day.CollectionRound" OnPropose="() => ProposeAsync(RoundKind.Collection)"
                             OnUpdate="() => UpdateRoundAsync(RoundKind.Collection)"
                             OnDeparture="t => DepartureAsync(RoundKind.Collection, t)"
-                            OnMail="() => MailAsync(RoundKind.Collection)" />
+                            OnMail="() => MailAsync(RoundKind.Collection)"
+                            SheetUrl="@($"admin/planning/leverlijst?dag={Day:yyyy-MM-dd}&ronde=ophaling")" />
             }
             <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Afbouwtijd"
