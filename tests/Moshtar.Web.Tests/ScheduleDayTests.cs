@@ -70,13 +70,13 @@ public sealed class ScheduleDayTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var day = TestReservations.FutureDay(303);
         var bundle = await BundleAsync("feestpakket", "Feestpakket", ("popcornmachine", "Popcornmachine", 1), ("springkussen", "Springkussen", 2));
         var reservation = await ReserveAsync("Sara", "Janssens", day, day.AddDays(1), "Lange Leemstraat 12", "2018", "Antwerpen",
-            "feestpakket", phone: "+32 470 12 34 56", notes: "Bellen bij aankomst", bundleId: bundle);
+            "feestpakket", phone: "0470 12 34 56", notes: "Bellen bij aankomst", bundleId: bundle);
         var client = await app.LoggedInClientAsync("planning-details@hopsakee.test", UserRole.Staff);
 
         var stop = Stop(Section(await PlanningAsync(client, day), "leverronde"), reservation.Number);
 
         Assert.Contains("href=\"tel:+32470123456\"", stop);
-        Assert.Contains("+32 470 12 34 56", stop);
+        Assert.Contains(">+32470123456<", stop);
         Assert.Contains("Lange Leemstraat 12, 2018 Antwerpen", stop);
         Assert.Contains("1 × Feestpakket", stop);
         Assert.Contains("1 × Popcornmachine", stop);
@@ -234,7 +234,7 @@ public sealed class ScheduleDayTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
     private async Task<Reservation> ReserveAsync(
         string firstName, string lastName, DateOnly start, DateOnly end, string street, string postalCode, string city,
-        string itemSlug, DeliveryMethod method = DeliveryMethod.Delivery, string? phone = null, string? notes = null, Guid? bundleId = null)
+        string itemSlug, DeliveryMethod method = DeliveryMethod.Delivery, string phone = "0470 12 34 56", string? notes = null, Guid? bundleId = null)
     {
         await using var scope = await app.TenantScopeAsync("hopsakee");
         var item = await ItemAsync(scope, itemSlug);
