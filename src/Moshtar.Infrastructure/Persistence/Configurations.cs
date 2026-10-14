@@ -143,6 +143,7 @@ internal class RoundConfiguration : IEntityTypeConfiguration<Round>
         b.ToTable("Rounds");
         b.HasIndex(r => new { r.TenantId, r.Day, r.Kind }).IsUnique();
         b.Ignore(r => r.Ordered);
+        b.OwnsOne(r => r.BusinessPoint);
         b.OwnsMany(r => r.Stops, s =>
         {
             s.ToTable("RoundStops");
@@ -152,7 +153,6 @@ internal class RoundConfiguration : IEntityTypeConfiguration<Round>
             s.OwnsOne(x => x.Point);
             s.Navigation(x => x.Point).IsRequired();
             s.Ignore(x => x.Window);
-            s.Ignore(x => x.Late);
             s.HasOne<Reservation>().WithMany().HasForeignKey(x => x.ReservationId).OnDelete(DeleteBehavior.Cascade);
         });
     }

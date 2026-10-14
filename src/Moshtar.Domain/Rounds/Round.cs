@@ -22,6 +22,12 @@ public class Round : TenantEntity
     /// <summary>Het vertrekuur van deze dag; bij het voorstellen het standaarduur uit de instellingen.</summary>
     public TimeOnly Departure { get; set; }
 
+    /// <summary>
+    /// Het punt van het bedrijfsadres waarmee de reistijden berekend werden; verhuisde het bedrijf intussen, dan is de
+    /// ronde gewijzigd.
+    /// </summary>
+    public GeoPoint? BusinessPoint { get; set; }
+
     /// <summary>De reistijd van de laatste stop terug naar het bedrijf, in minuten.</summary>
     public int ReturnTravelMinutes { get; set; }
 
@@ -29,16 +35,30 @@ public class Round : TenantEntity
     public TimeOnly Return { get; set; }
 
     /// <summary>
-    /// Loopt de ronde over middernacht? Dan valt de terugkeer (op de klok) voor het vertrek; een ronde duurt nooit
-    /// een hele dag.
+    /// Loopt de ronde over middernacht? Berekend, niet afgeleid uit de uren op de klok: een ronde die de volgende dag
+    /// pas na haar vertrekuur terug is, loopt ook over middernacht.
     /// </summary>
-    public bool PastMidnight => Return < Departure;
+    public bool PastMidnight { get; set; }
 
     /// <summary>De stops, in de volgorde van <see cref="RoundStop.Position"/>.</summary>
     public List<RoundStop> Stops { get; set; } = [];
 
     /// <summary>De stops in rijvolgorde.</summary>
     public IReadOnlyList<RoundStop> Ordered => Stops.OrderBy(s => s.Position).ToList();
+
+    /// <summary>
+    /// Is de ronde nog zoals ze berekend werd? <paramref name="members"/> zijn de reservaties die nu in de ronde horen,
+    /// met hun punt op de kaart; <paramref name="businessPoint"/> is het huidige punt van het bedrijfsadres. Kwam er een
+    /// reservatie bij, viel er een weg, kreeg er een een ander punt of verhuisde het bedrijf, dan is de ronde gewijzigd:
+    /// haar uren en vensters kloppen niet meer tot ze bijgewerkt is.
+    /// </summary>
+    public bool IsCurrent(IEnumerable<(Guid ReservationId, GeoPoint Point)> members, GeoPoint? businessPoint)
+    {
+        var current = members.ToList();
+        return BusinessPoint == businessPoint
+            && current.Count == Stops.Count
+            && current.All(m => Stops.Any(s => s.ReservationId == m.ReservationId && s.Point == m.Point));
+    }
 
     /// <summary>
     /// Rekent de uren opnieuw uit met de bewaarde reistijden (zie <see cref="RoundTimes"/>) en nummert de stops in de
@@ -60,8 +80,11 @@ public class Round : TenantEntity
             ordered[i].Position = i + 1;
             ordered[i].Arrival = times.Stops[i].Arrival;
             ordered[i].Window = times.Stops[i].Window;
+            ordered[i].Late = times.Stops[i].Late;
+            ordered[i].WindowPastMidnight = times.Stops[i].PastMidnight;
         }
         Return = times.Return;
+        PastMidnight = times.PastMidnight;
     }
 }
 
@@ -103,8 +126,17 @@ public class RoundStop
         set => (WindowStart, WindowEnd) = (value.Start, value.End);
     }
 
-    /// <summary>Is de verhuurder er pas na het vaste uur?</summary>
-    public bool Late => FixedTime is { } fixedTime && Arrival > fixedTime;
+    /// <summary>
+    /// Is de verhuurder er pas na het vaste uur? Berekend, niet afgeleid uit de uren op de klok: na middernacht
+    /// aankomen is te laat voor een vast uur van voor middernacht.
+    /// </summary>
+    public bool Late { get; set; }
+
+    /// <summary>
+    /// Loopt het venster over middernacht? Dan valt het niet (helemaal) op de dag van de ronde, en krijgt de klant
+    /// het niet gemaild of via WhatsApp: de datum zou niet kloppen.
+    /// </summary>
+    public bool WindowPastMidnight { get; set; }
 
     /// <summary>Het venster dat de klant laatst gemaild kreeg, en wanneer.</summary>
     public TimeOnly? MailedWindowStart { get; set; }

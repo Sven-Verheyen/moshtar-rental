@@ -14,7 +14,11 @@ using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Schedule;
 
-internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantContext, IMapService maps, ILogger<ScheduleService> logger) : ISchedule
+/// <summary>
+/// Met een eigen, kortlevende context per oproep: de Planning laadt de dag opnieuw na elke knop, ook als een andere
+/// knop in hetzelfde scherm nog bezig is.
+/// </summary>
+internal sealed class ScheduleService(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, IMapService maps, ILogger<ScheduleService> logger) : ISchedule
 {
     /// <summary>Het back office is Nederlandstalig.</summary>
     private const string Culture = "nl";
@@ -32,6 +36,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     private async Task<IReadOnlyList<ScheduleDay>> LoadAsync(DateOnly from, DateOnly to, bool findPoints, CancellationToken ct)
     {
         if (to < from) throw new ArgumentException("Het einde ligt voor het begin.", nameof(to));
+        await using var db = await contexts.CreateDbContextAsync(ct);
         var reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
             .Where(r => r.Status != ReservationStatus.Cancelled
                 && ((r.StartDate >= from && r.StartDate <= to) || (r.EndDate >= from && r.EndDate <= to)))
@@ -39,24 +44,24 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
         GeoPoint? businessPoint = null;
         if (findPoints)
         {
-            await FindMissingPointsAsync(reservations, ct);
-            businessPoint = await BusinessPointAsync(ct);
+            await FindMissingPointsAsync(db, reservations, ct);
+            businessPoint = await BusinessPointAsync(db, ct);
         }
-        var names = await NamesAsync(reservations, ct);
+        var names = await NamesAsync(db, reservations, ct);
         var rounds = await db.Rounds.AsNoTracking().Where(r => r.Day >= from && r.Day <= to).ToListAsync(ct);
         var tenant = await db.Tenants.AsNoTracking().SingleOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct);
         var settings = tenant?.RoundSettings ?? RoundSettings.Default;
-        var whatsApp = await WhatsAppLinksAsync(tenant, rounds, ct);
+        var whatsApp = await WhatsAppLinksAsync(db, tenant, rounds, ct);
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
         return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
-            .Select(i => Day(from.AddDays(i), stops, rounds, settings, businessPoint, whatsApp))
+            .Select(i => Day(from.AddDays(i), stops, rounds, settings, businessPoint, tenant?.AddressPoint, whatsApp))
             .ToList();
     }
 
     private static ScheduleDay Day(
         DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops, IReadOnlyList<Round> rounds,
-        RoundSettings settings, GeoPoint? businessPoint, WhatsAppLinks whatsApp)
+        RoundSettings settings, GeoPoint? businessPoint, GeoPoint? currentBusinessPoint, WhatsAppLinks whatsApp)
     {
         var byId = stops.ToDictionary(s => s.Stop.ReservationId, s => s.Reservation);
         IReadOnlyList<ScheduleStop> Select(DeliveryMethod method, Func<Reservation, bool> onDay) => stops
@@ -67,8 +72,8 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
 
         var deliveries = Select(DeliveryMethod.Delivery, r => r.StartDate == day);
         var collections = Select(DeliveryMethod.Delivery, r => r.EndDate == day);
-        var (deliveryRound, orderedDeliveries) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Delivery), deliveries, settings, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
-        var (collectionRound, orderedCollections) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Collection), collections, settings, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
+        var (deliveryRound, orderedDeliveries) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Delivery), deliveries, settings, currentBusinessPoint, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
+        var (collectionRound, orderedCollections) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Collection), collections, settings, currentBusinessPoint, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
         return new ScheduleDay(
             day,
             Deliveries: orderedDeliveries,
@@ -85,24 +90,25 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// punt) erachter op postcode. Zonder bewaarde ronde: de stops zoals ze zijn, op postcode.
     /// </summary>
     private static (ScheduleRound? Round, IReadOnlyList<ScheduleStop> Stops) InRound(
-        Round? round, IReadOnlyList<ScheduleStop> stops, RoundSettings settings, Func<Round, RoundStop, string?> whatsAppLink)
+        Round? round, IReadOnlyList<ScheduleStop> stops, RoundSettings settings, GeoPoint? businessPoint, Func<Round, RoundStop, string?> whatsAppLink)
     {
         if (round is null) return (null, stops);
         var saved = round.Stops.ToDictionary(s => s.ReservationId);
+        var changed = !round.IsCurrent(stops.Where(s => s.Point is not null).Select(s => (s.ReservationId, s.Point!)), businessPoint);
+        // Een gewijzigde ronde heeft vensters die niet meer kloppen: geen WhatsApp-bericht tot ze bijgewerkt is.
         var inRound = stops
             .Where(s => saved.TryGetValue(s.ReservationId, out var stop) && stop.Point == s.Point)
-            .Select(s => s with { InRound = ToRoundStop(saved[s.ReservationId], whatsAppLink(round, saved[s.ReservationId])) })
+            .Select(s => s with { InRound = ToRoundStop(saved[s.ReservationId], changed ? null : whatsAppLink(round, saved[s.ReservationId])) })
             .OrderBy(s => s.InRound!.Position)
             .ToList();
         var rest = stops.Where(s => inRound.All(r => r.ReservationId != s.ReservationId)).ToList();
-        var changed = rest.Any(s => s.Point is not null) || inRound.Count != round.Stops.Count;
         return (new ScheduleRound(round.Departure, round.Return, changed, settings.HandlingMinutes(round.Kind), round.PastMidnight), [.. inRound, .. rest]);
     }
 
     private static ScheduleRoundStop ToRoundStop(RoundStop s, string? whatsAppLink) =>
         new(s.Position, s.Arrival, s.Window, s.FixedTime, s.HandlingMinutes, s.Late,
             s is { MailedWindowStart: { } start, MailedWindowEnd: { } end } ? new ExpectedWindow(start, end) : null, s.MailedAt,
-            whatsAppLink, s.WhatsAppAt);
+            whatsAppLink, s.WhatsAppAt, s.WindowPastMidnight);
 
     /// <summary>De WhatsApp-link van een stop in een ronde, of null zonder geldig telefoonnummer.</summary>
     private delegate string? WhatsAppLinks(Reservation reservation, Round round, RoundStop stop);
@@ -111,13 +117,15 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// Maakt de WhatsApp-links met het bericht uit het sjabloon Verwacht leveruur of Verwacht ophaaluur, in de taal van
     /// elke reservatie. Zonder rondes worden de sjablonen niet opgehaald.
     /// </summary>
-    private async Task<WhatsAppLinks> WhatsAppLinksAsync(Tenant? tenant, IReadOnlyList<Round> rounds, CancellationToken ct)
+    private static async Task<WhatsAppLinks> WhatsAppLinksAsync(AppDbContext db, Tenant? tenant, IReadOnlyList<Round> rounds, CancellationToken ct)
     {
         if (tenant is null || rounds.Count == 0) return (_, _, _) => null;
         MailKind[] kinds = [MailKind.ExpectedDeliveryTime, MailKind.ExpectedCollectionTime];
         var customizations = await db.MailTemplateCustomizations.AsNoTracking().Where(t => kinds.Contains(t.Kind)).ToListAsync(ct);
         return (reservation, round, stop) =>
         {
+            // Het bericht noemt de dag van de ronde; na middernacht klopt die niet.
+            if (stop.WindowPastMidnight) return null;
             var template = ExpectedTimeMail.Template(customizations, ExpectedTimeMail.KindFor(round.Kind), ReservationConfirmation.LanguageOf(reservation, tenant));
             return ExpectedTimeMail.WhatsAppLink(reservation, tenant, template, round.Day, stop.Window);
         };
@@ -127,35 +135,29 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// Zoekt de punten op van leveradressen die er nog geen hebben: reservaties van voor er punten waren, of waarvan
     /// de kaartdienst niet antwoordde bij het reserveren. Een adres dat niet gevonden wordt, blijft zonder punt.
     /// </summary>
-    private async Task FindMissingPointsAsync(IReadOnlyList<Reservation> reservations, CancellationToken ct)
+    private async Task FindMissingPointsAsync(AppDbContext db, IReadOnlyList<Reservation> reservations, CancellationToken ct)
     {
         var missing = reservations.Where(r => r is { DeliveryMethod: DeliveryMethod.Delivery, DeliveryAddress: not null, DeliveryPoint: null }).ToList();
-        var found = new Dictionary<Guid, GeoPoint>();
         foreach (var reservation in missing)
-            if (await maps.TryFindAsync(reservation.DeliveryAddress!, logger, ct) is { } point)
-                found[reservation.Id] = reservation.DeliveryPoint = point;
-        if (found.Count == 0) return;
-
-        var ids = found.Keys.ToList();
-        // Enkel waar intussen niemand een punt zette (een speld, een verbeterd adres).
-        foreach (var tracked in await db.Reservations.Where(r => ids.Contains(r.Id) && r.DeliveryPoint == null).ToListAsync(ct))
-            tracked.DeliveryPoint = found[tracked.Id];
-        await db.SaveChangesAsync(ct);
-        db.ChangeTracker.Clear();
+        {
+            var address = reservation.DeliveryAddress!;
+            if (await maps.TryFindAsync(address, logger, ct) is not { } point) continue;
+            // Enkel als het adres intussen niet verbeterd werd en niemand een punt of speld zette: anders kwam het punt
+            // van het oude adres bij het nieuwe, of verdween een bevestigde speld.
+            var saved = await db.Reservations
+                .Where(r => r.Id == reservation.Id && r.DeliveryPoint == null && !r.DeliveryPointConfirmed
+                    && r.DeliveryAddress!.Street == address.Street && r.DeliveryAddress.PostalCode == address.PostalCode
+                    && r.DeliveryAddress.City == address.City && r.DeliveryAddress.Country == address.Country)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.DeliveryPoint!.Latitude, point.Latitude)
+                    .SetProperty(r => r.DeliveryPoint!.Longitude, point.Longitude), ct);
+            if (saved == 1) reservation.DeliveryPoint = point;
+        }
     }
 
     /// <summary>Het punt van het bedrijfsadres, opgezocht bij het eerste gebruik (en opnieuw na een adreswijziging).</summary>
-    private async Task<GeoPoint?> BusinessPointAsync(CancellationToken ct)
-    {
-        var id = tenantContext.TenantId;
-        var tenant = await db.Tenants.SingleOrDefaultAsync(t => t.Id == id, ct);
-        if (tenant is null || tenant.AddressPoint is not null)
-            return tenant?.AddressPoint;
-        if (await maps.FindBusinessPointAsync(tenant, logger, ct) is not null)
-            await db.SaveChangesAsync(ct);
-        db.ChangeTracker.Clear();
-        return tenant.AddressPoint;
-    }
+    private Task<GeoPoint?> BusinessPointAsync(AppDbContext db, CancellationToken ct) =>
+        maps.FindBusinessPointAsync(db, tenantContext.TenantId, logger, ct);
 
     private static ScheduleStop ToStop(Reservation r, CatalogNames names) => new(
         r.Id,
@@ -181,7 +183,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     }
 
     /// <summary>De Nederlandse namen van de artikelen en pakketten op deze reservaties, ook van artikelen in een pakket.</summary>
-    private async Task<CatalogNames> NamesAsync(IReadOnlyList<Reservation> reservations, CancellationToken ct)
+    private async Task<CatalogNames> NamesAsync(AppDbContext db, IReadOnlyList<Reservation> reservations, CancellationToken ct)
     {
         var fallback = tenantContext.Tenant?.DefaultCulture ?? Culture;
         var bundleIds = reservations.SelectMany(r => r.Lines).Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();

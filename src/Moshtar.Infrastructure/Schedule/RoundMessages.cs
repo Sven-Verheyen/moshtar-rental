@@ -10,13 +10,14 @@ using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Schedule;
 
-internal sealed class RoundMessages(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<RoundMessages> logger)
+/// <summary>Met een eigen, kortlevende context per oproep, zoals <see cref="RoundPlanner"/>.</summary>
+internal sealed class RoundMessages(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<RoundMessages> logger)
     : IRoundMessages
 {
     public async Task<int> MailExpectedTimesAsync(DateOnly day, RoundKind kind, ReservationActor actor, CancellationToken ct = default)
     {
         var tenantId = tenantContext.TenantId;
-        db.ChangeTracker.Clear();
+        await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await RoundRules.LockAsync(db, tenantId, ct);
         var mailed = 0;
@@ -25,17 +26,23 @@ internal sealed class RoundMessages(AppDbContext db, ITenantContext tenantContex
             var tenant = await db.Tenants.AsNoTracking().SingleAsync(t => t.Id == tenantId, ct);
             var round = await db.Rounds.SingleOrDefaultAsync(r => r.Day == day && r.Kind == kind, ct)
                 ?? throw new InvalidOperationException(RoundRules.NoRoute);
+            await RoundRules.EnsureCurrentAsync(db, round, ct);
 
             // Wie zijn huidige venster al kreeg, krijgt niets.
             var due = round.Ordered.Where(s => s.MailedAt is null || s.MailedWindowStart != s.WindowStart || s.MailedWindowEnd != s.WindowEnd).ToList();
             var ids = due.Select(s => s.ReservationId).ToList();
-            // Enkel wie nog in de ronde hoort, met het punt waarmee zijn venster berekend werd: geen mail voor een
-            // geannuleerde of verzette reservatie, of een verbeterd adres waarvan het venster nog niet herrekend is.
+            // De ronde klopt nog (hierboven, binnen het slot): elke stop hoort in de ronde, met het punt waarmee zijn
+            // venster berekend werd.
             var reservations = await db.Reservations.Include(r => r.Customer).InRound(day, kind)
                 .Where(r => ids.Contains(r.Id))
                 .ToDictionaryAsync(r => r.Id, ct);
             var mailKind = ExpectedTimeMail.KindFor(kind);
             var customizations = await db.MailTemplateCustomizations.AsNoTracking().Where(t => t.Kind == mailKind).ToListAsync(ct);
+
+            var pastMidnight = due.Where(s => s.WindowPastMidnight && reservations.ContainsKey(s.ReservationId))
+                .Select(s => reservations[s.ReservationId].Number).ToList();
+            if (pastMidnight.Count > 0)
+                throw new InvalidOperationException(RoundRules.PastMidnight(pastMidnight));
 
             foreach (var stop in due)
             {
@@ -67,36 +74,28 @@ internal sealed class RoundMessages(AppDbContext db, ITenantContext tenantContex
             await CommitQuietlyAsync(tx);
             throw;
         }
-        finally
-        {
-            db.ChangeTracker.Clear();
-        }
         await tx.CommitAsync(ct);
         return mailed;
     }
 
     public async Task RecordWhatsAppAsync(DateOnly day, RoundKind kind, Guid reservationId, CancellationToken ct = default)
     {
-        db.ChangeTracker.Clear();
+        await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         await RoundRules.LockAsync(db, tenantContext.TenantId, ct);
-        try
-        {
-            var round = await db.Rounds.SingleOrDefaultAsync(r => r.Day == day && r.Kind == kind, ct)
-                ?? throw new InvalidOperationException(RoundRules.NoRoute);
-            var stop = round.Stops.SingleOrDefault(s => s.ReservationId == reservationId)
-                ?? throw new InvalidOperationException(RoundRules.NotInRound);
-            var point = await db.Reservations.AsNoTracking().InRound(day, kind).Where(r => r.Id == reservationId).Select(r => r.DeliveryPoint).ToListAsync(ct);
-            if (point is not [{ } current] || current != stop.Point)
-                throw new InvalidOperationException(RoundRules.NotInRound);
-            stop.WhatsAppAt = clock.GetUtcNow();
-            await db.SaveChangesAsync(ct);
-            await tx.CommitAsync(ct);
-        }
-        finally
-        {
-            db.ChangeTracker.Clear();
-        }
+        var round = await db.Rounds.SingleOrDefaultAsync(r => r.Day == day && r.Kind == kind, ct)
+            ?? throw new InvalidOperationException(RoundRules.NoRoute);
+        await RoundRules.EnsureCurrentAsync(db, round, ct);
+        var stop = round.Stops.SingleOrDefault(s => s.ReservationId == reservationId)
+            ?? throw new InvalidOperationException(RoundRules.NotInRound);
+        var point = await db.Reservations.AsNoTracking().InRound(day, kind).Where(r => r.Id == reservationId).Select(r => r.DeliveryPoint).ToListAsync(ct);
+        if (point is not [{ } current] || current != stop.Point)
+            throw new InvalidOperationException(RoundRules.NotInRound);
+        if (stop.WindowPastMidnight)
+            throw new InvalidOperationException(RoundRules.PastMidnight([await db.Reservations.Where(r => r.Id == reservationId).Select(r => r.Number).SingleAsync(ct)]));
+        stop.WhatsAppAt = clock.GetUtcNow();
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
     }
 
     private async Task CommitQuietlyAsync(Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction tx)

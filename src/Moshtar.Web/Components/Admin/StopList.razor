@@ -39,6 +39,10 @@
                 {
                     <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Te laat voor het vaste uur</MudChip>
                 }
+                @if (times.WindowPastMidnight)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Venster na middernacht: niet te mailen</MudChip>
+                }
                 @if (times.MailedAt is { } mailedAt)
                 {
                     <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.MarkEmailRead"

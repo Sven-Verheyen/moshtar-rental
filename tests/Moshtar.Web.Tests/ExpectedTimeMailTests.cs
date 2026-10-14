@@ -255,7 +255,7 @@ public sealed class ExpectedTimeMailTests(MoshtarApp app) : IClassFixture<Moshta
     }
 
     [Fact]
-    public async Task Only_stops_that_still_belong_to_the_round_are_mailed()
+    public async Task A_round_whose_stops_left_or_moved_is_not_mailed_until_it_is_updated()
     {
         var day = TestReservations.FutureDay(243);
         var (gent, antwerpen, namen) = await SquareAsync(day, "mail-leden");
@@ -265,9 +265,36 @@ public sealed class ExpectedTimeMailTests(MoshtarApp app) : IClassFixture<Moshta
             await scope.ServiceProvider.GetRequiredService<IReservationService>().CorrectDeliveryAddressAsync(
                 antwerpen.Id, new Address { Street = "Meir 99", PostalCode = "2000", City = "Antwerpen" }, ReservationActor.Website);
 
+        var before = Outbox.Sent.Count;
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => MailAsync(day, RoundKind.Delivery));
+        Assert.StartsWith("Werk eerst de ronde bij", refused.Message);
+        Assert.Equal(before, Outbox.Sent.Count);
+
+        await PlanAsync(p => p.UpdateAsync(day, RoundKind.Delivery));
         var sent = await MailAsync(day, RoundKind.Delivery);
 
-        Assert.Equal([namen.Customer!.Email], sent.Select(m => m.To));
+        Assert.Equal([antwerpen.Customer!.Email, namen.Customer!.Email], sent.Select(m => m.To).Order());
+    }
+
+    [Fact]
+    public async Task A_round_with_a_new_reservation_is_not_mailed_or_whatsapped_from_a_page_that_was_already_open()
+    {
+        var day = TestReservations.FutureDay(248);
+        var (gent, _, _) = await SquareAsync(day, "mail-verouderd");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        // Na het openen van de pagina komt er een reservatie bij: de vensters op die pagina kloppen niet meer.
+        await ReserveAsync("Bert", "brussel-mail-verouderd", day, "Wetstraat 10", "1000", "Brussel", "nl");
+
+        var before = Outbox.Sent.Count;
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => MailAsync(day, RoundKind.Delivery));
+        Assert.StartsWith("Werk eerst de ronde bij", refused.Message);
+        Assert.Equal(before, Outbox.Sent.Count);
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var whatsApp = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<IRoundMessages>().RecordWhatsAppAsync(day, RoundKind.Delivery, gent.Id));
+        Assert.StartsWith("Werk eerst de ronde bij", whatsApp.Message);
+        // Een pagina die opnieuw laadt, toont de WhatsApp-knoppen pas weer na het bijwerken.
+        Assert.Null((await ScheduleAsync(day)).Deliveries.Single(s => s.ReservationId == gent.Id).InRound!.WhatsAppLink);
     }
 
     [Fact]
@@ -299,6 +326,30 @@ public sealed class ExpectedTimeMailTests(MoshtarApp app) : IClassFixture<Moshta
 
         await PlanAsync(p => p.UpdateAsync(day, RoundKind.Delivery));
         Assert.Contains("data-action=\"uren-mailen\"", Section(await PlanningAsync(client, day), "leverronde"));
+    }
+
+    [Fact]
+    public async Task A_window_that_runs_past_midnight_is_not_mailed_and_has_no_whatsapp_button()
+    {
+        var day = TestReservations.FutureDay(247);
+        var (gent, _, _) = await SquareAsync(day, "mail-middernacht");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        // Elke stop wordt pas na middernacht bereikt: de datum in de mail zou niet kloppen.
+        await PlanAsync(p => p.SetDepartureAsync(day, RoundKind.Delivery, new TimeOnly(23, 30)));
+        var client = await app.LoggedInClientAsync("uren-middernacht@hopsakee.test", UserRole.Staff);
+
+        var before = Outbox.Sent.Count;
+        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() => MailAsync(day, RoundKind.Delivery));
+        Assert.Contains("middernacht", refused.Message);
+        Assert.Equal(before, Outbox.Sent.Count);
+
+        Assert.Null((await ScheduleAsync(day)).Deliveries.Single(s => s.ReservationId == gent.Id).InRound!.WhatsAppLink);
+        var stop = Stop(Section(await PlanningAsync(client, day), "leverronde"), gent.Number);
+        Assert.DoesNotContain("wa.me", stop);
+        Assert.Contains("Venster na middernacht", stop);
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<IRoundMessages>().RecordWhatsAppAsync(day, RoundKind.Delivery, gent.Id));
     }
 
     /// <summary>Verzet een reservatie naar een andere dag, zoals een latere datumwijziging zou doen.</summary>

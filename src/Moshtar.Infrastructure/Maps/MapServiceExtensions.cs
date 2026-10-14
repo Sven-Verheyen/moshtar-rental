@@ -1,7 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moshtar.Application.Maps;
 using Moshtar.Domain.Common;
-using Moshtar.Domain.Tenants;
+using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Maps;
 
@@ -27,13 +28,25 @@ internal static class MapServiceExtensions
 
     /// <summary>
     /// Het punt van het bedrijfsadres, waar elke ronde vertrekt en eindigt. Ontbreekt het (nog nooit opgezocht, of het
-    /// adres veranderde), dan wordt het opgezocht en op <paramref name="tenant"/> gezet; bewaren doet de oproeper.
-    /// Null zonder bedrijfsadres, of als het niet gevonden wordt.
+    /// adres veranderde), dan wordt het opgezocht en bewaard, maar enkel als het adres intussen niet veranderde en
+    /// niemand anders al een punt bewaarde: anders kwam het punt van het oude adres bij het nieuwe. Geeft het punt
+    /// zoals het daarna bewaard is; null zonder bedrijfsadres, of als het niet gevonden wordt.
     /// </summary>
-    public static async Task<GeoPoint?> FindBusinessPointAsync(this IMapService maps, Tenant tenant, ILogger logger, CancellationToken ct)
+    public static async Task<GeoPoint?> FindBusinessPointAsync(this IMapService maps, AppDbContext db, Guid tenantId, ILogger logger, CancellationToken ct)
     {
-        if (tenant.AddressPoint is null && !string.IsNullOrWhiteSpace(tenant.Street) && !string.IsNullOrWhiteSpace(tenant.PostalCode))
-            tenant.AddressPoint = await maps.TryFindAsync(new Address { Street = tenant.Street, PostalCode = tenant.PostalCode, City = tenant.City ?? "" }, logger, ct);
-        return tenant.AddressPoint;
+        var tenant = await db.Tenants.AsNoTracking().Where(t => t.Id == tenantId)
+            .Select(t => new { t.Street, t.PostalCode, t.City, t.AddressPoint })
+            .SingleOrDefaultAsync(ct);
+        if (tenant is null || tenant.AddressPoint is not null || string.IsNullOrWhiteSpace(tenant.Street) || string.IsNullOrWhiteSpace(tenant.PostalCode))
+            return tenant?.AddressPoint;
+        if (await maps.TryFindAsync(new Address { Street = tenant.Street, PostalCode = tenant.PostalCode, City = tenant.City ?? "" }, logger, ct) is not { } point)
+            return null;
+
+        await db.Tenants
+            .Where(t => t.Id == tenantId && t.Street == tenant.Street && t.PostalCode == tenant.PostalCode && t.City == tenant.City && t.AddressPoint == null)
+            .ExecuteUpdateAsync(s => s
+                .SetProperty(t => t.AddressPoint!.Latitude, point.Latitude)
+                .SetProperty(t => t.AddressPoint!.Longitude, point.Longitude), ct);
+        return await db.Tenants.AsNoTracking().Where(t => t.Id == tenantId).Select(t => t.AddressPoint).SingleAsync(ct);
     }
 }

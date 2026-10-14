@@ -535,6 +535,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<int>("Kind")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("PastMidnight")
+                        .HasColumnType("boolean");
+
                     b.Property<TimeOnly>("Return")
                         .HasColumnType("time without time zone");
 
@@ -1294,6 +1297,25 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Moshtar.Domain.Rounds.Round", b =>
                 {
+                    b.OwnsOne("Moshtar.Domain.Common.GeoPoint", "BusinessPoint", b1 =>
+                        {
+                            b1.Property<Guid>("RoundId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<double>("Latitude")
+                                .HasColumnType("double precision");
+
+                            b1.Property<double>("Longitude")
+                                .HasColumnType("double precision");
+
+                            b1.HasKey("RoundId");
+
+                            b1.ToTable("Rounds");
+
+                            b1.WithOwner()
+                                .HasForeignKey("RoundId");
+                        });
+
                     b.OwnsMany("Moshtar.Domain.Rounds.RoundStop", "Stops", b1 =>
                         {
                             b1.Property<Guid>("Id")
@@ -1307,6 +1329,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                             b1.Property<int?>("HandlingMinutes")
                                 .HasColumnType("integer");
+
+                            b1.Property<bool>("Late")
+                                .HasColumnType("boolean");
 
                             b1.Property<DateTimeOffset?>("MailedAt")
                                 .HasColumnType("timestamp with time zone");
@@ -1334,6 +1359,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                             b1.Property<TimeOnly>("WindowEnd")
                                 .HasColumnType("time without time zone");
+
+                            b1.Property<bool>("WindowPastMidnight")
+                                .HasColumnType("boolean");
 
                             b1.Property<TimeOnly>("WindowStart")
                                 .HasColumnType("time without time zone");
@@ -1377,6 +1405,8 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                             b1.Navigation("Point")
                                 .IsRequired();
                         });
+
+                    b.Navigation("BusinessPoint");
 
                     b.Navigation("Stops");
                 });
