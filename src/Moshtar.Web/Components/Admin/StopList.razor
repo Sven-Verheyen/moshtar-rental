@@ -39,6 +39,15 @@
                 {
                     <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Te laat voor het vaste uur</MudChip>
                 }
+                @if (times.MailedAt is { } mailedAt)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.MarkEmailRead"
+                             data-mailed-window="@times.MailedWindow">Gemaild op @Local(mailedAt): @times.MailedWindow</MudChip>
+                    @if (times.WindowChangedSinceMail)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Venster gewijzigd sinds de mail</MudChip>
+                    }
+                }
                 @if (OnMove.HasDelegate)
                 {
                     <MudSpacer />
@@ -142,6 +151,8 @@
 }
 
 @code {
+    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
+
     [Parameter, EditorRequired] public IReadOnlyList<ScheduleStop> Stops { get; set; } = [];
 
     /// <summary>De tekst als de ronde leeg is.</summary>
@@ -236,4 +247,6 @@
         ReservationStatus.Cancelled => "Geannuleerd",
         _ => s.ToString(),
     };
+
+    private static string Local(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, BelgianTime).ToString("dd/MM HH:mm");
 }

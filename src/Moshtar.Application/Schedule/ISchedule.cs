@@ -85,5 +85,18 @@ public record ScheduleRound(TimeOnly Departure, TimeOnly Return, bool Changed, i
 /// <summary>
 /// Een stop in een bewaarde ronde: de plaats (vanaf 1), de berekende aankomst en het verwacht tijdsvenster, het vaste
 /// uur en de eigen opbouw- of afbouwtijd als de gebruiker die koos, en of de aankomst na het vaste uur valt.
+/// <see cref="MailedWindow"/> en <see cref="MailedAt"/>: het venster dat de klant laatst gemaild kreeg, en wanneer.
 /// </summary>
-public record ScheduleRoundStop(int Position, TimeOnly Arrival, ExpectedWindow Window, TimeOnly? FixedTime, int? HandlingMinutes, bool Late);
+public record ScheduleRoundStop(
+    int Position,
+    TimeOnly Arrival,
+    ExpectedWindow Window,
+    TimeOnly? FixedTime,
+    int? HandlingMinutes,
+    bool Late,
+    ExpectedWindow? MailedWindow = null,
+    DateTimeOffset? MailedAt = null)
+{
+    /// <summary>De klant kreeg een mail, maar het venster veranderde sindsdien: opnieuw mailen stuurt hem het nieuwe.</summary>
+    public bool WindowChangedSinceMail => MailedWindow is not null && MailedWindow != Window;
+}

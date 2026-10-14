@@ -76,19 +76,8 @@ internal static class ReservationConfirmation
         var t = ByCulture[LanguageOf(reservation, tenant)];
         var culture = CultureInfo.GetCultureInfo(t.CultureName);
 
-        var period = reservation.StartDate == reservation.EndDate
-            ? Date(reservation.StartDate)
-            : $"{Date(reservation.StartDate)} – {Date(reservation.EndDate)}";
-        var values = new Dictionary<string, string>
-        {
-            ["firstName"] = customer.FirstName,
-            ["lastName"] = customer.LastName,
-            ["reservationNumber"] = reservation.Number,
-            ["rentalPeriod"] = period,
-            ["companyName"] = tenant.Name,
-            ["contactEmail"] = tenant.ContactEmail ?? "",
-            ["phone"] = tenant.ContactPhone ?? "",
-        };
+        var values = Values(reservation, tenant, culture);
+        var period = values["rentalPeriod"];
         string Fill(string text) => MailKindDefinition.Fill(text, name => values.GetValueOrDefault(name));
 
         var lines = reservation.Lines.Select(l => $"{l.Quantity} × {l.Description} – {Money(l.LineTotal)}").ToList();
@@ -117,8 +106,32 @@ internal static class ReservationConfirmation
 
         return new MailMessage(customer.Email, Fill(template.Subject), html, text);
 
-        string Date(DateOnly d) => d.ToString("d MMMM yyyy", culture);
         string Money(decimal amount) => amount.ToString("C", culture);
+    }
+
+    /// <summary>De cultuur voor datums en bedragen in een mail in deze taal (zie <see cref="LanguageOf"/>).</summary>
+    public static CultureInfo CultureOf(string language) =>
+        CultureInfo.GetCultureInfo((ByCulture.GetValueOrDefault(language) ?? ByCulture["nl"]).CultureName);
+
+    /// <summary>De gewone reservatieplaatshouders, ingevuld voor deze reservatie.</summary>
+    public static Dictionary<string, string> Values(Reservation reservation, Tenant tenant, CultureInfo culture)
+    {
+        var customer = reservation.Customer ?? throw new InvalidOperationException("Reservatie zonder klant.");
+        var period = reservation.StartDate == reservation.EndDate
+            ? Date(reservation.StartDate)
+            : $"{Date(reservation.StartDate)} – {Date(reservation.EndDate)}";
+        return new Dictionary<string, string>
+        {
+            ["firstName"] = customer.FirstName,
+            ["lastName"] = customer.LastName,
+            ["reservationNumber"] = reservation.Number,
+            ["rentalPeriod"] = period,
+            ["companyName"] = tenant.Name,
+            ["contactEmail"] = tenant.ContactEmail ?? "",
+            ["phone"] = tenant.ContactPhone ?? "",
+        };
+
+        string Date(DateOnly d) => d.ToString("d MMMM yyyy", culture);
     }
 
     private static string E(string value) => WebUtility.HtmlEncode(value);

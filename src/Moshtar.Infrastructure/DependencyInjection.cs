@@ -52,6 +52,7 @@ public static class DependencyInjection
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ISchedule, ScheduleService>();
         services.AddScoped<IRoundPlanner, RoundPlanner>();
+        services.AddScoped<IRoundMessages, RoundMessages>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();

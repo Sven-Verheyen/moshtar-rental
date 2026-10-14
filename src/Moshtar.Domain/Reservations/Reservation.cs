@@ -93,6 +93,10 @@ public class Reservation : TenantEntity
         Record(ReservationEventKind.PointConfirmed, actor, atUtc);
     }
 
+    /// <summary>Noteert in de historiek dat de klant zijn verwacht tijdsvenster gemaild kreeg.</summary>
+    public void RecordExpectedTimeMailed(ReservationActor actor, DateTime atUtc) =>
+        Record(ReservationEventKind.ExpectedTimeMailed, actor, atUtc);
+
     private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc) =>
         History.Add(new ReservationEvent { ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId });
 
