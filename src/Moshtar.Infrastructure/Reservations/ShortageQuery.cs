@@ -9,14 +9,16 @@ namespace Moshtar.Infrastructure.Reservations;
 /// <summary>
 /// De tekorten van de verhuurder vanaf vandaag, met <see cref="ShortageCalculator"/>: bevestigde reservaties (pakketten
 /// opengeklapt, met bufferdagen) tegenover de voorraad min de blokkeringen. Ook uitgezette artikelen tellen mee: hun
-/// bestaande reservaties blijven staan.
+/// bestaande reservaties blijven staan. Elke berekening heeft een eigen context, zodat ze in het back office naast een
+/// scherm kan lopen (de teller in het menu).
 /// </summary>
-internal sealed class ShortageQuery(AppDbContext db, ITenantContext tenantContext, TimeProvider clock)
+internal sealed class ShortageQuery(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock)
 {
     /// <param name="rentalItemId">Alleen de tekorten van dit artikel, of null voor alle artikelen.</param>
     public async Task<IReadOnlyList<Shortage>> FindAsync(Guid? rentalItemId = null, CancellationToken ct = default)
     {
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen verhuurder gekend.");
+        await using var db = await contexts.CreateDbContextAsync(ct);
         var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
 
         // Een reservatie die al voorbij is, kan met haar bufferdagen na nog tot vandaag lopen.
@@ -26,18 +28,20 @@ internal sealed class ShortageQuery(AppDbContext db, ITenantContext tenantContex
             .ToListAsync(ct);
         var bundleIds = reservations.SelectMany(r => r.Lines).Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
         var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
-        var reserved = reservations
-            .SelectMany(r => DemandExpander.Expand(r.Lines, r.Period, bundles).Select(d => new ReservedDemand(r.Id, d)))
-            .Where(r => rentalItemId is null || r.Demand.RentalItemId == rentalItemId)
-            .ToList();
-        if (reserved.Count == 0) return [];
+        var itemIds = reservations
+            .SelectMany(r => DemandExpander.Expand(r, bundles))
+            .Select(r => r.Demand.RentalItemId)
+            .Where(id => rentalItemId is null || id == rentalItemId)
+            .Distinct().ToList();
+        if (itemIds.Count == 0) return [];
 
-        var itemIds = reserved.Select(r => r.Demand.RentalItemId).Distinct().ToList();
         var stock = await db.RentalItems.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, i => i.Stock, ct);
         var blocked = (await db.Blockouts.AsNoTracking()
                 .Where(b => itemIds.Contains(b.RentalItemId) && (b.EndDate == null || b.EndDate >= today)).ToListAsync(ct))
             .Select(b => b.Demand);
 
-        return ShortageCalculator.Find(stock, reserved, blocked, today, tenant.BufferDaysBefore, tenant.BufferDaysAfter);
+        return ShortageCalculator.Find(stock, reservations, bundles, blocked, today, tenant.BufferDaysBefore, tenant.BufferDaysAfter)
+            .Where(s => rentalItemId is null || s.RentalItemId == rentalItemId)
+            .ToList();
     }
 }

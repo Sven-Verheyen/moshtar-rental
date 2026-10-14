@@ -1,4 +1,5 @@
 using Moshtar.Domain.Availability;
+using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Reservations;
 
@@ -102,4 +103,38 @@ public class ShortageCalculatorTests
 
         Assert.Equal((0, 1), (shortage.Rentable, shortage.Reserved));
     }
+
+    [Fact]
+    public void A_reserved_bundle_is_opened_up_and_its_reservation_is_affected_via_the_bundle()
+    {
+        var party = new Bundle { Items = [new BundleItem { RentalItemId = Castle, Quantity = 1 }, new BundleItem { RentalItemId = Game, Quantity = 2 }] };
+        var viaBundle = Reserve(Days(6, 6), new ReservationLine { BundleId = party.Id, Quantity = 1 });
+        var direct = Reserve(Days(6, 7), new ReservationLine { RentalItemId = Castle, Quantity = 1 });
+
+        var shortages = ShortageCalculator.Find(
+            new Dictionary<Guid, int> { [Castle] = 1, [Game] = 2 },
+            [viaBundle, direct], new Dictionary<Guid, Bundle> { [party.Id] = party }, [], Today);
+
+        var shortage = Assert.Single(shortages);
+        Assert.Equal((Castle, June(6), 1, 2), (shortage.RentalItemId, shortage.Day, shortage.Rentable, shortage.Reserved));
+        Assert.Equal(
+            [(viaBundle.Id, 1, true), (direct.Id, 1, false)],
+            shortage.Reservations.Select(r => (r.ReservationId, r.Quantity, r.ViaBundle)).OrderBy(r => r.ViaBundle ? 0 : 1));
+        Assert.Equal([party.Id], shortage.Reservations.Single(r => r.ViaBundle).BundleIds);
+    }
+
+    [Fact]
+    public void Cancelled_and_completed_reservations_no_longer_count()
+    {
+        var cancelled = Reserve(Days(6, 6), new ReservationLine { RentalItemId = Castle, Quantity = 1 });
+        cancelled.Status = ReservationStatus.Cancelled;
+        var completed = Reserve(Days(6, 6), new ReservationLine { RentalItemId = Castle, Quantity = 1 });
+        completed.Status = ReservationStatus.Completed;
+
+        Assert.Empty(ShortageCalculator.Find(
+            new Dictionary<Guid, int> { [Castle] = 0 }, [cancelled, completed], new Dictionary<Guid, Bundle>(), [], Today));
+    }
+
+    private static Reservation Reserve(DateRange period, ReservationLine line) =>
+        new() { StartDate = period.Start, EndDate = period.End, Lines = [line] };
 }

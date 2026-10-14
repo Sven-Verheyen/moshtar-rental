@@ -118,7 +118,7 @@ Een periode waarin exemplaren van een artikel niet verhuurbaar zijn, bijvoorbeel
 _Avoid_: onderhoud, uitsluiting, buiten dienst
 
 **Tekort** (`Shortage`):
-Een dag, vanaf vandaag, waarop van een artikel meer exemplaren gereserveerd zijn dan er verhuurbaar zijn, door een blokkering of een lagere voorraad. Een tekort verdwijnt zodra er niet meer gereserveerd is dan verhuurbaar.
+Een dag, vanaf vandaag, waarop van een artikel meer exemplaren gereserveerd zijn dan er verhuurbaar zijn, door een blokkering of een lagere voorraad. Een tekort verdwijnt zodra er niet meer gereserveerd is dan verhuurbaar. De reservaties die het artikel op zo'n dag gebruiken, los of in een gereserveerd pakket, zijn de getroffen reservaties.
 _Avoid_: overboeking, conflict, dubbele reservatie
 
 **Alternatief** (`Alternative`):
