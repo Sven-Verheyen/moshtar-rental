@@ -144,5 +144,5 @@ Een tekst van de reservatiewebsite die een verhuurder per taal kan aanpassen: ti
 _Avoid_: content, pagina-inhoud, copy
 
 **Huisstijl** (`Branding`):
-Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto zijn adressen van afbeeldingen op de eigen website van de verhuurder.
+Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office.
 _Avoid_: branding, thema, look
