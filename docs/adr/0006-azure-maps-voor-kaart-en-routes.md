@@ -1,0 +1,3 @@
+# Azure Maps voor kaart, adressen en routes
+
+De planning toont leveringen en ophalingen op een kaart, stelt de snelste volgorde van een ronde voor en berekent met het verwachte verkeer wanneer de verhuurder bij elke klant aankomt. Daarvoor gebruiken we Azure Maps (adressen opzoeken, routes met optimale volgorde en de kaart in het back office). We kozen het boven Google Maps en een eigen OpenStreetMap-server omdat Moshtar al op Azure draait, Azure Maps een gratis tier heeft en de verhuurder niets moet instellen: Moshtar betaalt het en beheert één sleutel. Google Maps is duurder en zou per verhuurder een eigen sleutel vragen; OpenStreetMap betekent zelf routeservers draaien en onderhouden.
