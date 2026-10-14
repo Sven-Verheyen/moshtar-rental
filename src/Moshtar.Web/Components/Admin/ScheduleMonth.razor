@@ -1,0 +1,46 @@
+@using Moshtar.Application.Schedule
+
+@* De maandweergave van de Planning, louter om te raadplegen: per dag enkel tellers. Lege dagen blijven leeg.
+   Een klik op een dag opent die dag. *@
+<div class="planning-month">
+    @foreach (var name in WeekDays)
+    {
+        <div class="planning-month-weekday">@name</div>
+    }
+    @for (var i = 0; i < Offset; i++)
+    {
+        <div class="planning-month-blank"></div>
+    }
+    @foreach (var day in Days)
+    {
+        <a data-day="@day.Day.ToString("yyyy-MM-dd")" href="@PlanningViews.Url(PlanningView.Day, day.Day)" class="@($"planning-cell{(day.Day == Today ? " planning-today" : "")}")">
+            <div class="planning-cell-title">@day.Day.Day</div>
+            @foreach (var count in Counts(day))
+            {
+                <div class="planning-count">@count</div>
+            }
+        </a>
+    }
+</div>
+
+@code {
+    private static readonly string[] WeekDays = ["ma", "di", "wo", "do", "vr", "za", "zo"];
+
+    /// <summary>De dagen van de maand, de eerste eerst.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ScheduleDay> Days { get; set; } = [];
+
+    [Parameter] public DateOnly Today { get; set; }
+
+    /// <summary>Lege vakjes voor de eerste dag, zodat die onder de juiste weekdag staat.</summary>
+    private int Offset => Days.Count == 0 ? 0 : ((int)Days[0].Day.DayOfWeek + 6) % 7;
+
+    private static IEnumerable<string> Counts(ScheduleDay day)
+    {
+        if (day.Deliveries.Count > 0) yield return Count(day.Deliveries.Count, "levering", "leveringen");
+        if (day.Collections.Count > 0) yield return Count(day.Collections.Count, "ophaling", "ophalingen");
+        if (day.Pickups.Count > 0) yield return Count(day.Pickups.Count, "komt afhalen", "komen afhalen");
+        if (day.Returns.Count > 0) yield return Count(day.Returns.Count, "brengt terug", "brengen terug");
+    }
+
+    private static string Count(int n, string one, string many) => $"{n} {(n == 1 ? one : many)}";
+}
