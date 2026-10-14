@@ -49,3 +49,12 @@ h1:focus {
 .account-error { background: #fdecea; color: #a61b1b; padding: .6rem .75rem; border-radius: .4rem; }
 .account-success { background: #e6f4ea; color: #1e5b2f; padding: .6rem .75rem; border-radius: .4rem; }
 .account-card a { color: #1e6fd9; }
+
+/* Planning: bruikbaar op een gsm in de bestelwagen */
+.planning-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+.planning-nav .planning-date { max-width: 11rem; }
+.planning-round { margin-bottom: 1.5rem; }
+.planning-lines { margin: .25rem 0; padding-left: 1.25rem; }
+.planning-lines ul { padding-left: 1.25rem; }
+.planning-address { overflow-wrap: anywhere; }
+.planning-stop-done { opacity: .55; filter: grayscale(1); }
