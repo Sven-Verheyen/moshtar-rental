@@ -123,7 +123,17 @@ internal class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
             l.ToTable("ReservationLines");
             l.WithOwner().HasForeignKey("ReservationId");
             l.HasKey(x => x.Id);
+            // Lijnen krijgen hun Id in de code; zo ziet EF een meerprijslijn bij het vervangen als nieuw.
+            l.Property(x => x.Id).ValueGeneratedNever();
             l.Property(x => x.UnitPrice).HasPrecision(10, 2);
+            l.OwnsMany(x => x.Replacements, r =>
+            {
+                r.ToTable("ReservationLineReplacements");
+                r.WithOwner().HasForeignKey("ReservationLineId");
+                r.HasKey("ReservationLineId", nameof(BundleItemReplacement.RentalItemId));
+                r.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Restrict);
+                r.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.ReplacementRentalItemId).OnDelete(DeleteBehavior.Restrict);
+            });
             l.Ignore(x => x.LineTotal);
             l.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Restrict);
             l.HasOne<Bundle>().WithMany().HasForeignKey(x => x.BundleId).OnDelete(DeleteBehavior.Restrict);

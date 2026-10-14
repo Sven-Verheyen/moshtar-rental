@@ -142,7 +142,8 @@ internal sealed class RentalItemAdministration(
                     [$"Het artikel \"{name}\" zit in {(bundles.Count == 1 ? "het pakket" : "de pakketten")} {names} en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite."],
                     canSwitchOff: true);
             }
-            if (await db.Reservations.AnyAsync(r => r.Lines.Any(l => l.RentalItemId == itemId), ct))
+            // Ook als vervangend artikel binnen een gereserveerd pakket.
+            if (await db.Reservations.AnyAsync(r => r.Lines.Any(l => l.RentalItemId == itemId || l.Replacements.Any(x => x.ReplacementRentalItemId == itemId || x.RentalItemId == itemId)), ct))
                 throw new RentalItemException(
                     [$"Het artikel \"{name}\" werd al gereserveerd en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite en blijven de reservaties ongewijzigd."],
                     canSwitchOff: true);

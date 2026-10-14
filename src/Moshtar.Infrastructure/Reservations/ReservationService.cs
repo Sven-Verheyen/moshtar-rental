@@ -35,8 +35,7 @@ internal sealed class ReservationService(
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        // Reservaties per tenant na elkaar afhandelen, tot het einde van de transactie.
-        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({tenant.Id.ToString()}, 0))", ct);
+        await LockTenantAsync(tenant, ct);
 
         var (shortages, items, bundles) = await EvaluateAsync(request.Period, request.Lines, ct);
         if (shortages.Count > 0)
@@ -103,6 +102,66 @@ internal sealed class ReservationService(
         await db.SaveChangesAsync(ct);
         return reservation;
     }
+
+    public async Task<Reservation> ReplaceItemAsync(Guid reservationId, Guid rentalItemId, Guid replacementRentalItemId, decimal? surcharge,
+        ReservationActor actor, CancellationToken ct = default)
+    {
+        if (surcharge < 0)
+            throw new ArgumentException("Een meerprijs kan niet negatief zijn.");
+        var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
+
+        // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen, binnen de lock.
+        db.ChangeTracker.Clear();
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await LockTenantAsync(tenant, ct);
+
+        var reservation = await db.Reservations.Include(r => r.Customer).FirstOrDefaultAsync(r => r.Id == reservationId, ct)
+            ?? throw new ArgumentException("Reservatie niet gevonden.");
+        var bundleIds = reservation.Lines.Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
+        var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
+        var used = DemandExpander.Expand(reservation, bundles).Where(d => d.Demand.RentalItemId == rentalItemId).ToList();
+        if (used.Count == 0)
+            throw new ArgumentException("Dit artikel zit niet in de reservatie.");
+
+        var item = await db.RentalItems.AsNoTracking().FirstAsync(i => i.Id == rentalItemId, ct);
+        var replacement = await db.RentalItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == replacementRentalItemId, ct);
+        if (replacement is null || replacement.Id == item.Id || !replacement.IsActive || item.CategoryId is null || replacement.CategoryId != item.CategoryId)
+            throw new ArgumentException("Vervang enkel door een ander artikel uit dezelfde categorie dat aan staat.");
+
+        // Vrij in de volledige huurperiode, voor alles wat de reservatie van het artikel gebruikt (los en in pakketten).
+        var (shortages, _, _) = await EvaluateAsync(reservation.Period,
+            [new ReservationLineRequest(replacement.Id, null, used.Sum(d => d.Demand.Quantity))], ct);
+        string DefaultName(RentalItem i) => i.Translations.For(tenant.DefaultCulture, tenant.DefaultCulture)?.Name ?? i.Slug;
+        if (shortages.Count > 0)
+            throw new ArgumentException($"{DefaultName(replacement)} is niet vrij in de volledige huurperiode van reservatie {reservation.Number}.");
+
+        // Op de reservatie en in de mail in de taal van de klant, in de historiek in die van de verhuurder.
+        string Name(RentalItem i) => i.Translations.For(reservation.Culture, tenant.DefaultCulture)?.Name ?? i.Slug;
+        var amount = surcharge is > 0 ? surcharge : null;
+        var inBundles = used.Select(d => d.BundleId).OfType<Guid>().Distinct()
+            .Select(id => bundles[id].Translations.For(tenant.DefaultCulture, tenant.DefaultCulture)?.Name ?? bundles[id].Slug).ToList();
+        var note = $"{DefaultName(item)} vervangen door {DefaultName(replacement)}"
+                   + (inBundles.Count > 0 ? $" in {string.Join(", ", inBundles)}" : "")
+                   + (amount is { } s ? $" (meerprijs {s.ToString("C", Dutch)})" : " (zonder meerprijs)");
+        reservation.ReplaceItem(
+            new ItemReplacement(item.Id, Name(item), replacement.Id, Name(replacement), amount,
+                ReservationConfirmation.SurchargeDescription(reservation, tenant, Name(replacement), Name(item))),
+            bundles, actor, clock.GetUtcNow().UtcDateTime, note);
+
+        // De voorgestelde alternatieven voor dit artikel zijn afgehandeld.
+        await db.AlternativeProposals.Where(p => p.ReservationId == reservationId && p.RentalItemId == rentalItemId).ExecuteDeleteAsync(ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+
+        await SendConfirmationAsync(reservation, tenant);
+        return reservation;
+    }
+
+    private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
+
+    /// <summary>Reservaties per tenant na elkaar afhandelen, tot het einde van de transactie.</summary>
+    private Task LockTenantAsync(Tenant tenant, CancellationToken ct) =>
+        db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({tenant.Id.ToString()}, 0))", ct);
 
     public async Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default) =>
         await (from e in db.ReservationEvents.AsNoTracking()

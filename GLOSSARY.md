@@ -97,7 +97,7 @@ Een reservatie aanmaken, door een klant op de website of door een gebruiker in h
 _Avoid_: boeken, bestellen
 
 **Historiek** (`History`):
-De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd of alternatieven gemaild, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
+De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd, alternatieven gemaild of een artikel vervangen, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
 _Avoid_: audit log, logboek, geschiedenis
 
 **Huurperiode** (`DateRange`):
@@ -122,7 +122,7 @@ Een dag, vanaf vandaag, waarop van een artikel meer exemplaren gereserveerd zijn
 _Avoid_: overboeking, conflict, dubbele reservatie
 
 **Alternatief** (`Alternative`):
-Een ander artikel uit dezelfde categorie dat vrij is in de huurperiode van een reservatie met een tekort, en dat de verhuurder de klant voorstelt in plaats van het artikel dat niet verhuurbaar is.
+Een ander artikel uit dezelfde categorie dat vrij is in de huurperiode van een reservatie met een tekort, en dat de verhuurder de klant voorstelt in plaats van het artikel dat niet verhuurbaar is. Kiest de klant het, dan vervangt de verhuurder het artikel in de reservatie: op een losse lijn aan dezelfde prijs, in een pakket enkel binnen het pakket voor die reservatie.
 _Avoid_: vervanger, suggestie
 
 **Meerprijs** (`Surcharge`):

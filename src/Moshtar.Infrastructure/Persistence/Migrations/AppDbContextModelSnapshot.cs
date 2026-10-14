@@ -1301,7 +1301,6 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.OwnsMany("Moshtar.Domain.Reservations.ReservationLine", "Lines", b1 =>
                         {
                             b1.Property<Guid>("Id")
-                                .ValueGeneratedOnAdd()
                                 .HasColumnType("uuid");
 
                             b1.Property<Guid?>("BundleId")
@@ -1346,6 +1345,51 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                             b1.WithOwner()
                                 .HasForeignKey("ReservationId");
+
+                            b1.OwnsMany("Moshtar.Domain.Reservations.BundleItemReplacement", "Replacements", b2 =>
+                                {
+                                    b2.Property<Guid>("ReservationLineId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<Guid>("RentalItemId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<string>("RentalItemName")
+                                        .IsRequired()
+                                        .HasColumnType("text");
+
+                                    b2.Property<string>("ReplacementName")
+                                        .IsRequired()
+                                        .HasColumnType("text");
+
+                                    b2.Property<Guid>("ReplacementRentalItemId")
+                                        .HasColumnType("uuid");
+
+                                    b2.HasKey("ReservationLineId", "RentalItemId");
+
+                                    b2.HasIndex("RentalItemId");
+
+                                    b2.HasIndex("ReplacementRentalItemId");
+
+                                    b2.ToTable("ReservationLineReplacements", (string)null);
+
+                                    b2.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                                        .WithMany()
+                                        .HasForeignKey("RentalItemId")
+                                        .OnDelete(DeleteBehavior.Restrict)
+                                        .IsRequired();
+
+                                    b2.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
+                                        .WithMany()
+                                        .HasForeignKey("ReplacementRentalItemId")
+                                        .OnDelete(DeleteBehavior.Restrict)
+                                        .IsRequired();
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("ReservationLineId");
+                                });
+
+                            b1.Navigation("Replacements");
                         });
 
                     b.Navigation("Customer");

@@ -9,6 +9,8 @@ public enum ReservationEventKind
     Cancelled = 3,
     /// <summary>De klant kreeg een mail met alternatieven voor een artikel dat niet verhuurbaar is.</summary>
     AlternativesMailed = 4,
+    /// <summary>Een artikel in de reservatie is vervangen door een alternatief, los of binnen een pakket.</summary>
+    ItemReplaced = 5,
 }
 
 /// <summary>Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, of de klant via de reservatiewebsite.</summary>

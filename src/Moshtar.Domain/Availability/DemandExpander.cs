@@ -4,7 +4,10 @@ using Moshtar.Domain.Reservations;
 
 namespace Moshtar.Domain.Availability;
 
-/// <summary>Zet reservatielijnen om naar bezetting per artikel; pakketten worden opengeklapt.</summary>
+/// <summary>
+/// Zet reservatielijnen om naar bezetting per artikel; pakketten worden opengeklapt, met de artikelen die voor de
+/// reservatie binnen het pakket vervangen zijn.
+/// </summary>
 public static class DemandExpander
 {
     public static IEnumerable<StockDemand> Expand(
@@ -33,8 +36,9 @@ public static class DemandExpander
             {
                 if (!bundles.TryGetValue(bundleId, out var bundle))
                     throw new InvalidOperationException($"Pakket {bundleId} niet gevonden.");
+                // Een artikel dat voor deze reservatie binnen het pakket vervangen is, bezet het vervangende.
                 foreach (var bundleItem in bundle.Items)
-                    yield return (new StockDemand(bundleItem.RentalItemId, bundleItem.Quantity * line.Quantity, period), bundleId);
+                    yield return (new StockDemand(line.ItemInBundle(bundleItem.RentalItemId), bundleItem.Quantity * line.Quantity, period), bundleId);
             }
         }
     }

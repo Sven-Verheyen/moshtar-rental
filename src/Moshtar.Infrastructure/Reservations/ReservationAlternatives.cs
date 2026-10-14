@@ -106,6 +106,30 @@ internal sealed class ReservationAlternatives(
             .Select(p => new ProposedAlternative(p.RentalItemId, p.AlternativeRentalItemId, p.Surcharge, p.MailedAtUtc))
             .ToListAsync(ct);
 
+    public async Task<IReadOnlyList<ReservedItem>> GetReservedItemsAsync(Guid reservationId, CancellationToken ct = default)
+    {
+        var tenant = Tenant;
+        var reservation = await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == reservationId, ct)
+            ?? throw new ArgumentException("Reservatie niet gevonden.");
+        var bundleIds = reservation.Lines.Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
+        var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
+        var used = DemandExpander.Expand(reservation, bundles).ToList();
+        var itemIds = used.Select(d => d.Demand.RentalItemId).Distinct().ToList();
+        var items = await db.RentalItems.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, ct);
+        return used
+            .Where(d => items.ContainsKey(d.Demand.RentalItemId))
+            .GroupBy(d => d.Demand.RentalItemId)
+            .Select(g =>
+            {
+                var bundleNames = g.Select(d => d.BundleId).OfType<Guid>().Distinct()
+                    .Select(id => NameIn(bundles[id].Translations, bundles[id].Slug, tenant.DefaultCulture, tenant)).ToList();
+                return new ReservedItem(g.Key, NameIn(items[g.Key].Translations, items[g.Key].Slug, tenant.DefaultCulture, tenant),
+                    g.Sum(d => d.Demand.Quantity), bundleNames.Count > 0 ? string.Join(", ", bundleNames) : null);
+            })
+            .OrderBy(i => i.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
     private sealed record Found(Reservation Reservation, RentalItem Item, int Quantity, IReadOnlyList<RentalItem> Alternatives);
 
     /// <summary>

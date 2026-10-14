@@ -25,13 +25,15 @@ internal static class ReservationConfirmation
         string Total,
         string DeliveryAt,
         string Pickup,
-        string Notes);
+        string Notes,
+        string ReplacedBy,
+        string Surcharge);
 
     private static readonly Dictionary<string, DetailTexts> ByCulture = new()
     {
-        ["nl"] = new("nl-BE", "Reservatienummer", "Huurperiode", "Wat je huurt", "Totaal", "Levering op {0}", "Afhalen", "Opmerkingen"),
-        ["fr"] = new("fr-BE", "Numéro de réservation", "Période de location", "Votre location", "Total", "Livraison à {0}", "Retrait sur place", "Remarques"),
-        ["en"] = new("en-BE", "Reservation number", "Rental period", "What you are renting", "Total", "Delivery to {0}", "Pickup", "Notes"),
+        ["nl"] = new("nl-BE", "Reservatienummer", "Huurperiode", "Wat je huurt", "Totaal", "Levering op {0}", "Afhalen", "Opmerkingen", "{0} vervangen door {1}", "Meerprijs {0} i.p.v. {1}"),
+        ["fr"] = new("fr-BE", "Numéro de réservation", "Période de location", "Votre location", "Total", "Livraison à {0}", "Retrait sur place", "Remarques", "{0} remplacé par {1}", "Supplément {0} au lieu de {1}"),
+        ["en"] = new("en-BE", "Reservation number", "Rental period", "What you are renting", "Total", "Delivery to {0}", "Pickup", "Notes", "{0} replaced by {1}", "Extra charge {0} instead of {1}"),
     };
 
     private sealed record ExampleTexts(string FirstName, string LastName, string Item, string Notes);
@@ -104,6 +106,19 @@ internal static class ReservationConfirmation
             ? reservation.StartDate.ToString("d MMMM yyyy", culture)
             : $"{reservation.StartDate.ToString("d MMMM yyyy", culture)} – {reservation.EndDate.ToString("d MMMM yyyy", culture)}";
 
+    /// <summary>De omschrijving van de meerprijslijn bij het vervangen, in de taal van <see cref="LanguageOf"/>: "Meerprijs Piraat i.p.v. Jungle".</summary>
+    public static string SurchargeDescription(Reservation reservation, Tenant tenant, string replacementName, string name) =>
+        string.Format(ByCulture[LanguageOf(reservation, tenant)].Surcharge, replacementName, name);
+
+    /// <summary>Een lijn zoals de klant ze ziet, met de artikelen die binnen het pakket vervangen zijn.</summary>
+    private static string LineText(ReservationLine line, DetailTexts t, CultureInfo culture)
+    {
+        var text = $"{line.Quantity} × {line.Description}";
+        if (line.Replacements.Count > 0)
+            text += $" ({string.Join(", ", line.Replacements.Select(r => string.Format(t.ReplacedBy, r.RentalItemName, r.ReplacementName)))})";
+        return $"{text} – {line.LineTotal.ToString("C", culture)}";
+    }
+
     /// <summary>Het vaste overzicht van de reservatie ({reservationDetails}), in de taal van <see cref="LanguageOf"/>.</summary>
     public static MailBlock Details(Reservation reservation, Tenant tenant)
     {
@@ -111,7 +126,7 @@ internal static class ReservationConfirmation
         var culture = CultureInfo.GetCultureInfo(t.CultureName);
         var period = Period(reservation, culture);
 
-        var lines = reservation.Lines.Select(l => $"{l.Quantity} × {l.Description} – {Money(l.LineTotal)}").ToList();
+        var lines = reservation.Lines.Select(l => LineText(l, t, culture)).ToList();
         var delivery = reservation.DeliveryMethod == DeliveryMethod.Delivery && reservation.DeliveryAddress is { } a
             ? string.Format(t.DeliveryAt, $"{a.Street}, {a.PostalCode} {a.City}")
             : t.Pickup;

@@ -15,7 +15,8 @@
     <MudText Typo="Typo.body2" Class="mb-4">
         Onder elke reservatie staan de alternatieven: artikelen uit dezelfde categorie die vrij zijn in de volledige huurperiode.
         Vink aan wat je voorstelt, vul eventueel een meerprijs in (leeg is zonder meerprijs; het prijsverschil is een hulp) en
-        mail de klant in zijn eigen taal. De tekst pas je aan bij Mailsjablonen.
+        mail de klant in zijn eigen taal. De tekst pas je aan bij Mailsjablonen. Heeft de klant gekozen, dan vervangt
+        "Vervangen" het artikel in de reservatie, in een pakket enkel binnen het pakket; een meerprijs komt als aparte lijn.
     </MudText>
 
     @if (_items is null)
@@ -59,7 +60,7 @@
                                 <td colspan="6" style="padding-left:2rem">
                                     <AlternativesPanel @key="(reservation.ReservationId, item.RentalItemId, reservation.AlternativesMailed)"
                                                        ReservationId="reservation.ReservationId" RentalItemId="item.RentalItemId"
-                                                       Mailed="reservation.AlternativesMailed" OnMailed="LoadAsync"
+                                                       Mailed="reservation.AlternativesMailed" OnMailed="LoadAsync" OnReplaced="LoadAsync"
                                                        Alternatives="@_alternatives.GetValueOrDefault((reservation.ReservationId, item.RentalItemId), [])" />
                                 </td>
                             </tr>

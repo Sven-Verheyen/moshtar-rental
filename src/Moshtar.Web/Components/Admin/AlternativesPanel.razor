@@ -1,12 +1,14 @@
 @using Moshtar.Application.Reservations
 @using Moshtar.Web.Identity
 @inject IReservationAlternatives ReservationAlternatives
+@inject IReservationService ReservationService
 @inject ISnackbar Snackbar
 @inject ILogger<AlternativesPanel> Logger
 @*
     De alternatieven voor een artikel in een getroffen reservatie (Tekorten): artikelen uit dezelfde categorie die aan
     staan en vrij zijn in de volledige huurperiode. Aanvinken wat in de mail komt (standaard alle), eventueel een
-    meerprijs per alternatief, en met één klik mailen in de taal van de klant.
+    meerprijs per alternatief, en met één klik mailen in de taal van de klant. Heeft de klant gekozen, dan vervangt
+    "Vervangen" het artikel in de reservatie door dat alternatief, met de ingevulde meerprijs (voorgevuld uit de mail).
 *@
 <div class="alternatives" data-alternatives-for="@ReservationId">
     @if (Mailed is { } mailed)
@@ -32,6 +34,7 @@
                     <th scope="col">Alternatief</th>
                     <th scope="col">Prijsverschil</th>
                     <th scope="col">Meerprijs</th>
+                    <th scope="col">In de reservatie</th>
                 </tr>
             </thead>
             <tbody>
@@ -53,6 +56,13 @@
                             <MudNumericField T="decimal?" @bind-Value="choice.Surcharge" Placeholder="Geen" Min="0" Format="N2"
                                              Variant="Variant.Outlined" Margin="Margin.Dense" Adornment="Adornment.Start" AdornmentText="€"
                                              Style="width:9rem" aria-label="@($"Meerprijs voor {choice.Alternative.Name}")" />
+                        </td>
+                        <td>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.SwapHoriz"
+                                       Disabled="_sending" OnClick="() => ReplaceAsync(choice)" data-replace="@choice.Alternative.RentalItemId"
+                                       title="@($"Vervang in de reservatie door {choice.Alternative.Name}, met de ingevulde meerprijs")">
+                                Vervangen
+                            </MudButton>
                         </td>
                     </tr>
                 }
@@ -86,6 +96,9 @@
     /// <summary>Na het mailen, zodat de lijst Tekorten het tijdstip opnieuw inleest.</summary>
     [Parameter] public EventCallback OnMailed { get; set; }
 
+    /// <summary>Na het vervangen, zodat het scherm de reservatie (en de tekorten) opnieuw inleest.</summary>
+    [Parameter] public EventCallback OnReplaced { get; set; }
+
     [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
     private List<Choice>? _choices;
@@ -114,6 +127,26 @@
             // Een fout van de mailserver mag het scherm niet doen crashen.
             Logger.LogError(e, "Mail met alternatieven voor reservatie {Reservation} kon niet vertrekken.", ReservationId);
             Snackbar.Add("Niet gemaild: de mailserver gaf een fout. Probeer het later opnieuw.", Severity.Error);
+        }
+        finally
+        {
+            _sending = false;
+        }
+    }
+
+    private async Task ReplaceAsync(Choice choice)
+    {
+        _sending = true;
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            var reservation = await ReservationService.ReplaceItemAsync(ReservationId, RentalItemId, choice.Alternative.RentalItemId, choice.Surcharge, actor);
+            Snackbar.Add($"Reservatie {reservation.Number}: vervangen door {choice.Alternative.Name}.", Severity.Success);
+            await OnReplaced.InvokeAsync();
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        {
+            Snackbar.Add($"Niet vervangen: {e.Message}", Severity.Error);
         }
         finally
         {

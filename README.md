@@ -50,6 +50,11 @@ aan andere verhuurbedrijven aangeboden te worden.
   huurperiode) met het prijsverschil als hulp; de aangevinkte gaan met één klik en een optionele meerprijs naar de klant,
   in zijn taal (mailsjabloon "Alternatieven bij een tekort"). Het tijdstip komt op de reservatie en in de historiek, de
   meerprijzen worden bewaard voor het vervangen (`IReservationAlternatives`).
+  Heeft de klant gekozen, dan vervangt "Vervangen" (in Tekorten, of "Artikel vervangen" bij de reservatie) het artikel
+  door het alternatief, met de meerprijs uit de mail voorgevuld. Een losse lijn krijgt het andere artikel aan dezelfde
+  prijs; in een pakket wordt enkel het artikel binnen het pakket vervangen, als notitie op de pakketlijn ("Jungle
+  vervangen door Piraat") in het back office en de mails, en de pakketprijs blijft. Een meerprijs wordt een aparte lijn.
+  Het komt in de historiek en de klant krijgt een bijgewerkte bevestiging (`IReservationService.ReplaceItemAsync`).
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).
@@ -78,11 +83,12 @@ tests/
 
 - **Beschikbaarheid**: per dag wordt de voorraad vergeleken met bevestigde reservaties en blokkeringen.
   Pakketten worden opengeklapt naar hun artikelen, en de bufferdagen van de tenant (leveren, poetsen)
-  worden rond elke verhuur gelegd, niet rond blokkeringen. Een blokkering zonder einddatum telt voor alle dagen vanaf
+  worden rond elke verhuur gelegd, niet rond blokkeringen. Een artikel dat voor een reservatie binnen een pakket
+  vervangen is, telt als het vervangende artikel (`ReservationLine.Replacements`). Een blokkering zonder einddatum telt voor alle dagen vanaf
   haar begindatum (`Blockout.Period`). Zie `AvailabilityCalculator`. Tekorten (dagen vanaf vandaag met meer gereserveerd
   dan verhuurbaar) worden op dezelfde manier berekend, niet bewaard. Zie `ShortageCalculator` en `ShortageQuery`.
 - **Geen dubbele reservaties**: reservaties per tenant worden binnen een transactie met een
-  PostgreSQL advisory lock na elkaar afgehandeld. Zie `ReservationService`.
+  PostgreSQL advisory lock na elkaar afgehandeld, net als een artikel vervangen. Zie `ReservationService`.
 - **Prijzen**: eerste dag aan dagprijs, elke extra dag aan de prijs per extra dag (incl. btw).
 - **E-mail**: mails vertrekken via Azure Communication Services vanaf het eigen domein van de verhuurder
   (`SenderEmail`, bv. noreply@hopsakee.fun), met zijn contactadres als antwoordadres (zie

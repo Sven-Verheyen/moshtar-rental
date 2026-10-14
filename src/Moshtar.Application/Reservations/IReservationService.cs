@@ -28,6 +28,18 @@ public interface IReservationService
     /// </summary>
     Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, ReservationActor actor, CancellationToken ct = default);
 
+    /// <summary>
+    /// Vervangt een artikel in de reservatie door een alternatief: een ander artikel uit dezelfde categorie dat aan staat
+    /// en vrij is in de volledige huurperiode (met bufferdagen), gecontroleerd en bewaard onder dezelfde lock per
+    /// verhuurder als reserveren. Op een losse lijn blijft de prijs dezelfde; in een pakket wordt enkel het artikel
+    /// binnen het pakket vervangen, met een notitie op de pakketlijn. Een meerprijs (null of 0: geen) komt als aparte
+    /// lijn bij het totaal. Noteert het in de historiek en stuurt de klant een bijgewerkte bevestiging.
+    /// Gooit een <see cref="ArgumentException"/> als het alternatief niet kan, een <see cref="InvalidOperationException"/>
+    /// als de reservatie geannuleerd of afgerond is; dan verandert er niets.
+    /// </summary>
+    Task<Reservation> ReplaceItemAsync(Guid reservationId, Guid rentalItemId, Guid replacementRentalItemId, decimal? surcharge,
+        ReservationActor actor, CancellationToken ct = default);
+
     /// <summary>De historiek van een reservatie, nieuwste bovenaan.</summary>
     Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default);
 }

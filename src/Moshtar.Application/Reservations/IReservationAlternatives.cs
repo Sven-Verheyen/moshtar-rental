@@ -24,6 +24,12 @@ public sealed record ChosenAlternative(Guid RentalItemId, decimal? Surcharge);
 /// </summary>
 public sealed record ProposedAlternative(Guid RentalItemId, Guid AlternativeRentalItemId, decimal? Surcharge, DateTime MailedAtUtc);
 
+/// <summary>
+/// Een artikel dat een reservatie gebruikt, <see cref="Quantity"/> keer, los en/of in de gereserveerde pakketten
+/// <see cref="BundleName"/> (null: enkel los), om het te vervangen.
+/// </summary>
+public sealed record ReservedItem(Guid RentalItemId, string Name, int Quantity, string? BundleName);
+
 /// <summary>Wanneer en door wie de alternatieven voor een reservatie het laatst gemaild werden.</summary>
 public sealed record AlternativesMailed(DateTime AtUtc, string? UserEmail);
 
@@ -43,6 +49,9 @@ public interface IReservationAlternatives
     /// artikel geen (vrij) alternatief meer is; dan vertrekt er niets.
     /// </summary>
     Task MailAsync(Guid reservationId, Guid rentalItemId, IReadOnlyList<ChosenAlternative> chosen, ReservationActor actor, CancellationToken ct = default);
+
+    /// <summary>De artikelen die deze reservatie gebruikt, ook in pakketten en na vervangen, op naam.</summary>
+    Task<IReadOnlyList<ReservedItem>> GetReservedItemsAsync(Guid reservationId, CancellationToken ct = default);
 
     /// <summary>De alternatieven die voor deze reservatie gemaild werden, met hun meerprijs.</summary>
     Task<IReadOnlyList<ProposedAlternative>> GetProposedAsync(Guid reservationId, CancellationToken ct = default);
