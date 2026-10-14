@@ -10,6 +10,10 @@ public class Bundle : TenantEntity
 {
     public string Slug { get; set; } = "";
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Uitgelicht op de home, op plaats <see cref="FeaturedOrder"/> tussen de uitgelichte artikelen en pakketten samen.</summary>
+    public bool IsFeatured { get; set; }
+    public int FeaturedOrder { get; set; }
     public Pricing Pricing { get; set; } = new();
     public List<Translation> Translations { get; set; } = [];
     public List<BundleItem> Items { get; set; } = [];

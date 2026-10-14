@@ -12,7 +12,8 @@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudText Typo="Typo.body1" Class="flex-grow-1">
             Een pakket is een vaste combinatie van artikelen met een eigen prijs. Het is vrij zolang al zijn artikelen vrij
-            zijn, en staat niet op je reservatiewebsite zolang een van zijn artikelen uitgezet is.
+            zijn, en staat niet op je reservatiewebsite zolang een van zijn artikelen uitgezet is. Met de ster licht je een
+            pakket uit op de home (zie <MudLink Href="admin/uitgelicht">Uitgelicht</MudLink>).
         </MudText>
         <MudButton Href="admin/pakketten/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Nieuw pakket</MudButton>
     </MudStack>
@@ -46,6 +47,7 @@
                         {
                             <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Vertaling ontbreekt: @string.Join(", ", bundle.MissingTranslations.Select(c => c.ToUpperInvariant()))</MudChip>
                         }
+                        <FeaturedToggle Id="bundle.Id" Name="@bundle.Name" IsFeatured="bundle.IsFeatured" Changed="LoadAsync" />
                         <MudSwitch T="bool" Value="bundle.IsActive" ValueChanged="active => SetActiveAsync(bundle, active)" Color="Color.Primary"
                                    Label="@(bundle.IsActive ? "Aan" : "Uitgezet")" />
                         <MudIconButton Icon="@Icons.Material.Filled.Edit" aria-label="Wijzigen" Href="@($"admin/pakketten/{bundle.Id}")" />

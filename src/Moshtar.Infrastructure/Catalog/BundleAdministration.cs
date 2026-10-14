@@ -23,7 +23,7 @@ internal sealed class BundleAdministration(AppDbContext db, ITenantContext tenan
             .Select(b => new BundleSummary(
                 b.Id, Name(b.Translations, b.Slug), b.Slug, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, b.IsActive,
                 InCatalogOrder(b, items).Select(x => $"{x.Quantity} × {(items.TryGetValue(x.RentalItemId, out var item) ? Name(item.Translations, item.Slug) : "?")}").ToList(),
-                SwitchedOffItems(b, items), CatalogTexts.Missing(Tenant, b.Translations)))
+                SwitchedOffItems(b, items), CatalogTexts.Missing(Tenant, b.Translations), b.IsFeatured))
             .OrderBy(b => b.Name, StringComparer.CurrentCultureIgnoreCase)
             .ToList();
     }

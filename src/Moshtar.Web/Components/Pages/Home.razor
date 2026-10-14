@@ -56,14 +56,22 @@
                 }
             </div>
         }
-        <h2>@L["Featured"]</h2>
-        <CatalogList Entries="Featured" />
+        @if (_entries.Any(e => e.IsFeatured))
+        {
+            <h2>@L["Highlighted"]</h2>
+            <CatalogList Entries="Highlighted" />
+        }
+        else
+        {
+            <h2>@L["Featured"]</h2>
+            <CatalogList Entries="Popular" />
+        }
     }
 </section>
 
 @code {
-    /// <summary>Hoeveel artikelen en pakketten de home uitlicht zolang er geen datum gekozen is.</summary>
-    private const int FeaturedCount = 6;
+    /// <summary>Hoeveel artikelen en pakketten de home als "Populair" toont zolang niets uitgelicht is.</summary>
+    private const int PopularCount = 6;
 
     [SupplyParameterFromQuery(Name = ChosenPeriod.StartKey)] private string? Start { get; set; }
     [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
@@ -80,15 +88,22 @@
     private string? HeroImage => Images.HeroImageUrl(Tenant);
 
     /// <summary>
-    /// Er is nog geen vinkje "uitgelicht" bij een artikel; tot dan de pakketten en het eerste artikel van elke
-    /// categorie, aangevuld met de volgende artikelen in de volgorde van de catalogus.
+    /// De uitgelichte artikelen en pakketten, in de volgorde van de beheerder. Uitgezette artikelen en verborgen pakketten
+    /// staan niet in de catalogus, dus ook hier niet.
     /// </summary>
-    private IReadOnlyList<CatalogEntry> Featured =>
+    private IReadOnlyList<CatalogEntry> Highlighted =>
+        _entries!.Where(e => e.IsFeatured).OrderBy(e => e.FeaturedOrder).ToList();
+
+    /// <summary>
+    /// Zolang niets uitgelicht is: de pakketten en het eerste artikel van elke categorie, aangevuld met de volgende
+    /// artikelen in de volgorde van de catalogus.
+    /// </summary>
+    private IReadOnlyList<CatalogEntry> Popular =>
         _entries!.Where(e => e.Kind == CatalogEntryKind.Bundle)
             .Concat(_entries!.Where(e => e.Kind == CatalogEntryKind.Item).GroupBy(e => e.CategoryId).Select(g => g.First()))
             .Concat(_entries!)
             .DistinctBy(e => e.Id)
-            .Take(FeaturedCount)
+            .Take(PopularCount)
             .ToList();
 
     protected override async Task OnInitializedAsync()

@@ -20,6 +20,7 @@ public sealed record RentalItemInput(
 
 /// <summary>Een artikel in het overzicht van het back office, in de volgorde van zijn categorie.</summary>
 /// <param name="MissingTranslations">De talen waarin de naam of beschrijving nog niet vertaald is.</param>
+/// <param name="IsFeatured">Uitgelicht op de home (zie <see cref="IFeaturedAdministration"/>).</param>
 public sealed record RentalItemSummary(
     Guid Id,
     string Name,
@@ -29,7 +30,8 @@ public sealed record RentalItemSummary(
     decimal DayPrice,
     decimal? ExtraDayPrice,
     bool IsActive,
-    IReadOnlyList<string> MissingTranslations);
+    IReadOnlyList<string> MissingTranslations,
+    bool IsFeatured = false);
 
 /// <summary>Een artikel zoals de beheerder het wijzigt.</summary>
 /// <param name="Photos">De sleutels van de foto's in de afbeeldingenopslag, de hoofdfoto eerst.</param>
