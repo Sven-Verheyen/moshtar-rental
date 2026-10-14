@@ -67,11 +67,11 @@ Een vaste combinatie van artikelen met een eigen prijs, die als één geheel ger
 _Avoid_: bundel, combo, set
 
 **Uitgezet** (`IsActive = false`):
-Een artikel of pakket dat niet meer op de reservatiewebsite staat en niet meer gereserveerd kan worden, maar in oude reservaties blijft bestaan. Een artikel of pakket dat al eens gereserveerd werd, kan alleen uitgezet worden, niet verwijderd.
+Een artikel of pakket dat de verhuurder bewust uitzette: het staat niet meer op de reservatiewebsite en kan niet meer gereserveerd worden, maar blijft bestaan in oude reservaties. Een pakket dat zelf aan staat maar verborgen is omdat een van zijn artikelen uitgezet is, is niet uitgezet. Een artikel of pakket dat al eens gereserveerd werd, kan alleen uitgezet worden, niet verwijderd.
 _Avoid_: gearchiveerd, inactief, verborgen
 
 **Uitgelicht** (`IsFeatured`):
-Een artikel of pakket dat de verhuurder extra in de kijker zet op zijn reservatiewebsite.
+Een artikel of pakket dat de verhuurder bovenaan de home van zijn reservatiewebsite toont, in een volgorde die hij zelf kiest.
 _Avoid_: populair, aanbevolen, in de kijker
 
 **Kenmerken**:
@@ -126,7 +126,7 @@ Een ander artikel uit dezelfde categorie dat vrij is in de huurperiode van een r
 _Avoid_: vervanger, suggestie
 
 **Meerprijs** (`Surcharge`):
-Wat een klant extra betaalt als hij een duurder alternatief kiest. De verhuurder beslist per alternatief of er een meerprijs is; standaard is er geen. De meerprijs komt bovenop de reservatie, de prijs van een pakket blijft dezelfde.
+Wat een klant extra betaalt als hij een bepaald alternatief kiest. De verhuurder beslist per alternatief of er een meerprijs is en hoeveel; standaard is er geen. De meerprijs komt bovenop de reservatie, de prijs van een pakket blijft dezelfde.
 _Avoid_: supplement, toeslag, prijsverschil
 
 **Bufferdag** (`BufferDays`):
