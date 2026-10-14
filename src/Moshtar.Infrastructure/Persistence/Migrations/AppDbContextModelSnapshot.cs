@@ -161,7 +161,13 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<int>("FeaturedOrder")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFeatured")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Slug")
@@ -258,10 +264,16 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uuid");
 
+                    b.Property<int>("FeaturedOrder")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("HeightCm")
                         .HasColumnType("integer");
 
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsFeatured")
                         .HasColumnType("boolean");
 
                     b.Property<int?>("LengthCm")

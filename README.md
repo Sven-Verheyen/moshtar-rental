@@ -40,6 +40,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   reservatiewebsite die van de artikelen. Een pakket staat niet op de reservatiewebsite zolang een artikel erin
   uitgezet is; het back office zegt welk. Uitzetten en verwijderen (zolang geen reservatie of winkelkar ernaar
   verwijst) zoals bij artikelen.
+  Artikelen en pakketten uitlichten met de ster in hun overzicht; de lijst Uitgelicht (`/admin/uitgelicht`) toont ze
+  samen in een volgorde die de beheerder versleept. Zonder gekozen huurperiode toont de home ze in die volgorde in
+  plaats van "Populair" (uitgezette artikelen en verborgen pakketten niet); is niets uitgelicht, dan de pakketten en het
+  eerste artikel van elke categorie.
   De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
   dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).

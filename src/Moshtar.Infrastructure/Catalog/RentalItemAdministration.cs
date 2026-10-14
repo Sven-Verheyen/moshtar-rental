@@ -23,7 +23,7 @@ internal sealed class RentalItemAdministration(
         var items = await db.RentalItems.AsNoTracking().Include(i => i.Category).ToListAsync(ct);
         return Ordered(items).Select(i => new RentalItemSummary(
             i.Id, Name(i), i.Slug, i.CategoryId, i.Stock, i.Pricing.DayPrice, i.Pricing.ExtraDayPrice, i.IsActive,
-            CatalogTexts.Missing(Tenant, i.Translations))).ToList();
+            CatalogTexts.Missing(Tenant, i.Translations), i.IsFeatured)).ToList();
     }
 
     public async Task<RentalItemDetails?> GetAsync(Guid itemId, CancellationToken ct = default)

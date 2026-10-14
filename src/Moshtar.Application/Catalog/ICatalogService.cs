@@ -25,8 +25,12 @@ public record CatalogEntry(
     IReadOnlyList<string> Contents,
     ItemSpecs? Specs = null,
     bool InStock = true,
-    IReadOnlyList<Guid>? BundleItemIds = null)
+    IReadOnlyList<Guid>? BundleItemIds = null,
+    int? FeaturedOrder = null)
 {
+    /// <summary>Uitgelicht op de home; de uitgelichte artikelen en pakketten volgen samen <see cref="FeaturedOrder"/>.</summary>
+    public bool IsFeatured => FeaturedOrder is not null;
+
     /// <summary>De artikelen in een pakket; leeg voor een los artikel.</summary>
     public IReadOnlyList<Guid> ItemIds => BundleItemIds ?? [];
 

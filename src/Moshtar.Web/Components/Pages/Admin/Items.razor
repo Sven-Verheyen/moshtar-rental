@@ -14,7 +14,8 @@
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudText Typo="Typo.body1" Class="flex-grow-1">
             Versleep de artikelen binnen een categorie om hun volgorde op je reservatiewebsite te kiezen. Een uitgezet
-            artikel staat niet meer op je reservatiewebsite; bestaande reservaties blijven ongewijzigd.
+            artikel staat niet meer op je reservatiewebsite; bestaande reservaties blijven ongewijzigd. Met de ster licht
+            je een artikel uit op de home (zie <MudLink Href="admin/uitgelicht">Uitgelicht</MudLink>).
         </MudText>
         <MudButton Href="admin/artikelen/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Nieuw artikel</MudButton>
     </MudStack>
@@ -53,6 +54,7 @@
                                 {
                                     <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Vertaling ontbreekt: @string.Join(", ", item.MissingTranslations.Select(c => c.ToUpperInvariant()))</MudChip>
                                 }
+                                <FeaturedToggle Id="item.Id" Name="@item.Name" IsFeatured="item.IsFeatured" Changed="LoadAsync" />
                                 <MudSwitch T="bool" Value="item.IsActive" ValueChanged="active => SetActiveAsync(item, active)" Color="Color.Primary"
                                            Label="@(item.IsActive ? "Aan" : "Uitgezet")" />
                                 <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" aria-label="Naar boven" Disabled="index == 0" OnClick="() => MoveAsync(group, index, -1)" />

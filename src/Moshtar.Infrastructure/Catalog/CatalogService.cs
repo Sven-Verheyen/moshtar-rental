@@ -37,7 +37,7 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
                     i.Pricing.DayPrice, i.Pricing.ExtraDayPrice,
                     PhotoAlbum.Keys(i.Photos), [],
                     new ItemSpecs(i.LengthCm, i.WidthCm, i.HeightCm, i.MinAge, i.MaxAge, i.MaxPersons, i.RequiresPower),
-                    InStock: i.Stock > 0);
+                    InStock: i.Stock > 0, FeaturedOrder: i.IsFeatured ? i.FeaturedOrder : null);
             })
             // Een pakket staat op de reservatiewebsite zolang al zijn artikelen aan staan (hier: bij de actieve artikelen zijn).
             .Concat(bundles.Where(b => b.Items.All(x => itemsById.ContainsKey(x.RentalItemId))).Select(b =>
@@ -53,7 +53,8 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
                 return new CatalogEntry(b.Id, CatalogEntryKind.Bundle, b.Slug, t?.Name ?? b.Slug, description,
                     null, null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, photos,
                     contents.Select(x => $"{x.Quantity} × {itemNames[x.RentalItemId]}").ToList(), InStock: inStock,
-                    BundleItemIds: contents.Select(x => x.RentalItemId).ToList());
+                    BundleItemIds: contents.Select(x => x.RentalItemId).ToList(),
+                    FeaturedOrder: b.IsFeatured ? b.FeaturedOrder : null);
             }));
         return entries.ToList();
     }

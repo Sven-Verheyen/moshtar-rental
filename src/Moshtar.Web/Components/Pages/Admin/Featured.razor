@@ -1,0 +1,112 @@
+@page "/admin/uitgelicht"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@inject IFeaturedAdministration Admin
+@inject ISnackbar Snackbar
+
+<PageTitle>Uitgelicht</PageTitle>
+
+<AdminShell Title="Uitgelicht">
+    <MudText Typo="Typo.body1" Class="mb-4">
+        Deze artikelen en pakketten staan bovenaan de home van je reservatiewebsite, in plaats van "Populair".
+        Versleep ze om hun volgorde te kiezen. Je licht een artikel of pakket uit met de ster in het overzicht van de
+        <MudLink Href="admin/artikelen">artikelen</MudLink> of <MudLink Href="admin/pakketten">pakketten</MudLink>.
+        Is niets uitgelicht, dan toont de home de pakketten en het eerste artikel van elke categorie.
+    </MudText>
+
+    @if (_entries is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_entries.Count == 0)
+    {
+        <MudText Typo="Typo.body2">Je hebt nog niets uitgelicht.</MudText>
+    }
+    else
+    {
+        var entries = _entries;
+        <MudPaper Class="pa-4" Elevation="1">
+            <MudDropContainer T="FeaturedEntry" Items="entries" ItemsSelector="@((_, _) => true)" ItemDropped="DroppedAsync">
+                <ChildContent>
+                    <MudDropZone T="FeaturedEntry" Identifier="volgorde" AllowReorder="true" />
+                </ChildContent>
+                <ItemRenderer>
+                    @{ var index = entries.IndexOf(context); var entry = context; }
+                    <MudPaper Outlined="true" Class="pa-2 mb-2" Style="cursor: grab">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                            <MudIcon Icon="@Icons.Material.Filled.DragIndicator" />
+                            <MudStack Spacing="0" Class="flex-grow-1">
+                                <MudLink Href="@EditLink(entry)"><strong>@entry.Name</strong></MudLink>
+                                <MudText Typo="Typo.body2">@(entry.Kind == CatalogEntryKind.Bundle ? "Pakket" : "Artikel")</MudText>
+                            </MudStack>
+                            @if (!entry.IsVisible)
+                            {
+                                <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.VisibilityOff">
+                                    Niet op de home: @(entry.Kind == CatalogEntryKind.Bundle ? "het pakket of een artikel erin is uitgezet" : "het artikel is uitgezet").
+                                </MudChip>
+                            }
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" aria-label="Naar boven" Disabled="index == 0" OnClick="() => MoveAsync(index, -1)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" aria-label="Naar beneden" Disabled="index == entries.Count - 1" OnClick="() => MoveAsync(index, 1)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Close" aria-label="Niet meer uitlichten" OnClick="() => RemoveAsync(entry)" />
+                        </MudStack>
+                    </MudPaper>
+                </ItemRenderer>
+            </MudDropContainer>
+        </MudPaper>
+    }
+</AdminShell>
+
+@code {
+    private List<FeaturedEntry>? _entries;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync() => _entries = (await Admin.GetAllAsync()).ToList();
+
+    private static string EditLink(FeaturedEntry entry) =>
+        entry.Kind == CatalogEntryKind.Bundle ? $"admin/pakketten/{entry.Id}" : $"admin/artikelen/{entry.Id}";
+
+    private async Task DroppedAsync(MudItemDropInfo<FeaturedEntry> dropped)
+    {
+        if (dropped.Item is not { } entry) return;
+        var order = _entries!.Where(e => e.Id != entry.Id).ToList();
+        order.Insert(Math.Clamp(dropped.IndexInZone, 0, order.Count), entry);
+        await ReorderAsync(order);
+    }
+
+    private Task MoveAsync(int index, int offset)
+    {
+        var order = _entries!.ToList();
+        (order[index], order[index + offset]) = (order[index + offset], order[index]);
+        return ReorderAsync(order);
+    }
+
+    private async Task ReorderAsync(List<FeaturedEntry> order)
+    {
+        try
+        {
+            await Admin.ReorderAsync(order.Select(e => e.Id).ToList());
+            Snackbar.Add("Volgorde bewaard.", Severity.Success);
+        }
+        catch (FeaturedException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        await LoadAsync();
+    }
+
+    private async Task RemoveAsync(FeaturedEntry entry)
+    {
+        try
+        {
+            await Admin.SetFeaturedAsync(entry.Id, false);
+            Snackbar.Add($"\"{entry.Name}\" is niet meer uitgelicht.", Severity.Success);
+        }
+        catch (FeaturedException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        await LoadAsync();
+    }
+}

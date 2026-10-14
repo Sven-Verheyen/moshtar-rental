@@ -22,6 +22,7 @@ public sealed record BundleInput(
 /// staat het zelf aan.
 /// </param>
 /// <param name="MissingTranslations">De talen waarin de naam of beschrijving nog niet vertaald is.</param>
+/// <param name="IsFeatured">Uitgelicht op de home (zie <see cref="IFeaturedAdministration"/>).</param>
 public sealed record BundleSummary(
     Guid Id,
     string Name,
@@ -31,7 +32,8 @@ public sealed record BundleSummary(
     bool IsActive,
     IReadOnlyList<string> Contents,
     IReadOnlyList<string> SwitchedOffItems,
-    IReadOnlyList<string> MissingTranslations)
+    IReadOnlyList<string> MissingTranslations,
+    bool IsFeatured = false)
 {
     /// <summary>Staat het pakket op de reservatiewebsite: het staat zelf aan en al zijn artikelen ook.</summary>
     public bool IsVisible => IsActive && SwitchedOffItems.Count == 0;
