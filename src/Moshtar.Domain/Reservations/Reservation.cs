@@ -31,6 +31,13 @@ public class Reservation : TenantEntity
     public ReservationStatus Status { get; set; } = ReservationStatus.Confirmed;
     public DeliveryMethod DeliveryMethod { get; set; } = DeliveryMethod.Delivery;
     public Address? DeliveryAddress { get; set; }
+    /// <summary>
+    /// Het punt van het leveradres op de kaart, of null zolang het niet gevonden is. Zonder punt toont de planning
+    /// een waarschuwing en kan de stop niet mee in een route.
+    /// </summary>
+    public GeoPoint? DeliveryPoint { get; set; }
+    /// <summary>Zette een gebruiker het punt zelf, met een speld op de kaart, omdat de kaart het adres niet kende?</summary>
+    public bool DeliveryPointConfirmed { get; set; }
     public string? Notes { get; set; }
     public string Culture { get; set; } = "nl";
 

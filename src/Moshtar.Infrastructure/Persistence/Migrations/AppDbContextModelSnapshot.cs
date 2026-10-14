@@ -441,6 +441,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<int>("DeliveryMethod")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("DeliveryPointConfirmed")
+                        .HasColumnType("boolean");
+
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
@@ -1144,6 +1147,25 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("ReservationId");
                         });
 
+                    b.OwnsOne("Moshtar.Domain.Common.GeoPoint", "DeliveryPoint", b1 =>
+                        {
+                            b1.Property<Guid>("ReservationId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<double>("Latitude")
+                                .HasColumnType("double precision");
+
+                            b1.Property<double>("Longitude")
+                                .HasColumnType("double precision");
+
+                            b1.HasKey("ReservationId");
+
+                            b1.ToTable("Reservations");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ReservationId");
+                        });
+
                     b.OwnsMany("Moshtar.Domain.Reservations.ReservationLine", "Lines", b1 =>
                         {
                             b1.Property<Guid>("Id")
@@ -1198,6 +1220,8 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Navigation("DeliveryAddress");
 
+                    b.Navigation("DeliveryPoint");
+
                     b.Navigation("Lines");
                 });
 
@@ -1213,6 +1237,30 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Tenants.Tenant", b =>
+                {
+                    b.OwnsOne("Moshtar.Domain.Common.GeoPoint", "AddressPoint", b1 =>
+                        {
+                            b1.Property<Guid>("TenantId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<double>("Latitude")
+                                .HasColumnType("double precision");
+
+                            b1.Property<double>("Longitude")
+                                .HasColumnType("double precision");
+
+                            b1.HasKey("TenantId");
+
+                            b1.ToTable("Tenants");
+
+                            b1.WithOwner()
+                                .HasForeignKey("TenantId");
+                        });
+
+                    b.Navigation("AddressPoint");
                 });
 
             modelBuilder.Entity("Moshtar.Domain.Tenants.TenantHost", b =>

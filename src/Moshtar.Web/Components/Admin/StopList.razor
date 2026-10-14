@@ -23,9 +23,15 @@
         {
             <div class="d-flex flex-wrap align-center gap-2">
                 <span class="planning-address">@AddressLine(address)</span>
-                <MudButton Href="@WazeUrl(address)" Target="_blank" Size="Size.Small" Variant="Variant.Text"
+                <MudButton Href="@WazeUrl(address, stop.Point)" Target="_blank" Size="Size.Small" Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.Navigation">Navigeer</MudButton>
             </div>
+            @if (stop.AddressNotFound)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="my-1" data-warning="adres">
+                    Adres niet gevonden op de kaart. Verbeter het adres of zet zelf een speld.
+                </MudAlert>
+            }
         }
         <ul class="planning-lines">
             @foreach (var line in stop.Lines)
@@ -77,9 +83,13 @@
 
     private static string AddressLine(Address a) => $"{a.Street}, {a.PostalCode} {a.City}";
 
-    /// <summary>Waze zoekt het adres op en start meteen de navigatie.</summary>
-    private static string WazeUrl(Address a) =>
-        $"https://waze.com/ul?q={Uri.EscapeDataString(AddressLine(a))}&navigate=yes";
+    /// <summary>
+    /// Waze start meteen de navigatie naar het punt van de stop. Zonder punt zoekt Waze het adres zelf op, misschien
+    /// vindt Waze het wel.
+    /// </summary>
+    private static string WazeUrl(Address a, GeoPoint? point) => point is null
+        ? $"https://waze.com/ul?q={Uri.EscapeDataString(AddressLine(a))}&navigate=yes"
+        : $"https://waze.com/ul?ll={point}&navigate=yes";
 
     private static string TelephoneHref(string phone) => new(phone.Where(c => char.IsDigit(c) || c == '+').ToArray());
 

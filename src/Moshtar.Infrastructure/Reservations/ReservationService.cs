@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moshtar.Application.Mail;
+using Moshtar.Application.Maps;
+using Moshtar.Infrastructure.Maps;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Availability;
@@ -15,7 +17,8 @@ using Moshtar.Infrastructure.Persistence;
 namespace Moshtar.Infrastructure.Reservations;
 
 internal sealed class ReservationService(
-    AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<ReservationService> logger) : IReservationService
+    AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IMapService maps,
+    ILogger<ReservationService> logger) : IReservationService
 {
     private static readonly ReservationStatus[] OccupyingStatuses =
         [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned];
@@ -31,6 +34,9 @@ internal sealed class ReservationService(
     {
         Validate(request);
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
+        var deliveryAddress = request.DeliveryMethod == DeliveryMethod.Delivery ? request.DeliveryAddress ?? request.Customer.Address : null;
+        // Voor de lock: de kaartdienst kan even op zich laten wachten, en andere reservaties moeten daar niet op wachten.
+        var deliveryPoint = deliveryAddress is null ? null : await maps.TryFindAsync(deliveryAddress, logger, ct);
 
         await using var tx = await db.Database.BeginTransactionAsync(ct);
         // Reservaties per tenant na elkaar afhandelen, tot het einde van de transactie.
@@ -50,7 +56,8 @@ internal sealed class ReservationService(
             EndDate = request.Period.End,
             Status = ReservationStatus.Confirmed,
             DeliveryMethod = request.DeliveryMethod,
-            DeliveryAddress = request.DeliveryMethod == DeliveryMethod.Delivery ? request.DeliveryAddress ?? request.Customer.Address : null,
+            DeliveryAddress = deliveryAddress,
+            DeliveryPoint = deliveryPoint,
             Notes = request.Notes,
             Culture = request.Culture,
             CreatedAtUtc = clock.GetUtcNow().UtcDateTime,

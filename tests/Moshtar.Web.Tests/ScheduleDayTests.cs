@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Maps;
 using Moshtar.Application.Reservations;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
@@ -83,7 +84,8 @@ public sealed class ScheduleDayTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("2 × Springkussen", stop);
         Assert.Contains("Bellen bij aankomst", stop);
         Assert.Contains("Bevestigd", stop);
-        Assert.Contains("href=\"https://waze.com/ul?q=Lange%20Leemstraat%2012%2C%202018%20Antwerpen&navigate=yes\"", stop.Replace("&amp;", "&"));
+        var point = await app.Services.GetRequiredService<IMapService>().FindAsync(reservation.DeliveryAddress!);
+        Assert.Contains($"href=\"https://waze.com/ul?ll={point}&navigate=yes\"", stop.Replace("&amp;", "&"));
         Assert.Contains("Navigeer", stop);
     }
 
