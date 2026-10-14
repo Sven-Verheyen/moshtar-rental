@@ -105,6 +105,36 @@ _Avoid_: onderhoud, uitsluiting
 Een dag voor of na een huurperiode waarop het exemplaar nog niet vrij is, voor levering, opbouw of poetsen.
 _Avoid_: marge, wachttijd
 
+## Planning en leveringen
+
+**Planning** (`Schedule`):
+Het overzicht per dag, week of maand van de leveringen en ophalingen van een verhuurder.
+_Avoid_: kalender, agenda, rooster
+
+**Levering** (`Delivery`):
+Het brengen en opbouwen van de artikelen van een reservatie op het leveradres, op de begindag van de huurperiode.
+_Avoid_: vertrek, afzetten
+
+**Ophaling** (`Collection`):
+Het afbouwen en terughalen van de artikelen van een reservatie, op de einddag van de huurperiode.
+_Avoid_: terugkomst, afhalen, retour
+
+**Afhalen** (`Pickup`):
+Een klant die de artikelen zelf komt halen en terugbrengt, als de verhuurder dat aanbiedt. Afhalen is nooit een ophaling.
+_Avoid_: ophalen, zelf ophalen
+
+**Ronde** (`Round`):
+De leveringen of de ophalingen van één dag die één bestelwagen na elkaar rijdt, vanaf en terug naar het adres van de verhuurder, met een vertrekuur. Elke dag heeft een leverronde en een ophaalronde.
+_Avoid_: route, rit, toer
+
+**Verwacht tijdsvenster** (`ExpectedWindow`):
+Het tijdsvak waarin de verhuurder verwacht bij een klant aan te komen voor een levering of ophaling, zoals "tussen 9u30 en 10u30", zoals hij het de klant meedeelt.
+_Avoid_: leveruur, aankomsttijd, ETA
+
+**Leverlijst** (`DeliverySheet`):
+Het printblad van één ronde: de leveringen of ophalingen in volgorde, met hun verwacht uur, adres, klant en artikelen, en bovenaan hoeveel van elk artikel mee moet.
+_Avoid_: rittenblad, routeblad, pakbon
+
 ## Communicatie
 
 **Mailsjabloon** (`MailTemplate`):
