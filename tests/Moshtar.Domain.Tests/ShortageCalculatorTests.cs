@@ -1,5 +1,6 @@
 using Moshtar.Domain.Availability;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Reservations;
 
 namespace Moshtar.Domain.Tests;
 
@@ -52,6 +53,21 @@ public class ShortageCalculatorTests
 
         var shortage = Assert.Single(shortages);
         Assert.Equal((June(8), 1, 2), (shortage.Day, shortage.Rentable, shortage.Reserved));
+    }
+
+    [Fact]
+    public void A_blockout_without_end_date_gives_a_shortage_for_every_reservation_from_its_start()
+    {
+        var broken = new Blockout { RentalItemId = Castle, Quantity = 1, StartDate = June(10), EndDate = null };
+
+        var shortages = ShortageCalculator.Find(
+            new Dictionary<Guid, int> { [Castle] = 1 },
+            [new(First, new(Castle, 1, Days(6, 6))), new(Second, new(Castle, 1, new DateRange(new(2031, 6, 1), new(2031, 6, 1))))],
+            [broken.Demand], Today);
+
+        var shortage = Assert.Single(shortages);
+        Assert.Equal((new DateOnly(2031, 6, 1), 0, 1), (shortage.Day, shortage.Rentable, shortage.Reserved));
+        Assert.Equal([Second], shortage.ReservationIds);
     }
 
     [Fact]

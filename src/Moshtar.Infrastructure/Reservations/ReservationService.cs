@@ -171,14 +171,14 @@ internal sealed class ReservationService(
             .Where(r => OccupyingStatuses.Contains(r.Status) && r.StartDate <= windowEnd && r.EndDate >= windowStart)
             .ToListAsync(ct);
         var blockouts = await db.Blockouts.AsNoTracking()
-            .Where(b => b.StartDate <= period.End.AddDays(after) && b.EndDate >= period.Start.AddDays(-before))
+            .Where(b => b.StartDate <= period.End.AddDays(after) && (b.EndDate == null || b.EndDate >= period.Start.AddDays(-before)))
             .ToListAsync(ct);
 
         var bundleIds = existing.SelectMany(r => r.Lines).Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
         var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
 
         var reserved = existing.SelectMany(r => DemandExpander.Expand(r.Lines, r.Period, bundles)).ToList();
-        var blocked = blockouts.Select(b => new StockDemand(b.RentalItemId, b.Quantity, new DateRange(b.StartDate, b.EndDate))).ToList();
+        var blocked = blockouts.Select(b => b.Demand).ToList();
         return (reserved, blocked);
     }
 

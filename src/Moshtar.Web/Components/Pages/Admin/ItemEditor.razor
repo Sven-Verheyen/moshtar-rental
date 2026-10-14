@@ -109,6 +109,11 @@
 
         <Problems Items="_problems" />
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="SaveAsync">@(Id is null ? "Aanmaken" : "Opslaan")</MudButton>
+
+        @if (Id is { } blockedItem)
+        {
+            <div class="mt-6"><BlockoutsEditor RentalItemId="blockedItem" /></div>
+        }
     }
 </AdminShell>
 

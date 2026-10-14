@@ -63,7 +63,8 @@ tests/
 
 - **Beschikbaarheid**: per dag wordt de voorraad vergeleken met bevestigde reservaties en blokkeringen.
   Pakketten worden opengeklapt naar hun artikelen, en de bufferdagen van de tenant (leveren, poetsen)
-  worden rond elke verhuur gelegd. Zie `AvailabilityCalculator`. Tekorten (dagen vanaf vandaag met meer gereserveerd
+  worden rond elke verhuur gelegd, niet rond blokkeringen. Een blokkering zonder einddatum telt voor alle dagen vanaf
+  haar begindatum (`Blockout.Period`). Zie `AvailabilityCalculator`. Tekorten (dagen vanaf vandaag met meer gereserveerd
   dan verhuurbaar) worden op dezelfde manier berekend, niet bewaard. Zie `ShortageCalculator` en `ShortageQuery`.
 - **Geen dubbele reservaties**: reservaties per tenant worden binnen een transactie met een
   PostgreSQL advisory lock na elkaar afgehandeld. Zie `ReservationService`.
