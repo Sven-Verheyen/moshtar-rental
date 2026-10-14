@@ -30,7 +30,7 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
                 return new CatalogEntry(i.Id, CatalogEntryKind.Item, i.Slug, t?.Name ?? i.Slug, description,
                     i.CategoryId, i.CategoryId is { } categoryId ? categoryNames.GetValueOrDefault(categoryId) : null,
                     i.Pricing.DayPrice, i.Pricing.ExtraDayPrice,
-                    i.Images.OrderBy(x => x.SortOrder).Select(x => x.Url).ToList(), [],
+                    PhotoAlbum.Keys(i.Photos), [],
                     new ItemSpecs(i.LengthCm, i.WidthCm, i.HeightCm, i.MinAge, i.MaxAge, i.MaxPersons, i.RequiresPower),
                     InStock: i.Stock > 0);
             })
@@ -41,7 +41,7 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
                 // Een pakket heeft geen eigen foto's: dan die van de artikelen erin. Het is te huren als elk artikel
                 // erin actief is en genoeg exemplaren heeft.
                 var images = b.Items.SelectMany(x => itemsById.TryGetValue(x.RentalItemId, out var item)
-                    ? item.Images.OrderBy(image => image.SortOrder).Select(image => image.Url) : []).ToList();
+                    ? PhotoAlbum.Keys(item.Photos) : []).ToList();
                 var inStock = b.Items.All(x => itemsById.TryGetValue(x.RentalItemId, out var item) && item.Stock >= x.Quantity);
                 return new CatalogEntry(b.Id, CatalogEntryKind.Bundle, b.Slug, t?.Name ?? b.Slug, t?.Description,
                     null, null, b.Pricing.DayPrice, b.Pricing.ExtraDayPrice, images, contents, InStock: inStock,

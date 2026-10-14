@@ -5,9 +5,9 @@
     var href = Links.Href(new RentalRoute(Entry.Slug)) + Chosen.Query;
 }
 <article class="catalog-card @(Unavailable ? "unavailable" : null)">
-    @if (Entry.ImageUrl is not null)
+    @if (Entry.MainPhoto is { } photo)
     {
-        <img src="@Entry.ImageUrl" alt="@Entry.Name" loading="lazy" width="640" height="480" />
+        <SitePhoto Key="@photo" Alt="@Entry.Name" Sizes="@SitePhotos.CardSizes" />
     }
     else
     {

@@ -54,6 +54,16 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Hoeveel afbeeldingen deze verhuurder in de lokale afbeeldingenopslag heeft, om te zien dat er niets achterblijft
+    /// van een geweigerde upload of een verwijderd artikel (een sleutel om naar te vragen is er dan niet).
+    /// </summary>
+    public int StoredImageCount(Guid tenantId)
+    {
+        var folder = Path.Combine(_imageFolder, tenantId.ToString("N"));
+        return Directory.Exists(folder) ? Directory.GetDirectories(folder).Length : 0;
+    }
+
     /// <summary>Een extra verhuurder voor tests die een eigen, lege verhuurder nodig hebben.</summary>
     public async Task CreateTenantAsync(string slug, string host)
     {

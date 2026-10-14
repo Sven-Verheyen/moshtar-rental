@@ -32,7 +32,8 @@ public sealed record RentalItemSummary(
     IReadOnlyList<string> MissingTranslations);
 
 /// <summary>Een artikel zoals de beheerder het wijzigt.</summary>
-public sealed record RentalItemDetails(Guid Id, bool IsActive, RentalItemInput Input)
+/// <param name="Photos">De sleutels van de foto's in de afbeeldingenopslag, de hoofdfoto eerst.</param>
+public sealed record RentalItemDetails(Guid Id, bool IsActive, RentalItemInput Input, IReadOnlyList<string> Photos)
 {
     public string Slug => Input.Slug ?? "";
 }
@@ -79,7 +80,19 @@ public interface IRentalItemAdministration
     Task SetActiveAsync(Guid itemId, bool isActive, CancellationToken ct = default);
 
     /// <summary>
-    /// Verwijdert een artikel, maar alleen als geen reservatie (ook niet via een pakket), pakket of winkelkar ernaar
+    /// Uploadt een of meer foto's en zet ze achteraan, tot <see cref="Domain.Catalog.Photo.Max"/> per artikel. Alles of
+    /// niets: is er een te veel of is een bestand geen bruikbare afbeelding, dan wordt er geen enkele bewaard.
+    /// </summary>
+    Task AddPhotosAsync(Guid itemId, IReadOnlyList<PhotoUpload> photos, CancellationToken ct = default);
+
+    /// <summary>Zet de foto's in deze volgorde, de hoofdfoto eerst; de lijst bevat elke sleutel precies één keer.</summary>
+    Task ReorderPhotosAsync(Guid itemId, IReadOnlyList<string> keys, CancellationToken ct = default);
+
+    /// <summary>Verwijdert een foto van het artikel, ook uit de afbeeldingenopslag.</summary>
+    Task DeletePhotoAsync(Guid itemId, string key, CancellationToken ct = default);
+
+    /// <summary>
+    /// Verwijdert een artikel (met zijn foto's), maar alleen als geen reservatie (ook niet via een pakket), pakket of winkelkar ernaar
     /// verwijst. Anders een <see cref="RentalItemException"/> die uitzetten voorstelt.
     /// </summary>
     Task DeleteAsync(Guid itemId, CancellationToken ct = default);

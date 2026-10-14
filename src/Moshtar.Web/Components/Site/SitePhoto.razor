@@ -1,0 +1,19 @@
+@inject IImageStore Images
+
+@* Een foto uit de afbeeldingenopslag in de breedte die past bij het scherm (zie SitePhotos). Hoogte en breedte zeggen
+   de verhouding 4:3, zodat de pagina niet verspringt; site.css snijdt de foto zo bij. *@
+<img src="@Images.PublicUrl(Key, SitePhotos.FallbackWidth)" srcset="@Images.SrcSet(Key)" sizes="@Sizes" alt="@Alt"
+     width="800" height="600" loading="@(Eager ? "eager" : "lazy")" fetchpriority="@(Eager ? "high" : null)" />
+
+@code {
+    /// <summary>De sleutel van de foto in de afbeeldingenopslag.</summary>
+    [Parameter, EditorRequired] public string Key { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Alt { get; set; } = "";
+
+    /// <summary>Hoe breed de foto getoond wordt, een van de waarden uit <see cref="SitePhotos"/>.</summary>
+    [Parameter, EditorRequired] public string Sizes { get; set; } = "";
+
+    /// <summary>Meteen laden, voor de grootste foto bovenaan de pagina; anders pas als hij in beeld komt.</summary>
+    [Parameter] public bool Eager { get; set; }
+}

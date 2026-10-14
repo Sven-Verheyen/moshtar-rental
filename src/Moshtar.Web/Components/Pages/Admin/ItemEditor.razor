@@ -97,11 +97,19 @@
         </MudPaper>
 
         <Problems Items="_problems" />
-        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="SaveAsync">@(Id is null ? "Aanmaken" : "Opslaan")</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3 mb-4" OnClick="SaveAsync">@(Id is null ? "Aanmaken" : "Opslaan")</MudButton>
 
-        @if (Id is { } blockedItem)
+        @if (Id is { } id)
         {
-            <div class="mt-6"><BlockoutsEditor RentalItemId="blockedItem" /></div>
+            <PhotoEditor Photos="_photos" Name="@_name"
+                         Upload="uploads => PhotosAsync(() => Admin.AddPhotosAsync(id, uploads))"
+                         Reorder="keys => PhotosAsync(() => Admin.ReorderPhotosAsync(id, keys))"
+                         Delete="key => PhotosAsync(() => Admin.DeletePhotoAsync(id, key))" />
+            <div class="mt-6"><BlockoutsEditor RentalItemId="id" /></div>
+        }
+        else
+        {
+            <MudText Typo="Typo.body2">Foto's en blokkeringen voeg je toe zodra het artikel aangemaakt is.</MudText>
         }
     }
 </AdminShell>
@@ -134,6 +142,8 @@
     private IReadOnlyList<CategoryDetails> _categories = [];
     private IReadOnlyList<string>? _problems;
     private IReadOnlyList<Shortage>? _shortages;
+    private IReadOnlyList<string> _photos = [];
+    private string _name = "";
 
     private string Title => Id is null ? "Nieuw artikel" : "Artikel wijzigen";
     private IReadOnlyList<string> Cultures => TenantContext.Tenant?.Cultures ?? [];
@@ -150,6 +160,7 @@
             {
                 _isActive = item.IsActive;
                 _draft = ToDraft(item.Input);
+                ShowPhotos(item);
             }
         }
         else
@@ -181,6 +192,28 @@
         new ItemSpecs(d.LengthCm, d.WidthCm, d.HeightCm, d.MinAge, d.MaxAge, d.MaxPersons, d.RequiresPower),
         d.Slug);
 
+    private void ShowPhotos(RentalItemDetails item)
+    {
+        _photos = item.Photos;
+        _name = item.Input.Texts.FirstOrDefault(t => t.Culture == DefaultCulture)?.Name ?? item.Slug;
+    }
+
+    /// <summary>Een wijziging aan de foto's, daarna de foto's opnieuw; geeft terug wat er mis is.</summary>
+    private async Task<IReadOnlyList<string>> PhotosAsync(Func<Task> change)
+    {
+        IReadOnlyList<string> problems = [];
+        try
+        {
+            await change();
+        }
+        catch (RentalItemException e)
+        {
+            problems = e.Problems;
+        }
+        if (Id is { } id && await Admin.GetAsync(id) is { } item) ShowPhotos(item);
+        return problems;
+    }
+
     private async Task SaveAsync()
     {
         if (_draft is null) return;
@@ -190,7 +223,11 @@
             {
                 _shortages = await Admin.SaveAsync(id, ToInput(_draft));
                 _problems = null;
-                if (await Admin.GetAsync(id) is { } saved) _draft = ToDraft(saved.Input);
+                if (await Admin.GetAsync(id) is { } saved)
+                {
+                    _draft = ToDraft(saved.Input);
+                    ShowPhotos(saved);
+                }
                 Snackbar.Add("Artikel bewaard.", _shortages.Count > 0 ? Severity.Warning : Severity.Success);
             }
             else

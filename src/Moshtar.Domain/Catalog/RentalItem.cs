@@ -26,11 +26,7 @@ public class RentalItem : TenantEntity
     public bool RequiresPower { get; set; }
 
     public List<Translation> Translations { get; set; } = [];
-    public List<ItemImage> Images { get; set; } = [];
-}
 
-public class ItemImage
-{
-    public string Url { get; set; } = "";
-    public int SortOrder { get; set; }
+    /// <summary>De foto's, de hoofdfoto eerst (zie <see cref="Photo"/>).</summary>
+    public List<Photo> Photos { get; set; } = [];
 }

@@ -21,7 +21,7 @@ public record CatalogEntry(
     string? Category,
     decimal DayPrice,
     decimal? ExtraDayPrice,
-    IReadOnlyList<string> Images,
+    IReadOnlyList<string> Photos,
     IReadOnlyList<string> Contents,
     ItemSpecs? Specs = null,
     bool InStock = true,
@@ -30,8 +30,8 @@ public record CatalogEntry(
     /// <summary>De artikelen in een pakket; leeg voor een los artikel.</summary>
     public IReadOnlyList<Guid> ItemIds => BundleItemIds ?? [];
 
-    /// <summary>De eerste foto, voor de kaart in een lijst.</summary>
-    public string? ImageUrl => Images.Count > 0 ? Images[0] : null;
+    /// <summary>De hoofdfoto, voor de kaart in een lijst.</summary>
+    public string? MainPhoto => Photos.Count > 0 ? Photos[0] : null;
 
     /// <summary>De prijs voor een huurperiode van zoveel dagen, met de bestaande prijsberekening.</summary>
     public decimal PriceFor(int days) => new Pricing { DayPrice = DayPrice, ExtraDayPrice = ExtraDayPrice }.PriceFor(days);
