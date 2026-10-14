@@ -161,8 +161,6 @@
 }
 
 @code {
-    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
-
     [Parameter, EditorRequired] public IReadOnlyList<ScheduleStop> Stops { get; set; } = [];
 
     /// <summary>De tekst als de ronde leeg is.</summary>
@@ -261,5 +259,5 @@
         _ => s.ToString(),
     };
 
-    private static string Local(DateTimeOffset at) => TimeZoneInfo.ConvertTime(at, BelgianTime).ToString("dd/MM HH:mm");
+    private static string Local(DateTimeOffset at) => Belgium.Local(at).ToString("dd/MM HH:mm");
 }

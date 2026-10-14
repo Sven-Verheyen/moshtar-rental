@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.TestHost;
 using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -107,6 +108,30 @@ public sealed class DeliverySheetTests(MoshtarApp app) : IClassFixture<MoshtarAp
         Assert.Contains("leverlijst-check", stop);
         Assert.Equal(new Dictionary<string, int> { ["Ophaalkussen"] = 2 }, LoadingList(sheet));
         Assert.DoesNotContain("href=\"admin/reservaties\"", sheet);
+    }
+
+    [Fact]
+    public async Task Without_a_day_the_sheet_is_for_today_in_belgium()
+    {
+        // 23u30 UTC is al de volgende dag in België.
+        var now = new DateTimeOffset(2026, 11, 10, 23, 30, 0, TimeSpan.Zero);
+        await using var later = app.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<TimeProvider>(new FixedClock(now))));
+        await app.CreateUserAsync("hopsakee", "leverlijst-vandaag@hopsakee.test", UserRole.Staff);
+        var client = later.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        {
+            BaseAddress = new Uri($"http://{MoshtarApp.HopsakeeHost}"), AllowAutoRedirect = false,
+        });
+        await BackOffice.LoginAsync(client, "leverlijst-vandaag@hopsakee.test", MoshtarApp.Password);
+
+        var response = await client.GetAsync("/admin/planning/leverlijst?ronde=levering");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("woensdag 11 november 2026", WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()));
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     /// <summary>Het verwacht tijdsvenster bij een stop, het eerste data-window na haar nummer.</summary>

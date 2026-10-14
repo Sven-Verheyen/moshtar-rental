@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Carts;
 using Moshtar.Application.Catalog;
@@ -76,6 +77,8 @@ public static class DependencyInjection
 
         var maps = configuration.GetSection("Maps");
         services.Configure<MapOptions>(maps);
+        services.AddSingleton(sp => new BrowserMap(
+            sp.GetRequiredService<IOptions<MapOptions>>().Value.AzureMapsBrowserKey is { } key && !string.IsNullOrWhiteSpace(key) ? key : null));
         if (useAzureMaps && !string.IsNullOrWhiteSpace(maps[nameof(MapOptions.AzureMapsKey)]))
             // Kort geduld: een adres opzoeken gebeurt terwijl een klant op zijn reservatie wacht.
             services.AddHttpClient<IMapService, AzureMapService>(c =>

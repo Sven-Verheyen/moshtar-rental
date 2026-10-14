@@ -12,8 +12,11 @@ public sealed record RoundTimesStop(TimeSpan Travel, TimeSpan Handling, TimeOnly
 /// </summary>
 public sealed record StopTimes(TimeOnly Arrival, ExpectedWindow Window, bool Late);
 
-/// <summary>De uren van een ronde: per stop, in volgorde, en wanneer de bestelwagen terug is.</summary>
-public sealed record RoundTimesResult(IReadOnlyList<StopTimes> Stops, TimeOnly Return);
+/// <summary>
+/// De uren van een ronde: per stop, in volgorde, en wanneer de bestelwagen terug is. <see cref="PastMidnight"/>: de
+/// ronde loopt over middernacht; de uren na middernacht zijn dan uren van de volgende dag.
+/// </summary>
+public sealed record RoundTimesResult(IReadOnlyList<StopTimes> Stops, TimeOnly Return, bool PastMidnight = false);
 
 /// <summary>
 /// Het verwacht tijdsvenster: het tijdsvak waarin de verhuurder verwacht bij de klant aan te komen,
@@ -52,21 +55,25 @@ public static class RoundTimes
     /// </summary>
     public static RoundTimesResult Calculate(TimeOnly departure, IReadOnlyList<RoundTimesStop> stops, TimeSpan returnTravel, int windowMinutes)
     {
-        var clock = departure;
+        // Gerekend vanaf middernacht van de dag zelf, zodat een uur na middernacht niet terug naar 0u00 springt.
+        var clock = departure.ToTimeSpan();
         var result = new List<StopTimes>(stops.Count);
         foreach (var stop in stops)
         {
-            var arrival = clock.Add(stop.Travel);
+            var arrival = clock + stop.Travel;
             var late = false;
             if (stop.FixedTime is { } fixedTime)
             {
-                if (arrival < fixedTime) arrival = fixedTime;
-                else late = arrival > fixedTime;
+                var fixedAt = fixedTime.ToTimeSpan();
+                if (arrival < fixedAt) arrival = fixedAt;
+                else late = arrival > fixedAt;
             }
-            result.Add(new StopTimes(arrival, Window(arrival, windowMinutes), late));
-            clock = arrival.Add(stop.Handling);
+            var arrivalTime = TimeOnly.FromTimeSpan(OfDay(arrival));
+            result.Add(new StopTimes(arrivalTime, Window(arrivalTime, windowMinutes), late));
+            clock = arrival + stop.Handling;
         }
-        return new RoundTimesResult(result, clock.Add(returnTravel));
+        var back = clock + returnTravel;
+        return new RoundTimesResult(result, TimeOnly.FromTimeSpan(OfDay(back)), PastMidnight: back >= TimeSpan.FromDays(1));
     }
 
     /// <summary>Het venster rond een aankomst, beginnend op het dichtstbije halve uur (bij gelijke afstand het latere).</summary>
@@ -76,6 +83,8 @@ public static class RoundTimes
         var start = (int)Math.Floor((centredStart + 15) / 30.0) * 30;
         return new ExpectedWindow(MinutesOfDay(start), MinutesOfDay(start + windowMinutes));
     }
+
+    private static TimeSpan OfDay(TimeSpan time) => TimeSpan.FromTicks(time.Ticks % TimeSpan.TicksPerDay);
 
     private static TimeOnly MinutesOfDay(int minutes) => TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(((minutes % 1440) + 1440) % 1440));
 }

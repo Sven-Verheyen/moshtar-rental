@@ -28,6 +28,12 @@ public class Round : TenantEntity
     /// <summary>Wanneer de bestelwagen terug is, berekend.</summary>
     public TimeOnly Return { get; set; }
 
+    /// <summary>
+    /// Loopt de ronde over middernacht? Dan valt de terugkeer (op de klok) voor het vertrek; een ronde duurt nooit
+    /// een hele dag.
+    /// </summary>
+    public bool PastMidnight => Return < Departure;
+
     /// <summary>De stops, in de volgorde van <see cref="RoundStop.Position"/>.</summary>
     public List<RoundStop> Stops { get; set; } = [];
 
