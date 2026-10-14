@@ -125,6 +125,10 @@ _Avoid_: overboeking, conflict, dubbele reservatie
 Een ander artikel uit dezelfde categorie dat vrij is in de huurperiode van een reservatie met een tekort, en dat de verhuurder de klant voorstelt in plaats van het artikel dat niet verhuurbaar is.
 _Avoid_: vervanger, suggestie
 
+**Meerprijs** (`Surcharge`):
+Wat een klant extra betaalt als hij een duurder alternatief kiest. De verhuurder beslist per alternatief of er een meerprijs is; standaard is er geen. De meerprijs komt bovenop de reservatie, de prijs van een pakket blijft dezelfde.
+_Avoid_: supplement, toeslag, prijsverschil
+
 **Bufferdag** (`BufferDays`):
 Een dag voor of na een huurperiode waarop het exemplaar nog niet vrij is, voor levering, opbouw of poetsen.
 _Avoid_: marge, wachttijd
