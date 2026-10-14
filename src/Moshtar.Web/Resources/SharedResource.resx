@@ -128,6 +128,8 @@
   <data name="CartReserveShortage" xml:space="preserve"><value>Net niet meer vrij op deze datum: {0}. Verwijder het uit je winkelkar of kies een andere datum; je gegevens blijven staan.</value></data>
   <data name="CartGone" xml:space="preserve"><value>Je winkelkar is leeg of verlopen. Kies opnieuw wat je wil huren.</value></data>
   <data name="CartNoEmail" xml:space="preserve"><value>Vul eerst je e-mailadres in.</value></data>
+  <data name="CartPhoneRequired" xml:space="preserve"><value>Vul je telefoonnummer in, zodat we je kunnen bereiken over je reservatie.</value></data>
+  <data name="CartPhoneInvalid" xml:space="preserve"><value>Dit is geen geldig telefoonnummer. Vul het in zoals 0470 12 34 56 of +32 470 12 34 56.</value></data>
   <data name="CartHasGoneItems" xml:space="preserve"><value>Iets in je winkelkar is niet meer te huren. Verwijder het en reserveer dan.</value></data>
   <data name="CartCannotReserve" xml:space="preserve"><value>Deze reservatie kan niet. Kijk de huurperiode na of neem contact met ons op.</value></data>
   <data name="ReservationThanks" xml:space="preserve"><value>Bedankt voor je reservatie</value></data>

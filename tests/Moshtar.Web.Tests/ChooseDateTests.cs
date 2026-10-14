@@ -328,7 +328,7 @@ public sealed class ChooseDateTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
             new DateRange(day, day),
             [new ReservationLineRequest(itemId, null, 1)],
-            new ReservationCustomer("Test", "Klant", "klant@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+            new ReservationCustomer("Test", "Klant", "klant@example.test", "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
             DeliveryMethod.Pickup, null, null, "nl"), ReservationActor.Website);
         Assert.True(result.Succeeded);
     }

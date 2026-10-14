@@ -35,6 +35,39 @@ public sealed class ManualReservationTests(MoshtarApp app) : IClassFixture<Mosht
         Assert.Equal((ReservationEventKind.Created, email), (created.Kind, created.UserEmail));
     }
 
+    [Theory]
+    [InlineData("0470 12 34 56", "+32470123456")]
+    [InlineData("0031 6 12345678", "+31612345678")]
+    public async Task The_phone_number_is_kept_in_international_format(string phone, string expected)
+    {
+        var user = await app.CreateUserAsync("hopsakee", $"nummer-{expected.TrimStart('+')}@hopsakee.test", UserRole.Staff);
+        var (item, _) = await CreateItemAndBundleAsync($"nummer{expected.TrimStart('+')}", stock: 1);
+
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(
+            RequestWithPhone(TestReservations.FutureDay(251), phone, new ReservationLineRequest(item, null, 1)), ReservationActor.User(user.Id));
+
+        Assert.Equal(expected, Assert.IsType<Reservation>(result.Reservation).Customer!.Phone);
+    }
+
+    [Theory]
+    [InlineData(null, "Het telefoonnummer is verplicht.")]
+    [InlineData(" ", "Het telefoonnummer is verplicht.")]
+    [InlineData("0470 12", "Dit is geen geldig telefoonnummer, bv. 0470 12 34 56 of +32 470 12 34 56.")]
+    public async Task A_reservation_without_a_valid_phone_number_is_refused(string? phone, string message)
+    {
+        var user = await app.CreateUserAsync("hopsakee", $"zonder-nummer-{phone?.Length}@hopsakee.test", UserRole.Staff);
+        var (item, _) = await CreateItemAndBundleAsync($"zonder-nummer-{phone?.Length}", stock: 1);
+
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var refused = await Assert.ThrowsAsync<ArgumentException>(() => scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(
+            RequestWithPhone(TestReservations.FutureDay(252), phone, new ReservationLineRequest(item, null, 1)), ReservationActor.User(user.Id)));
+
+        Assert.Equal(message, refused.Message);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.False(db.Reservations.Any(r => r.Lines.Any(l => l.RentalItemId == item)));
+    }
+
     [Fact]
     public async Task Too_little_stock_is_refused_naming_the_item_and_the_day()
     {
@@ -99,10 +132,12 @@ public sealed class ManualReservationTests(MoshtarApp app) : IClassFixture<Mosht
             Request(TestReservations.FutureDay(268), new ReservationLineRequest(item, null, 1)), ReservationActor.User(userId));
     }
 
-    private static ReservationRequest Request(DateOnly day, params ReservationLineRequest[] lines) => new(
+    private static ReservationRequest Request(DateOnly day, params ReservationLineRequest[] lines) => RequestWithPhone(day, "0470 12 34 56", lines);
+
+    private static ReservationRequest RequestWithPhone(DateOnly day, string? phone, params ReservationLineRequest[] lines) => new(
         new DateRange(day, day),
         lines,
-        new ReservationCustomer("Telefonische", "Klant", "telefoon@example.test", "0470 12 34 56", new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" }),
+        new ReservationCustomer("Telefonische", "Klant", "telefoon@example.test", phone, new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" }),
         DeliveryMethod.Delivery, null, null, "nl");
 
     /// <summary>Een artikel met de gegeven voorraad en een pakket met één exemplaar van een ander artikel.</summary>

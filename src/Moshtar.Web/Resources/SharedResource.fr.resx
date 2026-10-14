@@ -128,6 +128,8 @@
   <data name="CartReserveShortage" xml:space="preserve"><value>Plus disponible à cette date : {0}. Retirez-le de votre panier ou choisissez une autre date ; vos données restent remplies.</value></data>
   <data name="CartGone" xml:space="preserve"><value>Votre panier est vide ou a expiré. Choisissez à nouveau ce que vous voulez louer.</value></data>
   <data name="CartNoEmail" xml:space="preserve"><value>Indiquez d'abord votre adresse e-mail.</value></data>
+  <data name="CartPhoneRequired" xml:space="preserve"><value>Indiquez votre numéro de téléphone, pour que nous puissions vous joindre au sujet de votre réservation.</value></data>
+  <data name="CartPhoneInvalid" xml:space="preserve"><value>Ce n'est pas un numéro de téléphone valide. Indiquez-le comme 0470 12 34 56 ou +32 470 12 34 56.</value></data>
   <data name="CartHasGoneItems" xml:space="preserve"><value>Un article de votre panier n'est plus disponible à la location. Retirez-le, puis réservez.</value></data>
   <data name="CartCannotReserve" xml:space="preserve"><value>Cette réservation n'est pas possible. Vérifiez la période de location ou contactez-nous.</value></data>
   <data name="ReservationThanks" xml:space="preserve"><value>Merci pour votre réservation</value></data>
