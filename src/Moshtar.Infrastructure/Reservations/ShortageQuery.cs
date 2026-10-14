@@ -34,8 +34,9 @@ internal sealed class ShortageQuery(AppDbContext db, ITenantContext tenantContex
 
         var itemIds = reserved.Select(r => r.Demand.RentalItemId).Distinct().ToList();
         var stock = await db.RentalItems.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id, i => i.Stock, ct);
-        var blocked = (await db.Blockouts.AsNoTracking().Where(b => itemIds.Contains(b.RentalItemId) && b.EndDate >= today).ToListAsync(ct))
-            .Select(b => new StockDemand(b.RentalItemId, b.Quantity, new DateRange(b.StartDate, b.EndDate)));
+        var blocked = (await db.Blockouts.AsNoTracking()
+                .Where(b => itemIds.Contains(b.RentalItemId) && (b.EndDate == null || b.EndDate >= today)).ToListAsync(ct))
+            .Select(b => b.Demand);
 
         return ShortageCalculator.Find(stock, reserved, blocked, today, tenant.BufferDaysBefore, tenant.BufferDaysAfter);
     }

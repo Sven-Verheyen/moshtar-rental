@@ -1,0 +1,197 @@
+@using Moshtar.Domain.Availability
+@inject IBlockoutAdministration Admin
+@inject IRentalItemAdministration ItemAdmin
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@* De lopende blokkeringen van één artikel (op het artikelscherm) of van alle artikelen (scherm Blokkeringen), met een formulier om ze in te geven. *@
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.h6" Class="mb-2">Blokkeringen</MudText>
+    <MudText Typo="Typo.body2" Class="mb-2">
+        Een geblokkeerd exemplaar is niet verhuurbaar, bv. omdat het kapot is. Zonder einddatum blijft het geblokkeerd tot je
+        er een invult. Is een exemplaar definitief weg, verlaag dan de voorraad.
+    </MudText>
+
+    <ShortageWarning Shortages="_shortages" ItemName="@_shortageItem" />
+
+    @if (_blockouts is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_blockouts.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Class="mb-2">Er zijn geen lopende blokkeringen.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Class="mb-4">
+            <thead>
+                <tr>
+                    @if (RentalItemId is null) { <th>Artikel</th> }
+                    <th>Aantal</th>
+                    <th>Periode</th>
+                    <th>Reden</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var blockout in _blockouts)
+                {
+                    <tr>
+                        @if (RentalItemId is null) { <td><MudLink Href="@($"admin/artikelen/{blockout.Input.RentalItemId}")">@blockout.RentalItemName</MudLink></td> }
+                        <td>@blockout.Input.Quantity</td>
+                        <td>@PeriodText(blockout.Input)</td>
+                        <td>@blockout.Input.Reason</td>
+                        <td style="white-space: nowrap">
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" aria-label="Wijzigen" OnClick="() => Edit(blockout)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Verwijderen" OnClick="() => DeleteAsync(blockout)" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+
+    <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editing is null ? "Nieuwe blokkering" : "Blokkering wijzigen")</MudText>
+    <MudGrid>
+        @if (RentalItemId is null)
+        {
+            <MudItem xs="12" md="4">
+                <MudSelect T="Guid?" @bind-Value="_draft.RentalItemId" Label="Artikel" Variant="Variant.Outlined">
+                    @foreach (var item in _items)
+                    {
+                        <MudSelectItem T="Guid?" Value="item.Id">@item.Name (voorraad @item.Stock)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        <MudItem xs="12" md="2">
+            <MudNumericField T="int" @bind-Value="_draft.Quantity" Label="Aantal exemplaren" Min="1" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" @bind-Date="_draft.StartDate" Label="Vanaf" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" Clearable="true" @bind-Date="_draft.EndDate" Label="Tot en met" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Leeg: geen einddatum." />
+        </MudItem>
+        <MudItem xs="12">
+            <MudTextField @bind-Value="_draft.Reason" Label="Reden" Variant="Variant.Outlined" MaxLength="200" Placeholder="bv. Gescheurd, in herstelling" />
+        </MudItem>
+    </MudGrid>
+    <Problems Items="_problems" />
+    <MudStack Row="true" Class="mt-3">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">@(_editing is null ? "Blokkeren" : "Opslaan")</MudButton>
+        @if (_editing is not null)
+        {
+            <MudButton Variant="Variant.Text" OnClick="Reset">Annuleren</MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    private sealed class Draft
+    {
+        public Guid? RentalItemId { get; set; }
+        public int Quantity { get; set; } = 1;
+        public DateTime? StartDate { get; set; } = DateTime.Today;
+        public DateTime? EndDate { get; set; }
+        public string? Reason { get; set; }
+    }
+
+    /// <summary>Alleen de blokkeringen van dit artikel, of null voor alle artikelen (dan kiest de beheerder het artikel).</summary>
+    [Parameter] public Guid? RentalItemId { get; set; }
+
+    private IReadOnlyList<BlockoutSummary>? _blockouts;
+    private IReadOnlyList<RentalItemSummary> _items = [];
+    private Draft _draft = new();
+    private Guid? _editing;
+    private IReadOnlyList<string>? _problems;
+    private IReadOnlyList<Shortage>? _shortages;
+    private string? _shortageItem;
+
+    private bool _loaded;
+    private Guid? _loadedFor;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Alleen opnieuw laden voor een ander artikel: een half ingevulde blokkering blijft staan.
+        if (_loaded && _loadedFor == RentalItemId) return;
+        (_loaded, _loadedFor) = (true, RentalItemId);
+        if (RentalItemId is null) _items = (await ItemAdmin.GetAllAsync()).Where(i => i.IsActive).ToList();
+        Reset();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _blockouts = await Admin.GetCurrentAsync(RentalItemId);
+
+    private void Reset()
+    {
+        _editing = null;
+        _draft = new Draft { RentalItemId = RentalItemId };
+        _problems = null;
+    }
+
+    private void Edit(BlockoutSummary blockout)
+    {
+        _editing = blockout.Id;
+        _problems = null;
+        _draft = new Draft
+        {
+            RentalItemId = blockout.Input.RentalItemId,
+            Quantity = blockout.Input.Quantity,
+            StartDate = blockout.Input.StartDate.ToDateTime(TimeOnly.MinValue),
+            EndDate = blockout.Input.EndDate?.ToDateTime(TimeOnly.MinValue),
+            Reason = blockout.Input.Reason,
+        };
+        // Een artikel dat intussen uitgezet is, blijft kiesbaar voor zijn eigen blokkering.
+        if (RentalItemId is null && _items.All(i => i.Id != blockout.Input.RentalItemId))
+            _items = [.. _items, new RentalItemSummary(blockout.Input.RentalItemId, blockout.RentalItemName, "", null, 0, 0, null, false, [])];
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_draft.RentalItemId is not { } itemId) { _problems = ["Kies een artikel."]; return; }
+        if (_draft.StartDate is not { } start) { _problems = ["Vul de begindatum in."]; return; }
+        var input = new BlockoutInput(itemId, _draft.Quantity, DateOnly.FromDateTime(start),
+            _draft.EndDate is { } end ? DateOnly.FromDateTime(end) : null, _draft.Reason);
+        try
+        {
+            var saved = _editing is { } id ? await Admin.SaveAsync(id, input) : await Admin.CreateAsync(input);
+            _shortages = saved.Shortages;
+            _shortageItem = RentalItemId is null ? _items.FirstOrDefault(i => i.Id == itemId)?.Name : null;
+            Snackbar.Add(_editing is null ? "Blokkering bewaard." : "Blokkering gewijzigd.", saved.Shortages.Count > 0 ? Severity.Warning : Severity.Success);
+            Reset();
+            await LoadAsync();
+        }
+        catch (BlockoutException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private async Task DeleteAsync(BlockoutSummary blockout)
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Blokkering verwijderen",
+            $"Wil je deze blokkering van \"{blockout.RentalItemName}\" verwijderen? De exemplaren zijn dan weer verhuurbaar.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        try
+        {
+            await Admin.DeleteAsync(blockout.Id);
+            if (_editing == blockout.Id) Reset();
+            _shortages = null;
+            await LoadAsync();
+            Snackbar.Add("Blokkering verwijderd.", Severity.Success);
+        }
+        catch (BlockoutException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private static string PeriodText(BlockoutInput input) =>
+        input.EndDate is { } end
+            ? $"{input.StartDate:dd/MM/yyyy} t.e.m. {end:dd/MM/yyyy}"
+            : $"vanaf {input.StartDate:dd/MM/yyyy}, geen einddatum";
+}

@@ -66,6 +66,26 @@ public class AvailabilityCalculatorTests
     }
 
     [Fact]
+    public void Blockout_without_end_date_blocks_every_day_from_its_start()
+    {
+        var broken = new Blockout { RentalItemId = Castle, Quantity = 1, StartDate = new DateOnly(2026, 6, 6), EndDate = null };
+
+        Assert.Empty(AvailabilityCalculator.FindShortages(Stock, [], [broken.Demand], [new(Castle, 1, Days(5, 5))]));
+        Assert.NotEmpty(AvailabilityCalculator.FindShortages(Stock, [], [broken.Demand], [new(Castle, 1, Days(6, 6))]));
+        var yearsLater = new DateRange(new DateOnly(2040, 6, 6), new DateOnly(2040, 6, 6));
+        Assert.NotEmpty(AvailabilityCalculator.FindShortages(Stock, [], [broken.Demand], [new(Castle, 1, yearsLater)], 1, 1));
+    }
+
+    [Fact]
+    public void Blockout_with_end_date_frees_the_unit_after_that_day()
+    {
+        var repaired = new Blockout { RentalItemId = Castle, Quantity = 1, StartDate = new DateOnly(2026, 6, 6), EndDate = new DateOnly(2026, 6, 8) };
+
+        Assert.NotEmpty(AvailabilityCalculator.FindShortages(Stock, [], [repaired.Demand], [new(Castle, 1, Days(8, 8))]));
+        Assert.Empty(AvailabilityCalculator.FindShortages(Stock, [], [repaired.Demand], [new(Castle, 1, Days(9, 9))]));
+    }
+
+    [Fact]
     public void Unknown_item_has_no_stock()
     {
         var shortages = AvailabilityCalculator.FindShortages(Stock, [], [], [new(Guid.NewGuid(), 1, Days(6, 6))]);

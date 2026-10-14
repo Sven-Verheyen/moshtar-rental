@@ -149,6 +149,7 @@ internal class BlockoutConfiguration : IEntityTypeConfiguration<Blockout>
     public void Configure(EntityTypeBuilder<Blockout> b)
     {
         b.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Cascade);
+        b.Property(x => x.Reason).HasMaxLength(200);
     }
 }
 

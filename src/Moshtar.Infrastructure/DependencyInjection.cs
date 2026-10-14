@@ -48,6 +48,7 @@ public static class DependencyInjection
         services.AddScoped<ICategoryAdministration, CategoryAdministration>();
         services.AddScoped<IRentalItemAdministration, RentalItemAdministration>();
         services.AddScoped<PhotoAlbum>();
+        services.AddScoped<IBlockoutAdministration, BlockoutAdministration>();
         services.AddScoped<ShortageQuery>();
         services.AddScoped<OldSlugs>();
         services.AddScoped<IOldSlugs>(sp => sp.GetRequiredService<OldSlugs>());

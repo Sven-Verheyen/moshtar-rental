@@ -116,10 +116,11 @@
                          Upload="uploads => PhotosAsync(() => Admin.AddPhotosAsync(id, uploads))"
                          Reorder="keys => PhotosAsync(() => Admin.ReorderPhotosAsync(id, keys))"
                          Delete="key => PhotosAsync(() => Admin.DeletePhotoAsync(id, key))" />
+            <div class="mt-6"><BlockoutsEditor RentalItemId="id" /></div>
         }
         else
         {
-            <MudText Typo="Typo.body2">Foto's voeg je toe zodra het artikel aangemaakt is.</MudText>
+            <MudText Typo="Typo.body2">Foto's en blokkeringen voeg je toe zodra het artikel aangemaakt is.</MudText>
         }
     }
 </AdminShell>
