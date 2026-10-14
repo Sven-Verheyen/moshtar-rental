@@ -7,6 +7,7 @@
 
 <MudLayout>
     <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start" aria-label="Menu" OnClick="() => _menuOpen = !_menuOpen" />
         <MudText Typo="Typo.h6">@TenantContext.Tenant?.Name · Back office</MudText>
         <MudSpacer />
         <AuthorizeView>
@@ -17,8 +18,10 @@
             </form>
         </AuthorizeView>
     </MudAppBar>
-    <MudDrawer Open="true" ClipMode="DrawerClipMode.Always" Elevation="1">
+    @* Op een gsm schuift het menu over de inhoud en gaat het dicht na een keuze. *@
+    <MudDrawer @bind-Open="_menuOpen" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always" Elevation="1">
         <MudNavMenu>
+            <MudNavLink Href="admin/planning" Icon="@Icons.Material.Filled.CalendarToday">Planning</MudNavLink>
             <MudNavLink Href="admin/reservaties" Icon="@Icons.Material.Filled.EventNote">Reservaties</MudNavLink>
             <MudNavLink Href="admin/winkelkarren" Icon="@Icons.Material.Filled.ShoppingCart">Open winkelkarren</MudNavLink>
             <AuthorizeView Roles="@Roles.Administrator">
@@ -43,6 +46,8 @@
 </MudLayout>
 
 @code {
+    private bool _menuOpen = true;
+
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }

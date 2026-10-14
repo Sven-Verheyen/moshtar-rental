@@ -17,6 +17,8 @@ using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Tenancy;
 using Moshtar.Application.Website;
 using Moshtar.Infrastructure.Website;
+using Moshtar.Application.Schedule;
+using Moshtar.Infrastructure.Schedule;
 
 namespace Moshtar.Infrastructure;
 
@@ -42,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IWebsiteTexts>(sp => sp.GetRequiredService<WebsiteTextAdministration>());
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReservationService, ReservationService>();
+        services.AddScoped<ISchedule, ScheduleService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();

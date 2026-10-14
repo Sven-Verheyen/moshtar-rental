@@ -1,0 +1,107 @@
+@page "/admin"
+@page "/admin/planning"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Common
+@inject ISchedule Schedule
+@inject IReservationService ReservationService
+@inject TimeProvider Clock
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Planning</PageTitle>
+
+<AdminShell Title="Planning">
+    <div class="planning-nav">
+        <MudButton Href="@DayUrl(Day.AddDays(-1))" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ChevronLeft" aria-label="Vorige dag">Vorige dag</MudButton>
+        <MudDatePicker Date="@Day.ToDateTime(TimeOnly.MinValue)" DateChanged="GoTo" DateFormat="dd/MM/yyyy" Label="Datum"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="planning-date" />
+        <MudButton Href="@DayUrl(Day.AddDays(1))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.ChevronRight" aria-label="Volgende dag">Volgende dag</MudButton>
+        @if (Day != Today)
+        {
+            <MudButton Href="admin/planning" Variant="Variant.Text">Vandaag</MudButton>
+        }
+    </div>
+    <MudText Typo="Typo.h5" Class="mb-3">@Day.ToString("dddd d MMMM yyyy", Dutch)</MudText>
+
+    @if (_day is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_day.IsEmpty)
+    {
+        <MudAlert Severity="Severity.Info">Niets gepland op deze dag.</MudAlert>
+    }
+    else
+    {
+        <section id="leverronde" class="planning-round">
+            <MudText Typo="Typo.h6">Leverronde</MudText>
+            <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync" />
+        </section>
+        <section id="ophaalronde" class="planning-round">
+            <MudText Typo="Typo.h6">Ophaalronde</MudText>
+            <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync" />
+        </section>
+        @if (_day.Pickups.Count > 0)
+        {
+            <section id="komt-afhalen" class="planning-round">
+                <MudText Typo="Typo.h6">Komt afhalen</MudText>
+                <StopList Stops="_day.Pickups" Action="ReservationStatus.Delivered" OnDone="MarkAsync" />
+            </section>
+        }
+        @if (_day.Returns.Count > 0)
+        {
+            <section id="brengt-terug" class="planning-round">
+                <MudText Typo="Typo.h6">Brengt terug</MudText>
+                <StopList Stops="_day.Returns" Action="ReservationStatus.Returned" OnDone="MarkAsync" />
+            </section>
+        }
+    }
+    <p class="mt-6"><MudLink Href="admin/reservaties">Alle reservaties</MudLink></p>
+</AdminShell>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
+    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
+
+    /// <summary>De gekozen dag als yyyy-MM-dd; zonder of ongeldig opent de planning op vandaag.</summary>
+    [SupplyParameterFromQuery(Name = "dag")] private string? Dag { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private ScheduleDay? _day;
+
+    private DateOnly Today => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(Clock.GetUtcNow(), BelgianTime).DateTime);
+
+    private DateOnly Day => DateOnly.TryParseExact(Dag, "yyyy-MM-dd", out var day) ? day : Today;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _day = null;
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private static string DayUrl(DateOnly day) => $"admin/planning?dag={day:yyyy-MM-dd}";
+
+    private void GoTo(DateTime? date)
+    {
+        if (date is { } d) Navigation.NavigateTo(DayUrl(DateOnly.FromDateTime(d)));
+    }
+
+    /// <summary>Afvinken: de gewone statuswijziging, met de gebruiker in de historiek.</summary>
+    private async Task MarkAsync((ScheduleStop Stop, ReservationStatus Status) done)
+    {
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            await ReservationService.ChangeStatusAsync(done.Stop.ReservationId, done.Status, actor);
+            Snackbar.Add($"Reservatie {done.Stop.Number}: {(done.Status == ReservationStatus.Delivered ? "geleverd" : "teruggebracht")}.", Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+}

@@ -25,7 +25,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   voorraad vast: wat intussen niet meer vrij is, staat aangeduid.
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat. De klant krijgt dan een bevestigingsmail in
   zijn taal (NL, FR of EN), ook als de reservatie in het back office ingevoerd werd.
-- **Back office** (`/admin`): reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie
+- **Back office** (`/admin`): opent op de **Planning** van vandaag (`/admin/planning?dag=…`): per dag de leverronde
+  (reservaties die die dag beginnen) en de ophaalronde (die die dag eindigen), op postcode gesorteerd, met klant,
+  telefoon, adres, artikelen (pakketten opengeklapt), opmerkingen en status, een knop "Geleverd" of "Teruggebracht" en
+  "Navigeer" (Waze). Wie zelf komt afhalen of terugbrengt, staat apart. Werkt ook op een gsm. Verder reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie
   (wie wat deed en wanneer). Zelf een reservatie invoeren, bv. voor een klant die belt (`/admin/reservaties/nieuw`),
   met dezelfde voorraadcontrole als de reservatiewebsite. Voorraad en prijzen van artikelen aanpassen.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).

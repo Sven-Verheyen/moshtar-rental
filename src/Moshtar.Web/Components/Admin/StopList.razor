@@ -1,0 +1,95 @@
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Common
+
+@* De reservaties van één ronde in de Planning, als kaartjes onder elkaar zodat ze ook op een gsm leesbaar zijn. *@
+@if (Stops.Count == 0)
+{
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">@Empty</MudText>
+}
+@foreach (var stop in Stops)
+{
+    <MudPaper Class="@($"planning-stop pa-3 mb-2{(stop.IsCompleted ? " planning-stop-done" : "")}")" Outlined="true" data-reservation="@stop.Number">
+        <div class="d-flex flex-wrap align-center gap-2">
+            <MudText Typo="Typo.subtitle1"><b>@stop.CustomerName</b></MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@stop.Number</MudText>
+            <MudSpacer />
+            <MudChip T="string" Size="Size.Small" Color="@(stop.IsCompleted ? Color.Default : Color.Primary)">@StatusLabel(stop.Status)</MudChip>
+        </div>
+        @if (stop.Phone is { } phone)
+        {
+            <div><MudLink Href="@($"tel:{TelephoneHref(phone)}")">@phone</MudLink></div>
+        }
+        @if (stop.Address is { } address)
+        {
+            <div class="d-flex flex-wrap align-center gap-2">
+                <span class="planning-address">@AddressLine(address)</span>
+                <MudButton Href="@WazeUrl(address)" Target="_blank" Size="Size.Small" Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.Navigation">Navigeer</MudButton>
+            </div>
+        }
+        <ul class="planning-lines">
+            @foreach (var line in stop.Lines)
+            {
+                <li>
+                    @line.Quantity × @line.Name
+                    @if (line.Contents.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var content in line.Contents)
+                            {
+                                <li>@content.Quantity × @content.Name</li>
+                            }
+                        </ul>
+                    }
+                </li>
+            }
+        </ul>
+        @if (stop.Notes is { } notes)
+        {
+            <MudText Typo="Typo.body2" Class="planning-notes"><i>@notes</i></MudText>
+        }
+        @if (CanMark(stop))
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Check" data-mark="@StatusLabel(Action)" OnClick="() => OnDone.InvokeAsync((stop, Action))">@StatusLabel(Action)</MudButton>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ScheduleStop> Stops { get; set; } = [];
+
+    /// <summary>De tekst als de ronde leeg is.</summary>
+    [Parameter] public string? Empty { get; set; }
+
+    /// <summary>De status waarop de knop een stop zet: Geleverd of Teruggebracht.</summary>
+    [Parameter, EditorRequired] public ReservationStatus Action { get; set; }
+
+    [Parameter] public EventCallback<(ScheduleStop Stop, ReservationStatus Status)> OnDone { get; set; }
+
+    /// <summary>Geleverd kan zolang de reservatie bevestigd is, Teruggebracht ook nog na het leveren.</summary>
+    private bool CanMark(ScheduleStop stop) => Action switch
+    {
+        ReservationStatus.Delivered => stop.Status == ReservationStatus.Confirmed,
+        ReservationStatus.Returned => stop.Status is ReservationStatus.Confirmed or ReservationStatus.Delivered,
+        _ => false,
+    };
+
+    private static string AddressLine(Address a) => $"{a.Street}, {a.PostalCode} {a.City}";
+
+    /// <summary>Waze zoekt het adres op en start meteen de navigatie.</summary>
+    private static string WazeUrl(Address a) =>
+        $"https://waze.com/ul?q={Uri.EscapeDataString(AddressLine(a))}&navigate=yes";
+
+    private static string TelephoneHref(string phone) => new(phone.Where(c => char.IsDigit(c) || c == '+').ToArray());
+
+    private static string StatusLabel(ReservationStatus s) => s switch
+    {
+        ReservationStatus.Confirmed => "Bevestigd",
+        ReservationStatus.Delivered => "Geleverd",
+        ReservationStatus.Returned => "Teruggebracht",
+        ReservationStatus.Completed => "Afgerond",
+        ReservationStatus.Cancelled => "Geannuleerd",
+        _ => s.ToString(),
+    };
+}
