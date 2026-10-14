@@ -70,7 +70,8 @@ internal static class ReservationConfirmation
         : "nl";
 
     /// <param name="template">Het mailsjabloon in de taal van <see cref="LanguageOf"/>: de aanpassing van de verhuurder of de standaardtekst.</param>
-    public static MailMessage Create(Reservation reservation, Tenant tenant, MailTemplateText template)
+    /// <param name="logoUrl">Het publieke adres van het logo van de verhuurder, of null.</param>
+    public static MailMessage Create(Reservation reservation, Tenant tenant, string? logoUrl, MailTemplateText template)
     {
         var customer = reservation.Customer ?? throw new InvalidOperationException("Reservatie zonder klant.");
         var t = ByCulture[LanguageOf(reservation, tenant)];
@@ -112,7 +113,7 @@ internal static class ReservationConfirmation
             .Append($"<p>{E(delivery)}</p>");
         if (!string.IsNullOrWhiteSpace(reservation.Notes)) detailsHtml.Append($"<p><strong>{E(t.Notes)}:</strong> {E(reservation.Notes)}</p>");
 
-        var (html, text) = MailBody.Compose(tenant, template.Body, name => values.GetValueOrDefault(name),
+        var (html, text) = MailBody.Compose(tenant, logoUrl, template.Body, name => values.GetValueOrDefault(name),
             new Dictionary<string, MailBlock> { [MailKinds.ReservationDetails] = new(detailsHtml.ToString(), detailsText.ToString()) });
 
         return new MailMessage(customer.Email, Fill(template.Subject), html, text);

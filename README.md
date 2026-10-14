@@ -10,8 +10,8 @@ aan andere verhuurbedrijven aangeboden te worden.
   een artikel of pakket toont beschikbaarheid en totaalprijs voor die huurperiode, en pas dan het reservatieformulier.
   Voor zoekmachines en AI-bots heeft elke pagina titel, beschrijving, Open Graph en JSON-LD (LocalBusiness, Product,
   FAQPage, BreadcrumbList), en elke verhuurder een eigen `/robots.txt`, `/sitemap.xml` en `/llms.txt`.
-  Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (logo, kleur en sfeerfoto, in te stellen op
-  `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
+  Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (kleur, en een geüpload logo en sfeerfoto, in te
+  stellen op `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
   De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens en het werkgebied, in te stellen op
   `/admin/bedrijfsgegevens`. Titel en ondertitel van de home en de veelgestelde vragen (`/veelgestelde-vragen`) past de
   beheerder aan op `/admin/websiteteksten`; anders gelden de standaardteksten van Moshtar. Categorieën maakt hij aan op
@@ -73,6 +73,14 @@ tests/
   `docs/adr/0002-verhuurder-mailt-vanaf-eigen-domein.md`). Zonder `Mail:AzureCommunicationServicesConnectionString`
   wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests. Lokaal vind je zo
   ook de link uit een uitnodiging of herstelmail terug in de console.
+- **Afbeeldingen**: logo, sfeerfoto en (later) foto's uploadt de beheerder; Moshtar bewaart ze zelf, per verhuurder
+  gescheiden, verkleind naar vaste breedtes (400, 800 en 1600 px) als WebP, en bewaart enkel de sleutel; het publieke
+  adres wordt eruit afgeleid (zie `docs/adr/0005-verhuurder-uploadt-afbeeldingen-naar-moshtar.md` en `IImageStore`).
+  Aanvaard: JPG, PNG, WebP of GIF tot 10 MB. In productie in Azure Blob Storage
+  (`Images:AzureBlobStorageConnectionString`, container `Images:Container`, standaard `afbeeldingen`, met publieke
+  leestoegang; optioneel een CDN in `Images:PublicBaseUrl`). Zonder connection string, zoals lokaal en in de tests,
+  staan ze in een map van de app (`Images:LocalPath`, standaard `App_Data/afbeeldingen`) en serveert de app ze zelf
+  onder `/afbeeldingen`, op het hoofddomein van de verhuurder of op `Images:PublicBaseUrl` (lokaal `http://localhost:5016/afbeeldingen`).
 - **Vertalingen**: UI-teksten in `Resources/SharedResource.*.resx`, inhoud (namen, beschrijvingen) als JSON in de database.
 
 ## Lokaal draaien

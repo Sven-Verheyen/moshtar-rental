@@ -45,10 +45,11 @@ public class Tenant
     /// <summary>Kunnen klanten zelf afhalen? Zo niet, dan levert de verhuurder altijd en is er geen keuze.</summary>
     public bool OffersPickup { get; set; }
 
-    public string? LogoUrl { get; set; }
+    /// <summary>Sleutel van het logo in de afbeeldingenopslag (ADR 0005).</summary>
+    public string? LogoImageKey { get; set; }
     public string? PrimaryColor { get; set; }
-    /// <summary>Adres van de sfeerfoto, groot bovenaan de home van de reservatiewebsite.</summary>
-    public string? HeroImageUrl { get; set; }
+    /// <summary>Sleutel van de sfeerfoto in de afbeeldingenopslag, groot bovenaan de home van de reservatiewebsite.</summary>
+    public string? HeroImageKey { get; set; }
 
     public List<TenantHost> Hosts { get; set; } = [];
 

@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Tenancy;
 using Moshtar.Infrastructure;
+using Microsoft.Extensions.FileProviders;
 using Moshtar.Infrastructure.Identity;
+using Moshtar.Infrastructure.Images;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Web.Components;
 using Moshtar.Web.Identity;
@@ -79,6 +81,14 @@ else
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
 app.UseHttpsRedirection();
+// De lokale afbeeldingenopslag (zonder Azure): publiek, voor elke verhuurder, en vóór de doorsturing naar het hoofddomein.
+if (app.Services.GetService<LocalImageFolder>() is { } images)
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(images.Path),
+        RequestPath = LocalImageFolder.RequestPath,
+        OnPrepareResponse = c => c.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable",
+    });
 app.UseTenantResolution();
 app.UsePrimaryHostRedirect();
 // De taal staat in de URL (ADR 0004); daarna pas routeren, want het taalvoorvoegsel wordt de PathBase.
