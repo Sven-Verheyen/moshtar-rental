@@ -274,6 +274,44 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("Je winkelkar is leeg.", await PageAsync(client, "/winkelkar"));
     }
 
+    [Theory]
+    [InlineData("", "kar-tel-nl", "/huren/prinses", "/winkelkar", "Vul je telefoonnummer in, zodat we je kunnen bereiken over je reservatie.")]
+    [InlineData("", "kar-tel-fr", "/fr/louer/prinses", "/fr/panier", "Indiquez votre numéro de téléphone, pour que nous puissions vous joindre au sujet de votre réservation.")]
+    [InlineData("", "kar-tel-en", "/en/rent/prinses", "/en/cart", "Please enter your phone number, so we can reach you about your reservation.")]
+    [InlineData("0470 12", "kar-tel-fout-nl", "/huren/prinses", "/winkelkar", "Dit is geen geldig telefoonnummer. Vul het in zoals 0470 12 34 56 of +32 470 12 34 56.")]
+    [InlineData("bel me", "kar-tel-fout-fr", "/fr/louer/prinses", "/fr/panier", "Ce n'est pas un numéro de téléphone valide. Indiquez-le comme 0470 12 34 56 ou +32 470 12 34 56.")]
+    [InlineData("12", "kar-tel-fout-en", "/en/rent/prinses", "/en/cart", "This is not a valid phone number. Enter it like 0470 12 34 56 or +32 470 12 34 56.")]
+    public async Task Reserving_without_a_valid_phone_number_is_refused_in_the_language_of_the_site(
+        string phone, string slug, string itemPath, string cartPath, string message)
+    {
+        await NewTenantAsync(slug);
+        var client = app.CreateClient($"{slug}.test");
+        await AddAsync(client, $"{itemPath}?van={TestReservations.FutureDay(104):yyyy-MM-dd}");
+        await IdentifyAsync(client, "zonder-telefoon@example.test", cartPath: cartPath);
+
+        var response = await ReserveAsync(client, "Zoë", cartPath, phone: phone);
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains(message, html);
+        Assert.Contains("value=\"Zoë\"", html);
+        await using var scope = await app.TenantScopeAsync(slug);
+        Assert.False(await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.AnyAsync());
+    }
+
+    [Fact]
+    public async Task A_Belgian_phone_number_from_the_cart_is_kept_with_the_country_code()
+    {
+        await NewTenantAsync("kar-tel-be");
+        var client = app.CreateClient("kar-tel-be.test");
+
+        await ReserveItemAsync(client, $"/huren/prinses?van={TestReservations.FutureDay(105):yyyy-MM-dd}", "belg@example.test", "Bram", phone: "0470/12.34.56");
+
+        await using var scope = await app.TenantScopeAsync("kar-tel-be");
+        var reservation = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.Include(r => r.Customer).SingleAsync();
+        Assert.Equal("+32470123456", reservation.Customer!.Phone);
+    }
+
     [Fact]
     public async Task Clicking_reserve_twice_at_once_makes_one_reservation_and_shows_it_both_times()
     {
@@ -290,6 +328,7 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
             ["_handler"] = "reservation",
             ["Form.FirstName"] = "Dubbel",
             ["Form.LastName"] = "Klant",
+            ["Form.Phone"] = "0470 12 34 56",
             ["Form.Street"] = "Kerkstraat 1",
             ["Form.PostalCode"] = "2000",
             ["Form.City"] = "Antwerpen",
@@ -404,6 +443,7 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
             ["_handler"] = "reservation",
             ["Form.FirstName"] = "Tom",
             ["Form.LastName"] = "Laat",
+            ["Form.Phone"] = "0470 12 34 56",
             ["Form.Street"] = "Kerkstraat 1",
             ["Form.PostalCode"] = "2000",
             ["Form.City"] = "Antwerpen",
@@ -464,7 +504,7 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
             new DateRange(day, day),
             [new ReservationLineRequest(itemId, null, 1)],
-            new ReservationCustomer("Test", "Klant", "klant@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+            new ReservationCustomer("Test", "Klant", "klant@example.test", "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
             DeliveryMethod.Pickup, null, null, "nl"), ReservationActor.Website);
         Assert.True(result.Succeeded);
     }

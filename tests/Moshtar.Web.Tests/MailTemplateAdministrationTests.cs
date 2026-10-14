@@ -239,7 +239,7 @@ public sealed class MailTemplateAdministrationTests(MoshtarApp app) : IClassFixt
         var day = TestReservations.FutureDay(320 + Outbox.Sent.Count);
         var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
             new DateRange(day, day), [new ReservationLineRequest(item, null, 1)],
-            new ReservationCustomer("Lotte", "Peeters", email, null, new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" }),
+            new ReservationCustomer("Lotte", "Peeters", email, "0470 12 34 56", new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" }),
             DeliveryMethod.Pickup, null, null, culture), ReservationActor.Website);
         return result.Reservation ?? throw new InvalidOperationException("Reservatie geweigerd.");
     }

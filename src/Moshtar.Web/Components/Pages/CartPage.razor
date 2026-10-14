@@ -144,7 +144,7 @@
                         <label>@L["FirstName"] <InputText @bind-Value="Form!.FirstName" autocomplete="given-name" /></label>
                         <label>@L["LastName"] <InputText @bind-Value="Form!.LastName" autocomplete="family-name" /></label>
                     </div>
-                    <label>@L["Phone"] <InputText type="tel" @bind-Value="Form!.Phone" autocomplete="tel" /></label>
+                    <label>@L["Phone"] <InputText type="tel" @bind-Value="Form!.Phone" autocomplete="tel" required /></label>
                     <label>@L["Street"] <InputText @bind-Value="Form!.Street" autocomplete="street-address" /></label>
                     <div class="row">
                         <label>@L["PostalCode"] <InputText @bind-Value="Form!.PostalCode" autocomplete="postal-code" /></label>

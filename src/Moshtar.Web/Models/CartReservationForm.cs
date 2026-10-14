@@ -8,6 +8,7 @@ public class CartReservationForm
 {
     [Required, MaxLength(100)] public string FirstName { get; set; } = "";
     [Required, MaxLength(100)] public string LastName { get; set; } = "";
+    /// <summary>Verplicht; de winkelkar weigert een leeg of ongeldig nummer met een melding in de taal van de klant.</summary>
     [MaxLength(30)] public string? Phone { get; set; }
 
     [Required, MaxLength(200)] public string Street { get; set; } = "";

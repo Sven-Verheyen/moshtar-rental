@@ -59,7 +59,8 @@ public record CartCustomerDetails(
 
 /// <summary>
 /// De reservatie als het lukte. Anders de artikelen waarvan intussen te weinig vrij is, of de resourcesleutel van
-/// een andere melding (geen winkelkar, geen e-mailadres, iets wat niet meer te huren is, een datum in het verleden).
+/// een andere melding (geen winkelkar, geen e-mailadres, geen of een ongeldig telefoonnummer, iets wat niet meer te
+/// huren is, een datum in het verleden).
 /// </summary>
 public record CartReservationResult(Reservation? Reservation, IReadOnlySet<Guid> UnavailableItemIds, string? Problem)
 {
