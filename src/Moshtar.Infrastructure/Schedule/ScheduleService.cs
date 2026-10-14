@@ -1,36 +1,52 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+using Moshtar.Application.Maps;
 using Moshtar.Application.Schedule;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Reservations;
+using Moshtar.Infrastructure.Maps;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Schedule;
 
-internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantContext) : ISchedule
+internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantContext, IMapService maps, ILogger<ScheduleService> logger) : ISchedule
 {
     /// <summary>Het back office is Nederlandstalig.</summary>
     private const string Culture = "nl";
 
+    /// <summary>
+    /// Eén dag openen zoekt ook de ontbrekende punten op (van de leveradressen en het bedrijfsadres) voor de kaart.
+    /// De week en de maand niet: die tonen geen kaart, en zo vraagt een maand niet tientallen adressen tegelijk op.
+    /// </summary>
     public async Task<ScheduleDay> GetDayAsync(DateOnly day, CancellationToken ct = default) =>
-        (await GetDaysAsync(day, day, ct))[0];
+        (await LoadAsync(day, day, findPoints: true, ct))[0];
 
-    public async Task<IReadOnlyList<ScheduleDay>> GetDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+    public Task<IReadOnlyList<ScheduleDay>> GetDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default) =>
+        LoadAsync(from, to, findPoints: false, ct);
+
+    private async Task<IReadOnlyList<ScheduleDay>> LoadAsync(DateOnly from, DateOnly to, bool findPoints, CancellationToken ct)
     {
         if (to < from) throw new ArgumentException("Het einde ligt voor het begin.", nameof(to));
         var reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
             .Where(r => r.Status != ReservationStatus.Cancelled
                 && ((r.StartDate >= from && r.StartDate <= to) || (r.EndDate >= from && r.EndDate <= to)))
             .ToListAsync(ct);
+        GeoPoint? businessPoint = null;
+        if (findPoints)
+        {
+            await FindMissingPointsAsync(reservations, ct);
+            businessPoint = await BusinessPointAsync(ct);
+        }
         var names = await NamesAsync(reservations, ct);
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
         return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
-            .Select(i => Day(from.AddDays(i), stops))
+            .Select(i => Day(from.AddDays(i), stops, businessPoint))
             .ToList();
     }
 
-    private static ScheduleDay Day(DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops)
+    private static ScheduleDay Day(DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops, GeoPoint? businessPoint)
     {
         IReadOnlyList<ScheduleStop> Select(DeliveryMethod method, Func<Reservation, bool> onDay) => stops
             .Where(s => s.Reservation.DeliveryMethod == method && onDay(s.Reservation))
@@ -43,7 +59,44 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
             Deliveries: Select(DeliveryMethod.Delivery, r => r.StartDate == day),
             Collections: Select(DeliveryMethod.Delivery, r => r.EndDate == day),
             Pickups: Select(DeliveryMethod.Pickup, r => r.StartDate == day),
-            Returns: Select(DeliveryMethod.Pickup, r => r.EndDate == day));
+            Returns: Select(DeliveryMethod.Pickup, r => r.EndDate == day),
+            BusinessPoint: businessPoint);
+    }
+
+    /// <summary>
+    /// Zoekt de punten op van leveradressen die er nog geen hebben: reservaties van voor er punten waren, of waarvan
+    /// de kaartdienst niet antwoordde bij het reserveren. Een adres dat niet gevonden wordt, blijft zonder punt.
+    /// </summary>
+    private async Task FindMissingPointsAsync(IReadOnlyList<Reservation> reservations, CancellationToken ct)
+    {
+        var missing = reservations.Where(r => r is { DeliveryMethod: DeliveryMethod.Delivery, DeliveryAddress: not null, DeliveryPoint: null }).ToList();
+        var found = new Dictionary<Guid, GeoPoint>();
+        foreach (var reservation in missing)
+            if (await maps.TryFindAsync(reservation.DeliveryAddress!, logger, ct) is { } point)
+                found[reservation.Id] = reservation.DeliveryPoint = point;
+        if (found.Count == 0) return;
+
+        var ids = found.Keys.ToList();
+        // Enkel waar intussen niemand een punt zette (een speld, een verbeterd adres).
+        foreach (var tracked in await db.Reservations.Where(r => ids.Contains(r.Id) && r.DeliveryPoint == null).ToListAsync(ct))
+            tracked.DeliveryPoint = found[tracked.Id];
+        await db.SaveChangesAsync(ct);
+        db.ChangeTracker.Clear();
+    }
+
+    /// <summary>Het punt van het bedrijfsadres, opgezocht bij het eerste gebruik (en opnieuw na een adreswijziging).</summary>
+    private async Task<GeoPoint?> BusinessPointAsync(CancellationToken ct)
+    {
+        var id = tenantContext.TenantId;
+        var tenant = await db.Tenants.SingleOrDefaultAsync(t => t.Id == id, ct);
+        if (tenant is null || tenant.AddressPoint is not null || string.IsNullOrWhiteSpace(tenant.Street) || string.IsNullOrWhiteSpace(tenant.PostalCode))
+            return tenant?.AddressPoint;
+        var address = new Address { Street = tenant.Street, PostalCode = tenant.PostalCode, City = tenant.City ?? "" };
+        tenant.AddressPoint = await maps.TryFindAsync(address, logger, ct);
+        if (tenant.AddressPoint is not null)
+            await db.SaveChangesAsync(ct);
+        db.ChangeTracker.Clear();
+        return tenant.AddressPoint;
     }
 
     private static ScheduleStop ToStop(Reservation r, CatalogNames names) => new(
@@ -55,7 +108,9 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
         r.Lines.Select(l => ToLine(l, names)).ToList(),
         string.IsNullOrWhiteSpace(r.Notes) ? null : r.Notes,
         r.Status,
-        r.Period);
+        r.Period,
+        r.DeliveryMethod == DeliveryMethod.Delivery ? r.DeliveryPoint : null,
+        r.DeliveryPointConfirmed);
 
     private static ScheduleLine ToLine(ReservationLine line, CatalogNames names)
     {

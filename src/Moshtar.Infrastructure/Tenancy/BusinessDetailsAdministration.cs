@@ -42,6 +42,9 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
 
     private static void Apply(Tenant tenant, BusinessDetailsSettings s)
     {
+        // Een ander adres is een ander punt: de planning zoekt het opnieuw op bij het openen van een dag.
+        if ((tenant.Street, tenant.PostalCode, tenant.City) != (Text(s.Street), Text(s.PostalCode), Text(s.City)))
+            tenant.AddressPoint = null;
         tenant.Street = Text(s.Street);
         tenant.PostalCode = Text(s.PostalCode);
         tenant.City = Text(s.City);

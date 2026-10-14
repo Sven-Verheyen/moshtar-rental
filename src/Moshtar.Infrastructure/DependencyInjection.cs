@@ -19,6 +19,8 @@ using Moshtar.Application.Website;
 using Moshtar.Infrastructure.Website;
 using Moshtar.Application.Schedule;
 using Moshtar.Infrastructure.Schedule;
+using Moshtar.Application.Maps;
+using Moshtar.Infrastructure.Maps;
 
 namespace Moshtar.Infrastructure;
 
@@ -27,7 +29,11 @@ public static class DependencyInjection
     /// <param name="sendRealMail">
     /// Mag er echt gemaild worden? Lokaal en in tests niet, ook niet als er een connection string ingesteld is.
     /// </param>
-    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool sendRealMail)
+    /// <param name="useAzureMaps">
+    /// Mag Azure Maps gebruikt worden als er een sleutel ingesteld is? In de tests niet: daar is de kaartdienst altijd
+    /// de lokale vervanger, zodat punten voorspelbaar zijn.
+    /// </param>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration, bool sendRealMail, bool useAzureMaps)
     {
         var connectionString = configuration.GetConnectionString("Moshtar")
             ?? throw new InvalidOperationException("Connection string 'Moshtar' ontbreekt.");
@@ -65,6 +71,18 @@ public static class DependencyInjection
         {
             services.AddSingleton<IMailTransport, AzureMailTransport>();
         }
+
+        var maps = configuration.GetSection("Maps");
+        services.Configure<MapOptions>(maps);
+        if (useAzureMaps && !string.IsNullOrWhiteSpace(maps[nameof(MapOptions.AzureMapsKey)]))
+            // Kort geduld: een adres opzoeken gebeurt terwijl een klant op zijn reservatie wacht.
+            services.AddHttpClient<IMapService, AzureMapService>(c =>
+            {
+                c.BaseAddress = new Uri(AzureMapService.BaseAddress);
+                c.Timeout = TimeSpan.FromSeconds(5);
+            });
+        else
+            services.AddSingleton<IMapService, LocalMapService>();
         return services;
     }
 }

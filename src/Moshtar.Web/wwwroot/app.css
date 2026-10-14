@@ -58,6 +58,12 @@ h1:focus {
 .planning-lines ul { padding-left: 1.25rem; }
 .planning-address { overflow-wrap: anywhere; }
 .planning-stop-done { opacity: .55; filter: grayscale(1); }
+.planning-map { height: 22rem; width: 100%; border-radius: 4px; overflow: hidden; }
+.planning-map-pinning { outline: 3px solid var(--mud-palette-warning); }
+.planning-map-popup { padding: .5rem .75rem; }
+.planning-edit { background: var(--mud-palette-background-gray); }
+.planning-postal-code { max-width: 7rem; }
+@media (max-width: 600px) { .planning-map { height: 16rem; } }
 .planning-week, .planning-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .5rem; margin-bottom: 1.5rem; }
 .planning-cell { display: block; padding: .5rem; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px; color: inherit; text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
 .planning-cell:hover { background: var(--mud-palette-action-default-hover); }

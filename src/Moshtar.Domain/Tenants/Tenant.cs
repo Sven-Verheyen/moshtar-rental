@@ -30,6 +30,11 @@ public class Tenant
     public string? Street { get; set; }
     public string? PostalCode { get; set; }
     public string? City { get; set; }
+    /// <summary>
+    /// Het punt van het bedrijfsadres op de kaart: daar vertrekt en eindigt elke ronde. Null zolang het niet opgezocht
+    /// of niet gevonden is; het wordt opnieuw opgezocht als het adres verandert.
+    /// </summary>
+    public Moshtar.Domain.Common.GeoPoint? AddressPoint { get; set; }
     public string? WhatsAppPhone { get; set; }
     public string? VatNumber { get; set; }
     public string? FacebookUrl { get; set; }

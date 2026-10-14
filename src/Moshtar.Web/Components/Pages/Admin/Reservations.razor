@@ -134,6 +134,8 @@
     {
         ReservationEventKind.Created => "Aangemaakt",
         ReservationEventKind.Cancelled => "Geannuleerd",
+        ReservationEventKind.AddressCorrected => "Leveradres verbeterd",
+        ReservationEventKind.PointConfirmed => "Speld op de kaart bevestigd",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",
     };
 

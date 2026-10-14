@@ -24,6 +24,7 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(t => t.Street).HasMaxLength(200);
         b.Property(t => t.PostalCode).HasMaxLength(20);
         b.Property(t => t.City).HasMaxLength(100);
+        b.OwnsOne(t => t.AddressPoint);
         b.Property(t => t.WhatsAppPhone).HasMaxLength(30);
         b.Property(t => t.VatNumber).HasMaxLength(30);
         b.Property(t => t.FacebookUrl).HasMaxLength(500);
@@ -117,6 +118,7 @@ internal class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
         b.Ignore(r => r.OccupiesStock);
         b.HasOne(r => r.Customer).WithMany().HasForeignKey(r => r.CustomerId).OnDelete(DeleteBehavior.Restrict);
         b.OwnsOne(r => r.DeliveryAddress);
+        b.OwnsOne(r => r.DeliveryPoint);
         b.OwnsMany(r => r.Lines, l =>
         {
             l.ToTable("ReservationLines");
