@@ -1,0 +1,67 @@
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Rounds
+
+@* Boven een ronde in de Planning: een route voorstellen, het vertrekuur van die dag, en "Ronde gewijzigd". *@
+<div class="planning-round-tools d-flex flex-wrap align-center gap-2 mb-2">
+    @if (Round is { } round)
+    {
+        <span data-departure="@round.Departure.ToString("HH:mm")">
+            Vertrek <b>@ExpectedWindow.Time(round.Departure)</b>, terug om <b>@ExpectedWindow.Time(round.Return)</b>
+        </span>
+        @if (_editing)
+        {
+            <MudTextField @bind-Value="_departure" Label="Vertrekuur" InputType="InputType.Time" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="planning-field" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="SaveDepartureAsync">Bewaren</MudButton>
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _editing = false">Annuleren</MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Schedule" data-action="vertrekuur"
+                       OnClick="EditDeparture">Vertrekuur wijzigen</MudButton>
+        }
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Route" data-action="route-voorstellen"
+                   OnClick="OnPropose">Route opnieuw voorstellen</MudButton>
+    }
+    else
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Route"
+                   data-action="route-voorstellen" OnClick="OnPropose">Route voorstellen</MudButton>
+    }
+</div>
+@if (Round is { Changed: true })
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2" data-warning="ronde-gewijzigd">
+        Ronde gewijzigd: er kwam een reservatie bij of er viel er een weg sinds de route gemaakt werd.
+        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Refresh"
+                   data-action="ronde-bijwerken" OnClick="OnUpdate">Ronde bijwerken</MudButton>
+    </MudAlert>
+}
+
+@code {
+    /// <summary>De bewaarde ronde; null zolang er geen route is.</summary>
+    [Parameter] public ScheduleRound? Round { get; set; }
+
+    [Parameter] public EventCallback OnPropose { get; set; }
+
+    /// <summary>Na "Ronde gewijzigd": nieuwe stops invoegen en weggevallen weglaten.</summary>
+    [Parameter] public EventCallback OnUpdate { get; set; }
+
+    [Parameter] public EventCallback<TimeOnly> OnDeparture { get; set; }
+
+    private bool _editing;
+    private string? _departure;
+
+    private void EditDeparture()
+    {
+        _editing = true;
+        _departure = Round?.Departure.ToString("HH:mm");
+    }
+
+    private async Task SaveDepartureAsync()
+    {
+        if (TimeOnly.TryParse(_departure, System.Globalization.CultureInfo.InvariantCulture, out var departure))
+            await OnDeparture.InvokeAsync(departure);
+        _editing = false;
+    }
+}

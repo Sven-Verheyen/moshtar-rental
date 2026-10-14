@@ -516,6 +516,40 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("ReservationEvents", (string)null);
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Rounds.Round", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Day")
+                        .HasColumnType("date");
+
+                    b.Property<TimeOnly>("Departure")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeOnly>("Return")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int>("ReturnTravelMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Day", "Kind")
+                        .IsUnique();
+
+                    b.ToTable("Rounds", (string)null);
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Tenants.Tenant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -532,6 +566,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<TimeOnly>("CollectionDeparture")
+                        .HasColumnType("time without time zone");
+
                     b.Property<string>("ContactEmail")
                         .HasColumnType("text");
 
@@ -545,6 +582,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<string>("DefaultCulture")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<TimeOnly>("DeliveryDeparture")
+                        .HasColumnType("time without time zone");
 
                     b.Property<string>("FacebookUrl")
                         .HasMaxLength(500)
@@ -591,6 +631,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text[]");
 
+                    b.Property<int>("SetupMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Slug")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -603,6 +646,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<string>("SupportedCultures")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("TeardownMinutes")
+                        .HasColumnType("integer");
 
                     b.Property<string>("TikTokUrl")
                         .HasMaxLength(500)
@@ -619,6 +665,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<string>("WhatsAppPhone")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)");
+
+                    b.Property<int>("WindowMinutes")
+                        .HasColumnType("integer");
 
                     b.HasKey("Id");
 
@@ -1237,6 +1286,95 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Rounds.Round", b =>
+                {
+                    b.OwnsMany("Moshtar.Domain.Rounds.RoundStop", "Stops", b1 =>
+                        {
+                            b1.Property<Guid>("Id")
+                                .HasColumnType("uuid");
+
+                            b1.Property<TimeOnly>("Arrival")
+                                .HasColumnType("time without time zone");
+
+                            b1.Property<TimeOnly?>("FixedTime")
+                                .HasColumnType("time without time zone");
+
+                            b1.Property<int?>("HandlingMinutes")
+                                .HasColumnType("integer");
+
+                            b1.Property<DateTimeOffset?>("MailedAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<TimeOnly?>("MailedWindowEnd")
+                                .HasColumnType("time without time zone");
+
+                            b1.Property<TimeOnly?>("MailedWindowStart")
+                                .HasColumnType("time without time zone");
+
+                            b1.Property<int>("Position")
+                                .HasColumnType("integer");
+
+                            b1.Property<Guid>("ReservationId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<Guid>("RoundId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("TravelMinutes")
+                                .HasColumnType("integer");
+
+                            b1.Property<DateTimeOffset?>("WhatsAppAt")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<TimeOnly>("WindowEnd")
+                                .HasColumnType("time without time zone");
+
+                            b1.Property<TimeOnly>("WindowStart")
+                                .HasColumnType("time without time zone");
+
+                            b1.HasKey("Id");
+
+                            b1.HasIndex("ReservationId");
+
+                            b1.HasIndex("RoundId");
+
+                            b1.ToTable("RoundStops", (string)null);
+
+                            b1.HasOne("Moshtar.Domain.Reservations.Reservation", null)
+                                .WithMany()
+                                .HasForeignKey("ReservationId")
+                                .OnDelete(DeleteBehavior.Cascade)
+                                .IsRequired();
+
+                            b1.WithOwner()
+                                .HasForeignKey("RoundId");
+
+                            b1.OwnsOne("Moshtar.Domain.Common.GeoPoint", "Point", b2 =>
+                                {
+                                    b2.Property<Guid>("RoundStopId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<double>("Latitude")
+                                        .HasColumnType("double precision");
+
+                                    b2.Property<double>("Longitude")
+                                        .HasColumnType("double precision");
+
+                                    b2.HasKey("RoundStopId");
+
+                                    b2.ToTable("RoundStops");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("RoundStopId");
+                                });
+
+                            b1.Navigation("Point")
+                                .IsRequired();
+                        });
+
+                    b.Navigation("Stops");
                 });
 
             modelBuilder.Entity("Moshtar.Domain.Tenants.Tenant", b =>

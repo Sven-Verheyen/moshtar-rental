@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ISchedule, ScheduleService>();
+        services.AddScoped<IRoundPlanner, RoundPlanner>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();
