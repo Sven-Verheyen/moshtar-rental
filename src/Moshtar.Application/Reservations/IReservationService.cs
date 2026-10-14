@@ -40,13 +40,26 @@ public interface IReservationService
     /// en noteert dat in de historiek. Geeft de bijgewerkte reservatie terug.
     /// </summary>
     Task<Reservation> ConfirmDeliveryPointAsync(Guid reservationId, GeoPoint point, ReservationActor actor, CancellationToken ct = default);
+    /// Vervangt een artikel in de reservatie door een alternatief: een ander artikel uit dezelfde categorie dat aan staat
+    /// en vrij is in de volledige huurperiode (met bufferdagen), gecontroleerd en bewaard onder dezelfde lock per
+    /// verhuurder als reserveren. Op een losse lijn blijft de prijs dezelfde; in een pakket wordt enkel het artikel
+    /// binnen het pakket vervangen, met een notitie op de pakketlijn. Een meerprijs (null of 0: geen) komt als aparte
+    /// lijn bij het totaal. Noteert het in de historiek en stuurt de klant een bijgewerkte bevestiging.
+    /// Gooit een <see cref="ArgumentException"/> als het alternatief niet kan, een <see cref="InvalidOperationException"/>
+    /// als de reservatie geannuleerd of afgerond is; dan verandert er niets.
+    /// </summary>
+    Task<Reservation> ReplaceItemAsync(Guid reservationId, Guid rentalItemId, Guid replacementRentalItemId, decimal? surcharge,
+        ReservationActor actor, CancellationToken ct = default);
 
     /// <summary>De historiek van een reservatie, nieuwste bovenaan.</summary>
     Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default);
 }
 
-/// <summary>Een gebeurtenis uit de historiek. Zonder e-mailadres deed de klant het zelf via de reservatiewebsite.</summary>
-public record ReservationHistoryEntry(DateTime OccurredAtUtc, ReservationEventKind Kind, ReservationStatus Status, string? UserEmail);
+/// <summary>
+/// Een gebeurtenis uit de historiek. Zonder e-mailadres deed de klant het zelf via de reservatiewebsite.
+/// <see cref="Note"/> zegt wat er precies gebeurde, bv. welke alternatieven gemaild werden, of is null.
+/// </summary>
+public record ReservationHistoryEntry(DateTime OccurredAtUtc, ReservationEventKind Kind, ReservationStatus Status, string? UserEmail, string? Note = null);
 
 public record ReservationLineRequest(Guid? RentalItemId, Guid? BundleId, int Quantity);
 

@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject ITenantContext TenantContext
+@inject IImageStore Images
 @inject SiteLinks Links
 @inject IStringLocalizer<SharedResource> L
 @using Moshtar.Domain.Tenants
@@ -10,7 +11,7 @@
 <header class="site-header">
     <div class="site-header-inner">
         <a class="brand" href="@Links.Href(SiteRoute.Home)">
-            @if (Moshtar.Domain.Tenants.Branding.LogoUrl(Tenant?.LogoUrl) is { } logo)
+            @if (Images.LogoUrl(Tenant) is { } logo)
             {
                 <img src="@logo" alt="@Tenant!.Name" height="48" />
             }

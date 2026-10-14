@@ -53,7 +53,8 @@ internal static class CartReminder
     /// <param name="language">De taal van <see cref="LanguageOf"/>.</param>
     /// <param name="template">Het mailsjabloon in die taal: de aanpassing van de verhuurder of de standaardtekst.</param>
     /// <param name="link">Het volledige adres dat de winkelkar opent, ook op een ander toestel.</param>
-    public static MailMessage Create(CartView cart, string language, Tenant tenant, MailTemplateText template, string link)
+    /// <param name="logoUrl">Het publieke adres van het logo van de verhuurder, of null.</param>
+    public static MailMessage Create(CartView cart, string language, Tenant tenant, string? logoUrl, MailTemplateText template, string link)
     {
         var t = ByCulture[language];
         var culture = CultureInfo.GetCultureInfo(t.CultureName);
@@ -82,7 +83,7 @@ internal static class CartReminder
 
         var linkHtml = $"<p><a href=\"{E(link)}\" style=\"display:inline-block;padding:12px 20px;background-color:#1f2937;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold\">{E(t.Link)}</a></p>";
 
-        var (html, text) = MailBody.Compose(tenant, template.Body, name => values.GetValueOrDefault(name),
+        var (html, text) = MailBody.Compose(tenant, logoUrl, template.Body, name => values.GetValueOrDefault(name),
             new Dictionary<string, MailBlock>
             {
                 [MailKinds.CartContents] = new(contentsHtml.ToString(), contentsText.ToString()),

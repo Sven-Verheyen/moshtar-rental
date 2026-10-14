@@ -2,6 +2,7 @@
 @inject ICatalogService Catalog
 @inject IReservationService Reservations
 @inject ITenantContext TenantContext
+@inject IImageStore Images
 @inject IStringLocalizer<SharedResource> L
 @inject SiteLinks Links
 @inject IWebsiteTexts Texts
@@ -12,7 +13,7 @@
 <section class="hero @(HeroImage is null ? "hero-plain" : null)">
     @if (HeroImage is not null)
     {
-        <img class="hero-image" src="@HeroImage" alt="" fetchpriority="high" width="1600" height="900" />
+        <img class="hero-image" src="@HeroImage" srcset="@Images.SrcSet(Tenant!.HeroImageKey!)" sizes="100vw" alt="" fetchpriority="high" width="1600" height="900" />
     }
     <div class="hero-content">
         <h1>@_texts?.HomeTitle.Value</h1>
@@ -29,6 +30,11 @@
     }
     else if (_chosen.Period is { } period)
     {
+        @if (Featured.Count > 0)
+        {
+            <h2>@L["Featured"]</h2>
+            <CatalogList Entries="Featured" Chosen="_chosen" Unavailable="_unavailable" />
+        }
         <h2>@L["OfferFor", SiteText.Period(period)]</h2>
         <p class="muted">@L["AvailableCount", _entries.Count(e => !_unavailable.Contains(e.Id)), _entries.Count]</p>
         <CatalogList Entries="_entries" Chosen="_chosen" Unavailable="_unavailable" />
@@ -39,12 +45,12 @@
         {
             <h2>@L["Categories"]</h2>
             <div class="category-grid">
-                @foreach (var (category, image) in _categories)
+                @foreach (var (category, photo) in _categories)
                 {
                     <a class="category-tile" href="@Links.Href(category.Route)">
-                        @if (image is not null)
+                        @if (photo is not null)
                         {
-                            <img src="@image" alt="" loading="lazy" width="640" height="480" />
+                            <SitePhoto Key="@photo" Alt="" Sizes="@SitePhotos.TileSizes" />
                         }
                         else
                         {
@@ -55,14 +61,22 @@
                 }
             </div>
         }
-        <h2>@L["Featured"]</h2>
-        <CatalogList Entries="Featured" />
+        @if (Featured.Count > 0)
+        {
+            <h2>@L["Featured"]</h2>
+            <CatalogList Entries="Featured" />
+        }
+        else
+        {
+            <h2>@L["Popular"]</h2>
+            <CatalogList Entries="Popular" />
+        }
     }
 </section>
 
 @code {
-    /// <summary>Hoeveel artikelen en pakketten de home uitlicht zolang er geen datum gekozen is.</summary>
-    private const int FeaturedCount = 6;
+    /// <summary>Hoeveel artikelen en pakketten de home als "Populair" toont zolang niets uitgelicht is.</summary>
+    private const int PopularCount = 6;
 
     [SupplyParameterFromQuery(Name = ChosenPeriod.StartKey)] private string? Start { get; set; }
     [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
@@ -72,21 +86,30 @@
     private ChosenPeriod _chosen = ChosenPeriod.None;
     private DateOnly _today;
     private IReadOnlySet<Guid> _unavailable = new HashSet<Guid>();
-    private IReadOnlyList<(CategoryLink Category, string? Image)> _categories = [];
+    /// <summary>De categorieën met artikelen, elk met de hoofdfoto van haar eerste artikel met een foto.</summary>
+    private IReadOnlyList<(CategoryLink Category, string? Photo)> _categories = [];
 
     private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
-    private string? HeroImage => Moshtar.Domain.Tenants.Branding.HeroImageUrl(Tenant?.HeroImageUrl);
+    private string? HeroImage => Images.HeroImageUrl(Tenant);
 
     /// <summary>
-    /// Er is nog geen vinkje "uitgelicht" bij een artikel; tot dan de pakketten en het eerste artikel van elke
-    /// categorie, aangevuld met de volgende artikelen in de volgorde van de catalogus.
+    /// De uitgelichte artikelen en pakketten, in de volgorde van de beheerder; met een huurperiode bovenaan, met hun
+    /// beschikbaarheid. Uitgezette artikelen en verborgen pakketten
+    /// staan niet in de catalogus, dus ook hier niet.
     /// </summary>
     private IReadOnlyList<CatalogEntry> Featured =>
+        _entries!.Where(e => e.IsFeatured).OrderBy(e => e.FeaturedOrder).ToList();
+
+    /// <summary>
+    /// Zolang niets uitgelicht is: de pakketten en het eerste artikel van elke categorie, aangevuld met de volgende
+    /// artikelen in de volgorde van de catalogus.
+    /// </summary>
+    private IReadOnlyList<CatalogEntry> Popular =>
         _entries!.Where(e => e.Kind == CatalogEntryKind.Bundle)
             .Concat(_entries!.Where(e => e.Kind == CatalogEntryKind.Item).GroupBy(e => e.CategoryId).Select(g => g.First()))
             .Concat(_entries!)
             .DistinctBy(e => e.Id)
-            .Take(FeaturedCount)
+            .Take(PopularCount)
             .ToList();
 
     protected override async Task OnInitializedAsync()
@@ -100,7 +123,7 @@
         else
             _categories = (await CategoryLink.AllAsync(Texts, Links))
                 .Where(c => _entries.Any(e => e.CategoryId == c.Id))
-                .Select(c => (c, _entries.FirstOrDefault(e => e.CategoryId == c.Id && e.ImageUrl is not null)?.ImageUrl))
+                .Select(c => (c, _entries.FirstOrDefault(e => e.CategoryId == c.Id && e.MainPhoto is not null)?.MainPhoto))
                 .ToList();
     }
 }

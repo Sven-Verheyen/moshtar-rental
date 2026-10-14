@@ -1,61 +1,88 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Images;
 using Moshtar.Application.Tenancy;
 using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Tenancy;
 
 namespace Moshtar.Web.Tests;
 
-/// <summary>Een beheerder stelt het logo en de kleur van zijn verhuurder in, voor de kop van de klantmails.</summary>
+/// <summary>
+/// Een beheerder stelt de huisstijl van zijn verhuurder in: hij uploadt logo en sfeerfoto en kiest een kleur.
+/// </summary>
 public sealed class BrandingAdministrationTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 {
     [Fact]
-    public async Task Logo_and_colour_are_saved_changed_and_cleared()
+    public async Task The_colour_is_saved_changed_and_cleared()
     {
         await app.CreateTenantAsync("huisstijl-bewaren", "huisstijl-bewaren.test");
         await using var scope = await app.TenantScopeAsync("huisstijl-bewaren");
         var branding = Branding(scope);
 
-        await branding.SaveAsync(new BrandingSettings(" https://merk.test/logo.png ", "#E91E63"));
-        Assert.Equal(new BrandingSettings("https://merk.test/logo.png", "#e91e63"), await branding.GetAsync());
+        await branding.SaveColorAsync("#E91E63");
+        Assert.Equal(new BrandingSettings(null, "#e91e63"), await branding.GetAsync());
 
-        await branding.SaveAsync(new BrandingSettings("https://merk.test/nieuw.png", "#f60"));
-        Assert.Equal(new BrandingSettings("https://merk.test/nieuw.png", "#f60"), await branding.GetAsync());
+        await branding.SaveColorAsync("#f60");
+        Assert.Equal(new BrandingSettings(null, "#f60"), await branding.GetAsync());
 
-        await branding.SaveAsync(new BrandingSettings("", " "));
+        await branding.SaveColorAsync(" ");
         Assert.Equal(new BrandingSettings(null, null), await branding.GetAsync());
     }
 
     [Fact]
-    public async Task The_hero_image_is_saved_and_cleared_like_the_logo()
-    {
-        await app.CreateTenantAsync("huisstijl-sfeerfoto", "huisstijl-sfeerfoto.test");
-        await using var scope = await app.TenantScopeAsync("huisstijl-sfeerfoto");
-        var branding = Branding(scope);
-
-        await branding.SaveAsync(new BrandingSettings(null, null, " https://merk.test/feest.jpg "));
-        Assert.Equal(new BrandingSettings(null, null, "https://merk.test/feest.jpg"), await branding.GetAsync());
-
-        var refused = await Assert.ThrowsAsync<BrandingException>(() => branding.SaveAsync(new BrandingSettings(null, null, "http://merk.test/feest.jpg")));
-        Assert.Equal(["De sfeerfoto moet een volledig adres zijn dat begint met https://."], refused.Problems);
-
-        await branding.SaveAsync(new BrandingSettings(null, null, ""));
-        Assert.Equal(new BrandingSettings(null, null), await branding.GetAsync());
-    }
-
-    [Fact]
-    public async Task An_invalid_logo_or_colour_is_refused_and_not_saved()
+    public async Task An_invalid_colour_is_refused_and_not_saved()
     {
         await app.CreateTenantAsync("huisstijl-ongeldig", "huisstijl-ongeldig.test");
         await using var scope = await app.TenantScopeAsync("huisstijl-ongeldig");
         var branding = Branding(scope);
-        await branding.SaveAsync(new BrandingSettings("https://merk.test/logo.png", "#123456"));
+        await branding.SaveColorAsync("#123456");
 
-        var refused = await Assert.ThrowsAsync<BrandingException>(() =>
-            branding.SaveAsync(new BrandingSettings("http://merk.test/logo.png", "red;background:url(x)")));
+        var refused = await Assert.ThrowsAsync<BrandingException>(() => branding.SaveColorAsync("red;background:url(x)"));
 
-        Assert.Equal(2, refused.Problems.Count);
-        Assert.Equal(new BrandingSettings("https://merk.test/logo.png", "#123456"), await branding.GetAsync());
+        Assert.Equal(["De kleur moet een hexcode zijn, bv. #e91e63."], refused.Problems);
+        Assert.Equal("#123456", (await branding.GetAsync()).PrimaryColor);
+    }
+
+    [Theory]
+    [InlineData(BrandingImage.Logo)]
+    [InlineData(BrandingImage.HeroImage)]
+    public async Task An_uploaded_image_is_shown_replaced_and_removed_and_cleaned_up(BrandingImage which)
+    {
+        var slug = $"huisstijl-upload-{which}".ToLowerInvariant();
+        await app.CreateTenantAsync(slug, $"{slug}.test");
+        await using var scope = await app.TenantScopeAsync(slug);
+        var branding = Branding(scope);
+
+        await branding.UploadAsync(which, TestImages.Png(2000, 1000));
+        var first = UrlOf(await branding.GetAsync(), which)!;
+        Assert.StartsWith($"https://{slug}.test/afbeeldingen/", first);
+        Assert.Equal(HttpStatusCode.OK, (await GetAsync(first)).StatusCode);
+
+        await branding.UploadAsync(which, TestImages.Jpeg(800, 600));
+        var second = UrlOf(await branding.GetAsync(), which)!;
+        Assert.NotEqual(first, second);
+        Assert.Equal(HttpStatusCode.OK, (await GetAsync(second)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await GetAsync(first)).StatusCode);
+
+        await branding.RemoveAsync(which);
+        Assert.Null(UrlOf(await branding.GetAsync(), which));
+        Assert.Equal(HttpStatusCode.NotFound, (await GetAsync(second)).StatusCode);
+    }
+
+    [Fact]
+    public async Task A_file_that_is_not_an_image_is_refused_and_the_logo_stays()
+    {
+        await app.CreateTenantAsync("huisstijl-geen-afbeelding", "huisstijl-geen-afbeelding.test");
+        await using var scope = await app.TenantScopeAsync("huisstijl-geen-afbeelding");
+        var branding = Branding(scope);
+        await branding.UploadAsync(BrandingImage.Logo, TestImages.Png(300, 100));
+        var logo = (await branding.GetAsync()).LogoUrl;
+
+        var refused = await Assert.ThrowsAsync<ImageRejectedException>(() =>
+            branding.UploadAsync(BrandingImage.Logo, new MemoryStream("geen afbeelding"u8.ToArray())));
+
+        Assert.Equal(ImageUpload.WrongFormat, refused.Message);
+        Assert.Equal(logo, (await branding.GetAsync()).LogoUrl);
     }
 
     [Fact]
@@ -64,7 +91,10 @@ public sealed class BrandingAdministrationTests(MoshtarApp app) : IClassFixture<
         await app.CreateTenantAsync("huisstijl-een", "huisstijl-een.test");
         await app.CreateTenantAsync("huisstijl-twee", "huisstijl-twee.test");
         await using (var one = await app.TenantScopeAsync("huisstijl-een"))
-            await Branding(one).SaveAsync(new BrandingSettings("https://een.test/logo.png", "#111111"));
+        {
+            await Branding(one).SaveColorAsync("#111111");
+            await Branding(one).UploadAsync(BrandingImage.Logo, TestImages.Png(300, 100));
+        }
 
         await using var two = await app.TenantScopeAsync("huisstijl-twee");
         Assert.Equal(new BrandingSettings(null, null), await Branding(two).GetAsync());
@@ -78,9 +108,14 @@ public sealed class BrandingAdministrationTests(MoshtarApp app) : IClassFixture<
         Assert.Null(store.FindByHost("huisstijl-meteen.test")!.PrimaryColor);
 
         await using (var scope = await app.TenantScopeAsync("huisstijl-meteen"))
-            await Branding(scope).SaveAsync(new BrandingSettings(null, "#e91e63"));
+        {
+            await Branding(scope).SaveColorAsync("#e91e63");
+            await Branding(scope).UploadAsync(BrandingImage.Logo, TestImages.Png(300, 100));
+        }
 
-        Assert.Equal("#e91e63", store.FindByHost("huisstijl-meteen.test")!.PrimaryColor);
+        var tenant = store.FindByHost("huisstijl-meteen.test")!;
+        Assert.Equal("#e91e63", tenant.PrimaryColor);
+        Assert.NotNull(tenant.LogoImageKey);
     }
 
     [Fact]
@@ -89,10 +124,12 @@ public sealed class BrandingAdministrationTests(MoshtarApp app) : IClassFixture<
         await app.CreateTenantAsync("huisstijl-scherm", "huisstijl-scherm.test");
         await using var scope = await app.TenantScopeAsync("huisstijl-scherm");
 
-        await Branding(scope).SaveAsync(new BrandingSettings("https://merk.test/logo.png", "#e91e63"));
+        await Branding(scope).SaveColorAsync("#e91e63");
+        await Branding(scope).UploadAsync(BrandingImage.Logo, TestImages.Png(300, 100));
 
         var tenant = scope.ServiceProvider.GetRequiredService<ITenantContext>().Tenant!;
-        Assert.Equal(("https://merk.test/logo.png", "#e91e63"), (tenant.LogoUrl, tenant.PrimaryColor));
+        Assert.Equal("#e91e63", tenant.PrimaryColor);
+        Assert.NotNull(tenant.LogoImageKey);
     }
 
     [Fact]
@@ -129,6 +166,16 @@ public sealed class BrandingAdministrationTests(MoshtarApp app) : IClassFixture<
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
         Assert.DoesNotContain("href=\"admin/huisstijl\"", await (await client.GetAsync("/admin/reservaties")).Content.ReadAsStringAsync());
+    }
+
+    private static string? UrlOf(BrandingSettings settings, BrandingImage which) =>
+        which == BrandingImage.Logo ? settings.LogoUrl : settings.HeroImageUrl;
+
+    /// <summary>Het adres opvragen zoals een browser, op de webapp in de test.</summary>
+    private Task<HttpResponseMessage> GetAsync(string url)
+    {
+        var uri = new Uri(url);
+        return app.CreateClient(uri.Host).GetAsync(uri.PathAndQuery);
     }
 
     private static IBrandingAdministration Branding(AsyncServiceScope scope) =>

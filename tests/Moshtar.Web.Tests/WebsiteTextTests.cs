@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Catalog;
 using Moshtar.Application.Tenancy;
 using Moshtar.Application.Website;
 using Moshtar.Domain.Catalog;
@@ -12,8 +13,8 @@ using Moshtar.Web.Site;
 namespace Moshtar.Web.Tests;
 
 /// <summary>
-/// Een beheerder past de teksten van zijn reservatiewebsite aan: titel en ondertitel van de home, de categorieën en de
-/// veelgestelde vragen. Zonder aanpassing gelden de standaardteksten van Moshtar.
+/// Een beheerder past de teksten van zijn reservatiewebsite aan: titel en ondertitel van de home en de veelgestelde
+/// vragen. De teksten van de categorieën staan bij <see cref="CategoryAdministrationTests"/>. Zonder aanpassing gelden de standaardteksten van Moshtar.
 /// </summary>
 public sealed class WebsiteTextTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 {
@@ -64,110 +65,6 @@ public sealed class WebsiteTextTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         {
             var refused = await Assert.ThrowsAsync<WebsiteTextException>(() => Texts(scope).SaveHomeAsync("nl", " ", "Ondertitel", user));
             Assert.Equal(["De titel is leeg."], refused.Problems);
-        }
-    }
-
-    [Fact]
-    public async Task A_category_gets_its_own_name_slug_and_intro_in_one_language()
-    {
-        var (scope, user) = await NewTenantAsync("teksten-categorie");
-        await using (scope)
-        {
-            var texts = Texts(scope);
-            var castles = (await texts.GetAsync("nl")).Categories[0].CategoryId;
-
-            await texts.SaveCategoryAsync(castles, "nl", "Luchtkastelen", "luchtkastelen", "Springen!\r\n\r\nVeilig.", user);
-
-            var category = (await texts.GetAsync("nl")).Categories[0];
-            Assert.Equal(("Luchtkastelen", "luchtkastelen", "Springen!\n\nVeilig."), (category.Name.Value, category.Slug.Value, category.Intro.Value));
-            Assert.True(category.Slug.IsCustomized);
-            Assert.False((await texts.GetAsync("fr")).Categories[0].Name.IsCustomized);
-
-            await texts.ResetAsync("nl", WebsiteTextKey.CategorySlug, castles);
-            category = (await texts.GetAsync("nl")).Categories[0];
-            Assert.Equal(new WebsiteText("springkastelen", false), category.Slug);
-            Assert.True(category.Name.IsCustomized);
-        }
-    }
-
-    [Fact]
-    public async Task A_category_slug_is_unique_per_language()
-    {
-        var (scope, user) = await NewTenantAsync("teksten-slug");
-        await using (scope)
-        {
-            var texts = Texts(scope);
-            var categories = (await texts.GetAsync("nl")).Categories;
-            var games = categories[1];
-
-            var refused = await Assert.ThrowsAsync<WebsiteTextException>(() =>
-                texts.SaveCategoryAsync(games.CategoryId, "nl", games.Name.Value, "springkastelen", "", user));
-            Assert.Equal(["De slug \"springkastelen\" hoort al bij de categorie \"Springkastelen\"; kies een andere."], refused.Problems);
-
-            // In een andere taal mag dezelfde slug wel.
-            await texts.SaveCategoryAsync(games.CategoryId, "en", "Games", "springkastelen", "", user);
-
-            // Teruggaan naar een standaardslug die intussen bij een andere categorie hoort, kan niet.
-            await texts.SaveCategoryAsync(games.CategoryId, "nl", games.Name.Value, "spelletjes", "", user);
-            await texts.SaveCategoryAsync(categories[0].CategoryId, "nl", "Springkastelen", "spellen", "", user);
-            await Assert.ThrowsAsync<WebsiteTextException>(() => texts.ResetAsync("nl", WebsiteTextKey.CategorySlug, games.CategoryId));
-        }
-    }
-
-    [Fact]
-    public async Task Two_categories_whose_names_give_the_same_slug_still_get_different_slugs()
-    {
-        var (scope, _) = await NewTenantAsync("teksten-dubbel");
-        await using (scope)
-        {
-            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            db.Categories.Add(new Category { Slug = "extra-spellen", SortOrder = 3, Translations = [T("nl", "Spellen!")] });
-            await db.SaveChangesAsync();
-
-            var slugs = (await Texts(scope).GetAsync("nl")).Categories.Select(c => c.Slug.Value);
-
-            Assert.Equal(["springkastelen", "spellen", "extra-spellen"], slugs);
-        }
-    }
-
-    [Fact]
-    public async Task Two_administrators_saving_the_same_slug_at_once_cannot_both_win()
-    {
-        var (scope, user) = await NewTenantAsync("teksten-tegelijk");
-        await using (scope)
-        {
-            var categories = (await Texts(scope).GetAsync("nl")).Categories;
-            await using var other = await app.TenantScopeAsync("teksten-tegelijk");
-
-            var results = await Task.WhenAll(
-                Attempt(Texts(scope).SaveCategoryAsync(categories[0].CategoryId, "nl", "Een", "feest", "", user)),
-                Attempt(Texts(other).SaveCategoryAsync(categories[1].CategoryId, "nl", "Twee", "feest", "", user)));
-
-            Assert.Equal(1, results.Count(saved => saved));
-            Assert.Single((await Texts(scope).GetAsync("nl")).Categories, c => c.Slug.Value == "feest");
-        }
-
-        static async Task<bool> Attempt(Task save)
-        {
-            try { await save; return true; }
-            catch (WebsiteTextException) { return false; }
-        }
-    }
-
-    [Theory]
-    [InlineData("Spring kastelen", "mag alleen kleine letters")]
-    [InlineData("contact", "heeft al een andere betekenis")]
-    public async Task An_invalid_slug_is_refused(string slug, string problem)
-    {
-        var (scope, user) = await NewTenantAsync("teksten-ongeldig-" + slug.Length);
-        await using (scope)
-        {
-            var texts = Texts(scope);
-            var castles = (await texts.GetAsync("nl")).Categories[0].CategoryId;
-
-            var refused = await Assert.ThrowsAsync<WebsiteTextException>(() => texts.SaveCategoryAsync(castles, "nl", "Kastelen", slug, "", user));
-
-            Assert.Contains(problem, Assert.Single(refused.Problems));
         }
     }
 
@@ -233,7 +130,7 @@ public sealed class WebsiteTextTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         {
             await Texts(scope).SaveHomeAsync("fr", "Fête & châteaux", "Tout pour votre fête.", user);
             var castles = (await Texts(scope).GetAsync("fr")).Categories[0];
-            await Texts(scope).SaveCategoryAsync(castles.CategoryId, "fr", "Gonflables", castles.Slug.Value, "", user);
+            await scope.ServiceProvider.GetRequiredService<ICategoryAdministration>().SaveAsync(castles.CategoryId, "fr", "Gonflables", castles.Slug.Value, "", user);
             await AddItemAsync(scope, castles.CategoryId);
         }
         var client = app.CreateClient("teksten-site.test");

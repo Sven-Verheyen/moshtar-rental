@@ -5,6 +5,7 @@
 @using Moshtar.Infrastructure.Persistence
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject IReservationService ReservationService
+@inject IReservationAlternatives ReservationAlternatives
 @inject ISnackbar Snackbar
 
 <PageTitle>Reservaties</PageTitle>
@@ -13,6 +14,10 @@
     <MudButton Href="admin/reservaties/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mb-4">
         Nieuwe reservatie
     </MudButton>
+    @if (!string.IsNullOrWhiteSpace(Number))
+    {
+        <MudText Class="mb-4">Reservatie @Number · <MudLink Href="admin/reservaties">Alle reservaties</MudLink></MudText>
+    }
     <MudTable Items="_reservations" Loading="_reservations is null" Hover="true" Dense="true">
         <HeaderContent>
             <MudTh>Nummer</MudTh>
@@ -28,10 +33,16 @@
             <MudTd>@context.Number</MudTd>
             <MudTd>@context.Customer?.FirstName @context.Customer?.LastName<br /><small>@context.Customer?.Email</small></MudTd>
             <MudTd>@context.StartDate.ToString("dd/MM/yyyy") – @context.EndDate.ToString("dd/MM/yyyy")</MudTd>
-            <MudTd>@string.Join(", ", context.Lines.Select(l => $"{l.Quantity} × {l.Description}"))</MudTd>
+            <MudTd>@string.Join(", ", context.Lines.Select(LineText))</MudTd>
             <MudTd>@(context.DeliveryMethod == DeliveryMethod.Delivery ? "Leveren" : "Afhalen")</MudTd>
             <MudTd>@context.TotalPrice.ToString("C", Money)</MudTd>
-            <MudTd><MudChip T="string" Size="Size.Small" Color="StatusColor(context.Status)">@StatusLabel(context.Status)</MudChip></MudTd>
+            <MudTd>
+                <MudChip T="string" Size="Size.Small" Color="StatusColor(context.Status)">@StatusLabel(context.Status)</MudChip>
+                @if (context.AlternativesMailedAtUtc is { } mailed)
+                {
+                    <br /><small>Alternatieven gemaild op @LocalTime(mailed)</small>
+                }
+            </MudTd>
             <MudTd>
                 <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.History"
                            OnClick="() => ToggleHistoryAsync(context.Id)">Historiek</MudButton>
@@ -43,6 +54,11 @@
                             <MudMenuItem OnClick="() => ChangeStatusAsync(context.Id, status)">@StatusLabel(status)</MudMenuItem>
                         }
                     </MudMenu>
+                    @if (context.OccupiesStock)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.SwapHoriz"
+                                   OnClick="() => ToggleReplaceAsync(context.Id)">Artikel vervangen</MudButton>
+                    }
                     @if (context.Status == ReservationStatus.Confirmed)
                     {
                         <MudButton Size="Size.Small" Color="Color.Error" OnClick="() => ChangeStatusAsync(context.Id, ReservationStatus.Cancelled)">Annuleren</MudButton>
@@ -51,6 +67,32 @@
             </MudTd>
         </RowTemplate>
         <ChildRowContent>
+            @if (_replace.TryGetValue(context.Id, out var replace))
+            {
+                <MudTr>
+                    <td colspan="8" class="reservation-replace" style="padding-left:2rem">
+                        <MudText Typo="Typo.body2" Class="mb-2">
+                            Kies het artikel dat je wil vervangen. Alleen artikelen uit dezelfde categorie die vrij zijn in de volledige
+                            huurperiode komen in aanmerking. Zit het in een pakket, dan wordt het enkel binnen het pakket vervangen en
+                            blijft de pakketprijs dezelfde; een meerprijs komt als aparte lijn.
+                        </MudText>
+                        <MudSelect T="Guid?" Label="Artikel" Value="replace.RentalItemId" ValueChanged="id => ChooseItemAsync(context.Id, id)"
+                                   Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width:28rem" Class="mb-2">
+                            @foreach (var item in replace.Items)
+                            {
+                                <MudSelectItem T="Guid?" Value="item.RentalItemId">
+                                    @item.Quantity × @item.Name@(item.BundleName is null ? "" : $" (in {item.BundleName})")
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                        @if (replace.RentalItemId is { } itemId && replace.Alternatives is { } alternatives)
+                        {
+                            <AlternativesPanel @key="(context.Id, itemId)" ReservationId="context.Id" RentalItemId="itemId"
+                                               Alternatives="alternatives" OnMailed="LoadAsync" OnReplaced="() => ReplacedAsync(context.Id)" />
+                        }
+                    </td>
+                </MudTr>
+            }
             @if (_history.TryGetValue(context.Id, out var history))
             {
                 <MudTr>
@@ -87,15 +129,29 @@
     private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
     private List<Reservation>? _reservations;
     private readonly Dictionary<Guid, IReadOnlyList<ReservationHistoryEntry>> _history = [];
+    private readonly Dictionary<Guid, ReplaceState> _replace = [];
+
+    /// <summary>Het open paneel "Artikel vervangen" van een reservatie: haar artikelen en de alternatieven voor het gekozen artikel.</summary>
+    private sealed class ReplaceState(IReadOnlyList<ReservedItem> items)
+    {
+        public IReadOnlyList<ReservedItem> Items { get; } = items;
+        public Guid? RentalItemId { get; set; }
+        public IReadOnlyList<Alternative>? Alternatives { get; set; }
+    }
 
     [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    /// <summary>Alleen de reservatie met dit nummer, bijvoorbeeld vanuit de lijst Tekorten.</summary>
+    [SupplyParameterFromQuery(Name = "nummer")] public string? Number { get; set; }
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        var number = Number?.Trim();
         _reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
+            .Where(r => string.IsNullOrEmpty(number) || r.Number == number)
             .OrderByDescending(r => r.StartDate).ThenBy(r => r.Number)
             .Take(200).ToListAsync();
     }
@@ -125,6 +181,34 @@
             _history[id] = await ReservationService.GetHistoryAsync(id);
     }
 
+    private async Task ToggleReplaceAsync(Guid id)
+    {
+        if (!_replace.Remove(id))
+            _replace[id] = new ReplaceState(await ReservationAlternatives.GetReservedItemsAsync(id));
+    }
+
+    private async Task ChooseItemAsync(Guid reservationId, Guid? itemId)
+    {
+        if (!_replace.TryGetValue(reservationId, out var replace)) return;
+        replace.RentalItemId = itemId;
+        replace.Alternatives = null;
+        if (itemId is { } id)
+            replace.Alternatives = await ReservationAlternatives.GetAsync(reservationId, id);
+    }
+
+    private async Task ReplacedAsync(Guid id)
+    {
+        _replace.Remove(id);
+        await LoadAsync();
+        if (_history.ContainsKey(id))
+            _history[id] = await ReservationService.GetHistoryAsync(id);
+    }
+
+    /// <summary>Een lijn met de artikelen die binnen het pakket vervangen zijn, bv. "1 × Kinderfeest (Jungle vervangen door Piraat)".</summary>
+    private static string LineText(ReservationLine line) =>
+        $"{line.Quantity} × {line.Description}" + (line.Replacements.Count == 0 ? ""
+            : $" ({string.Join(", ", line.Replacements.Select(r => $"{r.RentalItemName} vervangen door {r.ReplacementName}"))})");
+
     private async Task<ReservationActor> CurrentUserAsync() => (await AuthenticationState).User.AsReservationActor();
 
     private static string LocalTime(DateTime utc) =>
@@ -137,6 +221,8 @@
         ReservationEventKind.AddressCorrected => "Leveradres verbeterd",
         ReservationEventKind.PointConfirmed => "Speld op de kaart bevestigd",
         ReservationEventKind.ExpectedTimeMailed => "Verwacht tijdsvenster gemaild",
+        ReservationEventKind.AlternativesMailed => entry.Note is { } note ? $"Alternatieven gemaild: {note}" : "Alternatieven gemaild",
+        ReservationEventKind.ItemReplaced => entry.Note is { } replaced ? $"Artikel vervangen: {replaced}" : "Artikel vervangen",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",
     };
 

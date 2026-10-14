@@ -59,7 +59,8 @@
   <data name="OfferFor" xml:space="preserve"><value>Notre offre · {0}</value></data>
   <data name="AvailableCount" xml:space="preserve"><value>{0} sur {1} disponibles</value></data>
   <data name="Categories" xml:space="preserve"><value>Nos catégories</value></data>
-  <data name="Featured" xml:space="preserve"><value>Les plus demandés</value></data>
+  <data name="Featured" xml:space="preserve"><value>À la une</value></data>
+  <data name="Popular" xml:space="preserve"><value>Les plus demandés</value></data>
   <data name="ForOneDay" xml:space="preserve"><value>pour 1 jour</value></data>
   <data name="ForDays" xml:space="preserve"><value>pour {0} jours</value></data>
   <data name="AvailableOn" xml:space="preserve"><value>Disponible : {0}</value></data>

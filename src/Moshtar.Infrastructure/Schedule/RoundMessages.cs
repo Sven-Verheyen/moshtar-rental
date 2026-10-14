@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Moshtar.Application.Images;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Schedule;
 using Moshtar.Application.Tenancy;
@@ -11,7 +12,7 @@ using Moshtar.Infrastructure.Reservations;
 namespace Moshtar.Infrastructure.Schedule;
 
 /// <summary>Met een eigen, kortlevende context per oproep, zoals <see cref="RoundPlanner"/>.</summary>
-internal sealed class RoundMessages(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<RoundMessages> logger)
+internal sealed class RoundMessages(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images, ILogger<RoundMessages> logger)
     : IRoundMessages
 {
     public async Task<int> MailExpectedTimesAsync(DateOnly day, RoundKind kind, ReservationActor actor, CancellationToken ct = default)
@@ -51,7 +52,7 @@ internal sealed class RoundMessages(IDbContextFactory<AppDbContext> contexts, IT
                 var template = ExpectedTimeMail.Template(customizations, mailKind, language);
                 try
                 {
-                    await mailer.SendAsync(ExpectedTimeMail.Create(reservation, tenant, template, day, stop.Window), ct);
+                    await mailer.SendAsync(ExpectedTimeMail.Create(reservation, tenant, images.LogoUrl(tenant), template, day, stop.Window), ct);
                 }
                 catch (Exception e) when (e is not OperationCanceledException)
                 {

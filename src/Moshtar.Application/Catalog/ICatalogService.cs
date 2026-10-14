@@ -21,17 +21,21 @@ public record CatalogEntry(
     string? Category,
     decimal DayPrice,
     decimal? ExtraDayPrice,
-    IReadOnlyList<string> Images,
+    IReadOnlyList<string> Photos,
     IReadOnlyList<string> Contents,
     ItemSpecs? Specs = null,
     bool InStock = true,
-    IReadOnlyList<Guid>? BundleItemIds = null)
+    IReadOnlyList<Guid>? BundleItemIds = null,
+    int? FeaturedOrder = null)
 {
+    /// <summary>Uitgelicht op de home; de uitgelichte artikelen en pakketten volgen samen <see cref="FeaturedOrder"/>.</summary>
+    public bool IsFeatured => FeaturedOrder is not null;
+
     /// <summary>De artikelen in een pakket; leeg voor een los artikel.</summary>
     public IReadOnlyList<Guid> ItemIds => BundleItemIds ?? [];
 
-    /// <summary>De eerste foto, voor de kaart in een lijst.</summary>
-    public string? ImageUrl => Images.Count > 0 ? Images[0] : null;
+    /// <summary>De hoofdfoto, voor de kaart in een lijst.</summary>
+    public string? MainPhoto => Photos.Count > 0 ? Photos[0] : null;
 
     /// <summary>De prijs voor een huurperiode van zoveel dagen, met de bestaande prijsberekening.</summary>
     public decimal PriceFor(int days) => new Pricing { DayPrice = DayPrice, ExtraDayPrice = ExtraDayPrice }.PriceFor(days);

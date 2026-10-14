@@ -1,0 +1,240 @@
+@page "/admin/pakketten/nieuw"
+@page "/admin/pakketten/{Id:guid}"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Domain.Catalog
+@inject IBundleAdministration Admin
+@inject IRentalItemAdministration ItemAdmin
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>@Title</PageTitle>
+
+<AdminShell Title="@Title">
+    <MudLink Href="admin/pakketten" Class="mb-4 d-inline-block">← Alle pakketten</MudLink>
+
+    @if (_loaded && _draft is null)
+    {
+        <MudAlert Severity="Severity.Warning">Dit pakket bestaat niet (meer).</MudAlert>
+    }
+    else if (_draft is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        @if (Id is not null && !_isActive)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">Dit pakket is uitgezet: het staat niet op je reservatiewebsite. Zet het weer aan in het overzicht.</MudAlert>
+        }
+        else if (_switchedOffItems.Count > 0)
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                @Bundles.HiddenBecause(_switchedOffItems) Zet @(_switchedOffItems.Count == 1 ? "dat artikel" : "die artikelen") weer aan of haal
+                @(_switchedOffItems.Count == 1 ? "het" : "ze") uit het pakket.
+            </MudAlert>
+        }
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Naam en beschrijving</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">
+                Alleen de naam in het @LanguageName(DefaultCulture) is verplicht. Een taal zonder naam of beschrijving toont
+                die van het @LanguageName(DefaultCulture).
+            </MudText>
+            <MudTabs Elevation="0" Rounded="true" TabPanelsClass="pt-4">
+                @foreach (var culture in Cultures)
+                {
+                    var text = _draft.Texts[culture];
+                    <MudTabPanel Text="@LanguageName(culture)">
+                        <MudTextField @bind-Value="text.Name" Label="Naam" Variant="Variant.Outlined" Required="@(culture == DefaultCulture)" Immediate="true" Class="mb-3" />
+                        <MudTextField @bind-Value="text.Description" Label="Beschrijving" Variant="Variant.Outlined" Lines="5"
+                                      HelperText="Laat een lege regel tussen twee alinea's." />
+                    </MudTabPanel>
+                }
+            </MudTabs>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Artikelen</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">
+                Het pakket is vrij zolang elk artikel erin vrij is in het gevraagde aantal.
+            </MudText>
+            @foreach (var line in _draft.Lines)
+            {
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                    <MudSelect T="Guid?" @bind-Value="line.ItemId" Label="Artikel" Variant="Variant.Outlined" Class="flex-grow-1">
+                        @foreach (var item in _items)
+                        {
+                            <MudSelectItem T="Guid?" Value="item.Id">@item.Name@(item.IsActive ? "" : " (uitgezet)")</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudNumericField T="int" @bind-Value="line.Quantity" Label="Aantal" Min="1" Variant="Variant.Outlined" Style="max-width: 8rem" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Uit het pakket halen" Color="Color.Error" OnClick="() => _draft.Lines.Remove(line)" />
+                </MudStack>
+            }
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => _draft.Lines.Add(new LineDraft())">Artikel toevoegen</MudButton>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Prijs en adres</MudText>
+            <MudGrid>
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="decimal" @bind-Value="_draft.DayPrice" Label="Dagprijs (€, incl. btw)" Min="0" Format="N2" Variant="Variant.Outlined"
+                                     HelperText="@($"Los: {SeparatePrice().ToString("C", Money)} per dag.")" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="decimal?" @bind-Value="_draft.ExtraDayPrice" Label="Prijs per extra dag (€, incl. btw)" Min="0" Format="N2" Variant="Variant.Outlined"
+                                     HelperText="Leeg: de dagprijs." />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudTextField @bind-Value="_draft.Slug" Label="Slug in de URL" Variant="Variant.Outlined"
+                                  Placeholder="@RentalItemSlug.From(_draft.Texts[DefaultCulture].Name ?? "")"
+                                  HelperText="Kleine letters, cijfers en koppeltekens. Leeg: uit de naam. Het oude adres stuurt door naar het nieuwe." />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <Problems Items="_problems" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3 mb-4" OnClick="SaveAsync">@(Id is null ? "Aanmaken" : "Opslaan")</MudButton>
+
+        @if (Id is { } id)
+        {
+            <PhotoEditor Photos="_photos" Name="@_name"
+                         Note="Optioneel. Zonder eigen foto's toont je reservatiewebsite de foto's van de artikelen in het pakket."
+                         Upload="uploads => PhotosAsync(() => Admin.AddPhotosAsync(id, uploads))"
+                         Reorder="keys => PhotosAsync(() => Admin.ReorderPhotosAsync(id, keys))"
+                         Delete="key => PhotosAsync(() => Admin.DeletePhotoAsync(id, key))" />
+        }
+        else
+        {
+            <MudText Typo="Typo.body2">Eigen foto's voeg je toe zodra het pakket aangemaakt is; zonder eigen foto's toont je reservatiewebsite die van de artikelen.</MudText>
+        }
+    }
+</AdminShell>
+
+@code {
+    private sealed class TextDraft { public string? Name { get; set; } public string? Description { get; set; } }
+
+    private sealed class LineDraft { public Guid? ItemId { get; set; } public int Quantity { get; set; } = 1; }
+
+    private sealed class Draft
+    {
+        public Dictionary<string, TextDraft> Texts { get; } = [];
+        public List<LineDraft> Lines { get; set; } = [];
+        public string? Slug { get; set; }
+        public decimal DayPrice { get; set; }
+        public decimal? ExtraDayPrice { get; set; }
+    }
+
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
+
+    [Parameter] public Guid? Id { get; set; }
+
+    private Draft? _draft;
+    private bool _loaded;
+    private bool _isActive = true;
+    private IReadOnlyList<string> _switchedOffItems = [];
+    private IReadOnlyList<RentalItemSummary> _items = [];
+    private IReadOnlyList<string>? _problems;
+    private IReadOnlyList<string> _photos = [];
+    private string _name = "";
+
+    private string Title => Id is null ? "Nieuw pakket" : "Pakket wijzigen";
+    private IReadOnlyList<string> Cultures => TenantContext.Tenant?.Cultures ?? [];
+    private string DefaultCulture => TenantContext.Tenant?.DefaultCulture ?? "nl";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _items = await ItemAdmin.GetAllAsync();
+        _draft = null;
+        _problems = null;
+        if (Id is { } id)
+        {
+            if (await Admin.GetAsync(id) is { } bundle) Show(bundle);
+        }
+        else
+        {
+            _draft = new Draft { Lines = [new LineDraft()] };
+            foreach (var culture in Cultures) _draft.Texts[culture] = new TextDraft();
+        }
+        _loaded = true;
+    }
+
+    private void Show(BundleDetails bundle)
+    {
+        _isActive = bundle.IsActive;
+        _switchedOffItems = bundle.SwitchedOffItems;
+        _photos = bundle.Photos;
+        _name = bundle.Input.Texts.FirstOrDefault(t => t.Culture == DefaultCulture)?.Name ?? bundle.Slug;
+        var input = bundle.Input;
+        _draft = new Draft
+        {
+            Slug = input.Slug, DayPrice = input.DayPrice, ExtraDayPrice = input.ExtraDayPrice,
+            Lines = input.Contents.Select(c => new LineDraft { ItemId = c.RentalItemId, Quantity = c.Quantity }).ToList(),
+        };
+        foreach (var culture in Cultures)
+            _draft.Texts[culture] = input.Texts.FirstOrDefault(t => t.Culture == culture) is { } t
+                ? new TextDraft { Name = t.Name, Description = t.Description }
+                : new TextDraft();
+    }
+
+    /// <summary>Wat de artikelen los per dag kosten, als hulp bij de pakketprijs.</summary>
+    private decimal SeparatePrice() =>
+        _draft?.Lines.Sum(l => (_items.FirstOrDefault(i => i.Id == l.ItemId)?.DayPrice ?? 0) * l.Quantity) ?? 0;
+
+    private BundleInput ToInput(Draft d) => new(
+        Cultures.Select(c => new RentalItemText(c, d.Texts[c].Name ?? "", d.Texts[c].Description)).ToList(),
+        d.Lines.Where(l => l.ItemId is not null).Select(l => new BundleContent(l.ItemId!.Value, l.Quantity)).ToList(),
+        d.DayPrice, d.ExtraDayPrice, d.Slug);
+
+    /// <summary>Een wijziging aan de foto's, daarna de foto's opnieuw; geeft terug wat er mis is.</summary>
+    private async Task<IReadOnlyList<string>> PhotosAsync(Func<Task> change)
+    {
+        IReadOnlyList<string> problems = [];
+        try
+        {
+            await change();
+        }
+        catch (BundleException e)
+        {
+            problems = e.Problems;
+        }
+        if (Id is { } id && await Admin.GetAsync(id) is { } bundle) _photos = bundle.Photos;
+        return problems;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        try
+        {
+            if (Id is { } id)
+            {
+                await Admin.SaveAsync(id, ToInput(_draft));
+                _problems = null;
+                if (await Admin.GetAsync(id) is { } saved) Show(saved);
+                Snackbar.Add("Pakket bewaard.", Severity.Success);
+            }
+            else
+            {
+                var created = await Admin.CreateAsync(ToInput(_draft));
+                Snackbar.Add("Pakket aangemaakt.", Severity.Success);
+                Navigation.NavigateTo($"admin/pakketten/{created}");
+            }
+        }
+        catch (BundleException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+}

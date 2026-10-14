@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Images;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Infrastructure.Persistence;
@@ -51,11 +52,12 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var html = await PageAsync("seo-artikel", "/huren/piraat");
 
         Assert.Contains("<meta property=\"og:type\" content=\"product\" />", html);
-        Assert.Contains("<meta property=\"og:image\" content=\"https://seo.test/piraat.jpg\" />", html);
+        var photo = $"https://seo-artikel.test/afbeeldingen/{_piratePhoto}/1600.webp";
+        Assert.Contains($"<meta property=\"og:image\" content=\"{photo}\" />", html);
         var product = JsonLd(html, "Product");
         Assert.Equal("Piratenkasteel", product.GetProperty("name").GetString());
         Assert.Equal("Een kasteel met een mast.", product.GetProperty("description").GetString());
-        Assert.Equal("https://seo.test/piraat.jpg", product.GetProperty("image")[0].GetString());
+        Assert.Equal(photo, product.GetProperty("image")[0].GetString());
         var offer = product.GetProperty("offers");
         Assert.Equal(("120.00", "EUR", "https://schema.org/InStock"),
             (offer.GetProperty("price").GetString(), offer.GetProperty("priceCurrency").GetString(), offer.GetProperty("availability").GetString()));
@@ -80,7 +82,7 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var outOfStock = JsonLd(await PageAsync("seo-pakket", "/huren/prinses"), "Product");
 
         Assert.Equal("Alles voor een feest.", bundle.GetProperty("description").GetString());
-        Assert.Equal("https://seo.test/molen.jpg", bundle.GetProperty("image")[0].GetString());
+        Assert.Equal($"https://seo-pakket.test/afbeeldingen/{_millPhoto}/1600.webp", bundle.GetProperty("image")[0].GetString());
         Assert.Equal("https://schema.org/InStock", bundle.GetProperty("offers").GetProperty("availability").GetString());
         // Het prinsessenkasteel heeft geen exemplaren meer.
         Assert.Equal("https://schema.org/OutOfStock", outOfStock.GetProperty("offers").GetProperty("availability").GetString());
@@ -106,7 +108,7 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
             Assert.Equal("Seo Verhuur", business.GetProperty("name").GetString());
             Assert.Equal("+32470123456", business.GetProperty("telephone").GetString());
-            Assert.Equal("https://seo.test/logo.png", business.GetProperty("logo").GetString());
+            Assert.Matches("^https://seo-bedrijf.test/afbeeldingen/[0-9a-f]{32}/[0-9a-f]{32}/400.webp$", business.GetProperty("logo").GetString());
             Assert.Equal("Kerkstraat 1", business.GetProperty("address").GetProperty("streetAddress").GetString());
             Assert.Equal("Mortsel", business.GetProperty("address").GetProperty("addressLocality").GetString());
             Assert.Equal(["Mortsel", "Edegem"], business.GetProperty("areaServed").EnumerateArray().Select(a => a.GetProperty("name").GetString()));
@@ -231,7 +233,10 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var tenant = await db.Tenants.SingleAsync(t => t.Slug == slug);
         tenant.Name = "Seo Verhuur";
-        tenant.LogoUrl = "https://seo.test/logo.png";
+        var images = scope.ServiceProvider.GetRequiredService<IImageStore>();
+        tenant.LogoImageKey = await images.UploadAsync(TestImages.Png(600, 200));
+        _piratePhoto = await images.UploadAsync(TestImages.Jpeg(2000, 1500));
+        _millPhoto = await images.UploadAsync(TestImages.Jpeg(2000, 1500));
         tenant.Street = "Kerkstraat 1";
         tenant.PostalCode = "2640";
         tenant.City = "Mortsel";
@@ -243,16 +248,19 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var pirate = new RentalItem
         {
             Slug = "piraat", Category = castles, Stock = 1, Pricing = new Pricing { DayPrice = 120 },
-            Images = [new ItemImage { Url = "https://seo.test/piraat.jpg" }],
+            Photos = [new Photo { Key = _piratePhoto }],
             Translations = [new Translation { Culture = "nl", Name = itemName, Description = "Een kasteel met een mast." }],
         };
         var princess = new RentalItem { Slug = "prinses", Category = castles, Stock = 0, Pricing = new Pricing { DayPrice = 100 }, Translations = [T("nl", "Prinsessenkasteel")] };
-        var mill = new RentalItem { Slug = "molen", Stock = 1, Images = [new ItemImage { Url = "https://seo.test/molen.jpg" }], Pricing = new Pricing { DayPrice = 30 }, Translations = [T("nl", "Molen")] };
+        var mill = new RentalItem { Slug = "molen", Stock = 1, Photos = [new Photo { Key = _millPhoto }], Pricing = new Pricing { DayPrice = 30 }, Translations = [T("nl", "Molen")] };
         db.AddRange(castles, games, pirate, princess, mill);
         await db.SaveChangesAsync();
         db.Bundles.Add(new Bundle { Slug = "feest", Pricing = new Pricing { DayPrice = 150 }, Translations = [new Translation { Culture = "nl", Name = "Feestpakket", Description = "Alles voor een feest." }], Items = [new BundleItem { RentalItemId = mill.Id }] });
         await db.SaveChangesAsync();
     }
+
+    /// <summary>De sleutels van de foto van het piratenkasteel en de molen uit <see cref="NewTenantAsync"/>.</summary>
+    private string _piratePhoto = "", _millPhoto = "";
 
     /// <summary>Het JSON-LD-object van dit type in de pagina.</summary>
     private static JsonElement JsonLd(string html, string type) =>

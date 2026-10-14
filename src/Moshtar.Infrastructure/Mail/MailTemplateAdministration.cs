@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Carts;
+using Moshtar.Application.Images;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Mail;
@@ -10,7 +11,7 @@ using Moshtar.Infrastructure.Schedule;
 
 namespace Moshtar.Infrastructure.Mail;
 
-internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer) : IMailTemplateAdministration
+internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images) : IMailTemplateAdministration
 {
     private const int MaxSubjectLength = 300;
     private const int MaxWhatsAppLength = 1000;
@@ -89,13 +90,21 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
         var mail = kind switch
         {
-            MailKind.ReservationConfirmation => ReservationConfirmation.Create(ReservationConfirmation.Example(culture, today), Tenant, text),
-            MailKind.CartReminder => CartReminder.Create(CartReminder.Example(culture, today), CartReminder.LanguageOf(culture, Tenant), Tenant, text,
+            MailKind.ReservationConfirmation => ReservationConfirmation.Create(ReservationConfirmation.Example(culture, today), Tenant, images.LogoUrl(Tenant), text),
+            MailKind.CartReminder => CartReminder.Create(CartReminder.Example(culture, today), CartReminder.LanguageOf(culture, Tenant), Tenant, images.LogoUrl(Tenant), text,
                 $"https://{host ?? "www.example.com"}{CartReminderPath.For("voorbeeld")}"),
-            MailKind.ExpectedDeliveryTime or MailKind.ExpectedCollectionTime => ExpectedTimeMail.Example(kind, culture, today, Tenant, text),
+            MailKind.ExpectedDeliveryTime or MailKind.ExpectedCollectionTime => ExpectedTimeMail.Example(kind, culture, today, Tenant, images.LogoUrl(Tenant), text),
+            MailKind.ReservationAlternatives => AlternativesExample(culture, today, host ?? "www.example.com", text),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
         return mail with { To = to };
+    }
+
+    private MailMessage AlternativesExample(string culture, DateOnly today, string host, MailTemplateText text)
+    {
+        var reservation = ReservationConfirmation.Example(culture, today);
+        var (unavailable, alternatives) = AlternativesMail.Example(ReservationConfirmation.LanguageOf(reservation, Tenant), host, Tenant.DefaultCulture);
+        return AlternativesMail.Create(reservation, Tenant, images.LogoUrl(Tenant), text, unavailable, alternatives);
     }
 
     /// <summary>De tekst zoals hij bewaard en verstuurd wordt, of een <see cref="MailTemplateException"/> met wat er mis is.</summary>

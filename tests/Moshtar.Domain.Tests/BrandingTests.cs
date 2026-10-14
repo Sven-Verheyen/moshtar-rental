@@ -5,23 +5,6 @@ namespace Moshtar.Domain.Tests;
 public class BrandingTests
 {
     [Theory]
-    [InlineData(" https://hopsakee.fun/logo.png ", "https://hopsakee.fun/logo.png")]
-    [InlineData("http://hopsakee.fun/logo.png", null)]
-    [InlineData("/logo.png", null)]
-    [InlineData("javascript:alert(1)", null)]
-    [InlineData("", null)]
-    [InlineData(null, null)]
-    public void Only_a_full_https_address_is_a_logo(string? input, string? expected) =>
-        Assert.Equal(expected, Branding.LogoUrl(input));
-
-    [Theory]
-    [InlineData("https://hopsakee.fun/feest.jpg", "https://hopsakee.fun/feest.jpg")]
-    [InlineData("http://hopsakee.fun/feest.jpg", null)]
-    [InlineData("data:image/png;base64,AAAA", null)]
-    public void Only_a_full_https_address_is_a_hero_image(string? input, string? expected) =>
-        Assert.Equal(expected, Branding.HeroImageUrl(input));
-
-    [Theory]
     [InlineData("#1b5e20", "#ffffff")]
     [InlineData("#ff0", "#000000")]
     [InlineData("#0d47a1", "#ffffff")]
@@ -39,12 +22,9 @@ public class BrandingTests
         Assert.Equal(expected, Branding.Color(input));
 
     [Fact]
-    public void Empty_values_are_fine_and_invalid_ones_are_explained()
+    public void An_empty_colour_is_fine_and_an_invalid_one_is_explained()
     {
-        Assert.Empty(Branding.Problems(null, " "));
-        Assert.Equal(
-            ["Het logo moet een volledig adres zijn dat begint met https://.", "De kleur moet een hexcode zijn, bv. #e91e63."],
-            Branding.Problems("www.hopsakee.fun/logo.png", "roze"));
-        Assert.Equal(["De sfeerfoto moet een volledig adres zijn dat begint met https://."], Branding.Problems(null, null, "feest.jpg"));
+        Assert.Empty(Branding.Problems(" "));
+        Assert.Equal(["De kleur moet een hexcode zijn, bv. #e91e63."], Branding.Problems("roze"));
     }
 }

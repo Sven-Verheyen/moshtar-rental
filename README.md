@@ -10,11 +10,14 @@ aan andere verhuurbedrijven aangeboden te worden.
   een artikel of pakket toont beschikbaarheid en totaalprijs voor die huurperiode, en pas dan het reservatieformulier.
   Voor zoekmachines en AI-bots heeft elke pagina titel, beschrijving, Open Graph en JSON-LD (LocalBusiness, Product,
   FAQPage, BreadcrumbList), en elke verhuurder een eigen `/robots.txt`, `/sitemap.xml` en `/llms.txt`.
-  Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (logo, kleur en sfeerfoto, in te stellen op
-  `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
+  Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (kleur, en een geüpload logo en sfeerfoto, in te
+  stellen op `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
   De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens en het werkgebied, in te stellen op
-  `/admin/bedrijfsgegevens`. Titel en ondertitel van de home, de categorieteksten en de veelgestelde vragen
-  (`/veelgestelde-vragen`) past de beheerder aan op `/admin/websiteteksten`; anders gelden de standaardteksten van Moshtar.
+  `/admin/bedrijfsgegevens`. Titel en ondertitel van de home en de veelgestelde vragen (`/veelgestelde-vragen`) past de
+  beheerder aan op `/admin/websiteteksten`; anders gelden de standaardteksten van Moshtar. Categorieën maakt hij aan op
+  `/admin/categorieen`, met naam, slug en inleiding per taal en een volgorde die hij versleept; een lege categorie kan
+  hij er verwijderen. Een gewijzigde slug stuurt het oude adres met een 301 door naar het nieuwe, per taal (tabel
+  `OldSlugs`, ook voor artikelen en pakketten).
   Met een GA4-meet-ID (op `/admin/bedrijfsgegevens`) vraagt een toestemmingsbalk of Google Analytics mag; het script
   laadt pas na "Accepteren" en meet dan ook gecontroleerde beschikbaarheid en bevestigde reservaties, zonder
   persoonsgegevens. De keuze staat in de cookie `moshtar-analytics` (`POST /toestemming`, wijzigen via "Cookie-instellingen"
@@ -30,7 +33,34 @@ aan andere verhuurbedrijven aangeboden te worden.
   telefoon, adres, artikelen (pakketten opengeklapt), opmerkingen en status, een knop "Geleverd" of "Teruggebracht" en
   "Navigeer" (Waze). Wie zelf komt afhalen of terugbrengt, staat apart. Werkt ook op een gsm. Verder reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie
   (wie wat deed en wanneer). Zelf een reservatie invoeren, bv. voor een klant die belt (`/admin/reservaties/nieuw`),
-  met dezelfde voorraadcontrole als de reservatiewebsite. Voorraad en prijzen van artikelen aanpassen.
+  met dezelfde voorraadcontrole als de reservatiewebsite. Categorieën beheren. Artikelen aanmaken en wijzigen
+  (`/admin/artikelen`): naam en beschrijving per taal (alleen de standaardtaal verplicht; het overzicht toont welke
+  vertalingen ontbreken), categorie, kenmerken, voorraad, prijzen en slug, met een volgorde binnen de categorie die de
+  beheerder versleept. Een artikel kan uitgezet worden, en verwijderd zolang geen reservatie, pakket of winkelkar ernaar
+  verwijst; zit het (nooit gereserveerd) in een pakket, dan zegt het back office uit welk pakket het eerst moet. Een
+  voorraad onder wat al gereserveerd is, mag, met een waarschuwing per dag die het bewaren een tekort gaf of het tekort
+  groter maakte (`ShortageCalculator.NewOrWorse`); hetzelfde na het bewaren van een blokkering.
+  Pakketten aanmaken en wijzigen (`/admin/pakketten`): naam en beschrijving per taal, artikelen met aantallen, eigen
+  prijs, slug (gedeeld met de artikelen) en optioneel tot 10 eigen foto's; zonder eigen foto's toont de
+  reservatiewebsite die van de artikelen. Een pakket staat niet op de reservatiewebsite zolang een artikel erin
+  uitgezet is; het back office zegt welk. Uitzetten en verwijderen (zolang geen reservatie of winkelkar ernaar
+  verwijst) zoals bij artikelen.
+  Artikelen en pakketten uitlichten met de ster in hun overzicht; de lijst Uitgelicht (`/admin/uitgelicht`) toont ze
+  samen in een volgorde die de beheerder versleept. Zonder gekozen huurperiode toont de home ze in die volgorde in
+  plaats van "Populair" (uitgezette artikelen en verborgen pakketten niet); is niets uitgelicht, dan de pakketten en het
+  eerste artikel van elke categorie. Met een huurperiode staan de uitgelichte bovenaan, met hun beschikbaarheid, en
+  daaronder het hele aanbod.
+  De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
+  dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
+  Per getroffen reservatie staan er de alternatieven (artikelen uit dezelfde categorie, aan en vrij in de volledige
+  huurperiode) met het prijsverschil als hulp; de aangevinkte gaan met één klik en een optionele meerprijs naar de klant,
+  in zijn taal (mailsjabloon "Alternatieven bij een tekort"). Wanneer en door wie komt per artikel bij de reservatie en in
+  de historiek, de meerprijzen worden bewaard voor het vervangen (`IReservationAlternatives`).
+  Heeft de klant gekozen, dan vervangt "Vervangen" (in Tekorten, of "Artikel vervangen" bij de reservatie) het artikel
+  door het alternatief, met de meerprijs uit de mail voorgevuld. Een losse lijn krijgt het andere artikel aan dezelfde
+  prijs; in een pakket wordt enkel het artikel binnen het pakket vervangen, als notitie op de pakketlijn ("Jungle
+  vervangen door Piraat") in het back office en de mails, en de pakketprijs blijft. Een meerprijs wordt een aparte lijn.
+  Het komt in de historiek en de klant krijgt een bijgewerkte bevestiging (`IReservationService.ReplaceItemAsync`).
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).
@@ -59,9 +89,12 @@ tests/
 
 - **Beschikbaarheid**: per dag wordt de voorraad vergeleken met bevestigde reservaties en blokkeringen.
   Pakketten worden opengeklapt naar hun artikelen, en de bufferdagen van de tenant (leveren, poetsen)
-  worden rond elke verhuur gelegd. Zie `AvailabilityCalculator`.
+  worden rond elke verhuur gelegd, niet rond blokkeringen. Een artikel dat voor een reservatie binnen een pakket
+  vervangen is, telt als het vervangende artikel (`ReservationLine.Replacements`). Een blokkering zonder einddatum telt voor alle dagen vanaf
+  haar begindatum (`Blockout.Period`). Zie `AvailabilityCalculator`. Tekorten (dagen vanaf vandaag met meer gereserveerd
+  dan verhuurbaar) worden op dezelfde manier berekend, niet bewaard. Zie `ShortageCalculator` en `ShortageQuery`.
 - **Geen dubbele reservaties**: reservaties per tenant worden binnen een transactie met een
-  PostgreSQL advisory lock na elkaar afgehandeld. Zie `ReservationService`.
+  PostgreSQL advisory lock na elkaar afgehandeld, net als een artikel vervangen. Zie `ReservationService`.
 - **Prijzen**: eerste dag aan dagprijs, elke extra dag aan de prijs per extra dag (incl. btw).
 - **E-mail**: mails vertrekken via Azure Communication Services vanaf het eigen domein van de verhuurder
   (`SenderEmail`, bv. noreply@hopsakee.fun), met zijn contactadres als antwoordadres (zie
@@ -77,6 +110,14 @@ tests/
 - **Rondes**: "Route voorstellen" bewaart een ronde (`Round`) met de snelste volgorde; de uren en verwachte
   tijdsvensters rekent `RoundTimes` uit, een nieuwe stop komt via `RoundInsertion` op de goedkoopste plek. Zie
   `IRoundPlanner`.
+- **Afbeeldingen**: logo, sfeerfoto en foto's (tot 10 per artikel, de eerste is de hoofdfoto) uploadt de beheerder; Moshtar bewaart ze zelf, per verhuurder
+  gescheiden, verkleind naar vaste breedtes (400, 800 en 1600 px) als WebP, en bewaart enkel de sleutel; het publieke
+  adres wordt eruit afgeleid (zie `docs/adr/0005-verhuurder-uploadt-afbeeldingen-naar-moshtar.md` en `IImageStore`).
+  Aanvaard: JPG, PNG, WebP of GIF tot 10 MB. In productie in Azure Blob Storage
+  (`Images:AzureBlobStorageConnectionString`, container `Images:Container`, standaard `afbeeldingen`, met publieke
+  leestoegang; optioneel een CDN in `Images:PublicBaseUrl`). Zonder connection string, zoals lokaal en in de tests,
+  staan ze in een map van de app (`Images:LocalPath`, standaard `App_Data/afbeeldingen`) en serveert de app ze zelf
+  onder `/afbeeldingen`, op het hoofddomein van de verhuurder of op `Images:PublicBaseUrl` (lokaal `http://localhost:5016/afbeeldingen`).
 - **Vertalingen**: UI-teksten in `Resources/SharedResource.*.resx`, inhoud (namen, beschrijvingen) als JSON in de database.
 
 ## Lokaal draaien
