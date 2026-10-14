@@ -1,5 +1,8 @@
 @using Moshtar.Domain.Availability
-@* De tekorten na het bewaren van een blokkering of een lagere voorraad: per dag vanaf vandaag meer gereserveerd dan verhuurbaar. *@
+@*
+    De tekorten na het bewaren van een blokkering of een lagere voorraad: per dag vanaf vandaag meer gereserveerd dan
+    verhuurbaar, met een link naar de lijst Tekorten.
+*@
 @if (Shortages is { Count: > 0 })
 {
     <MudAlert Severity="Severity.Warning" Class="mb-4">
@@ -10,6 +13,7 @@
                 <li>@Text(shortage)</li>
             }
         </ul>
+        <MudLink Href="admin/tekorten">Bekijk de getroffen reservaties bij Tekorten</MudLink>
     </MudAlert>
 }
 

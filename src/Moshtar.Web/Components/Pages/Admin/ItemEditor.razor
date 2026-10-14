@@ -26,18 +26,7 @@
     }
     else
     {
-        @if (_shortages is { Count: > 0 })
-        {
-            <MudAlert Severity="Severity.Warning" Class="mb-4">
-                <div>Bewaard, maar op deze dagen is meer gereserveerd dan verhuurbaar:</div>
-                <ul>
-                    @foreach (var shortage in _shortages)
-                    {
-                        <li>@ShortageText(shortage)</li>
-                    }
-                </ul>
-            </MudAlert>
-        }
+        <ShortageWarning Shortages="_shortages" />
         @if (Id is not null && !_isActive)
         {
             <MudAlert Severity="Severity.Info" Class="mb-4">Dit artikel is uitgezet: het staat niet op je reservatiewebsite. Zet het weer aan in het overzicht.</MudAlert>
@@ -253,10 +242,6 @@
             _problems = e.Problems;
         }
     }
-
-    private static string ShortageText(Shortage shortage) =>
-        $"{shortage.Day.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("nl-BE"))}: {shortage.Reserved} gereserveerd, "
-        + $"{shortage.Rentable} verhuurbaar ({(shortage.ReservationIds.Count == 1 ? "1 reservatie" : $"{shortage.ReservationIds.Count} reservaties")})";
 
     private static string LanguageName(string culture) => culture switch
     {

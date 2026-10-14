@@ -40,6 +40,8 @@ aan andere verhuurbedrijven aangeboden te worden.
   reservatiewebsite die van de artikelen. Een pakket staat niet op de reservatiewebsite zolang een artikel erin
   uitgezet is; het back office zegt welk. Uitzetten en verwijderen (zolang geen reservatie of winkelkar ernaar
   verwijst) zoals bij artikelen.
+  De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
+  dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

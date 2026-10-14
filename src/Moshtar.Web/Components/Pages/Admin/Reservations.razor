@@ -14,6 +14,10 @@
     <MudButton Href="admin/reservaties/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" Class="mb-4">
         Nieuwe reservatie
     </MudButton>
+    @if (!string.IsNullOrWhiteSpace(Number))
+    {
+        <MudText Class="mb-4">Reservatie @Number · <MudLink Href="admin/reservaties">Alle reservaties</MudLink></MudText>
+    }
     <MudTable Items="_reservations" Loading="_reservations is null" Hover="true" Dense="true">
         <HeaderContent>
             <MudTh>Nummer</MudTh>
@@ -91,12 +95,17 @@
 
     [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    /// <summary>Alleen de reservatie met dit nummer, bijvoorbeeld vanuit de lijst Tekorten.</summary>
+    [SupplyParameterFromQuery(Name = "nummer")] public string? Number { get; set; }
+
+    protected override Task OnParametersSetAsync() => LoadAsync();
 
     private async Task LoadAsync()
     {
         await using var db = await DbFactory.CreateDbContextAsync();
+        var number = Number?.Trim();
         _reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
+            .Where(r => string.IsNullOrEmpty(number) || r.Number == number)
             .OrderByDescending(r => r.StartDate).ThenBy(r => r.Number)
             .Take(200).ToListAsync();
     }

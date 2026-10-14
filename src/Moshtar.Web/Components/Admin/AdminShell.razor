@@ -20,6 +20,7 @@
     <MudDrawer Open="true" ClipMode="DrawerClipMode.Always" Elevation="1">
         <MudNavMenu>
             <MudNavLink Href="admin/reservaties" Icon="@Icons.Material.Filled.EventNote">Reservaties</MudNavLink>
+            <ShortageMenuLink />
             <MudNavLink Href="admin/winkelkarren" Icon="@Icons.Material.Filled.ShoppingCart">Open winkelkarren</MudNavLink>
             <AuthorizeView Roles="@Roles.Administrator">
                 <MudNavGroup Title="Artikelen" Icon="@Icons.Material.Filled.Toys" Expanded="true">
