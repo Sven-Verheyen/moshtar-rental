@@ -35,6 +35,11 @@ aan andere verhuurbedrijven aangeboden te worden.
   vertalingen ontbreken), categorie, kenmerken, voorraad, prijzen en slug, met een volgorde binnen de categorie die de
   beheerder versleept. Een artikel kan uitgezet worden, en verwijderd zolang geen reservatie, pakket of winkelkar ernaar
   verwijst. Een voorraad onder wat al gereserveerd is, mag, met een waarschuwing per dag (`ShortageCalculator`).
+  Pakketten aanmaken en wijzigen (`/admin/pakketten`): naam en beschrijving per taal, artikelen met aantallen, eigen
+  prijs, slug (gedeeld met de artikelen) en optioneel tot 10 eigen foto's; zonder eigen foto's toont de
+  reservatiewebsite die van de artikelen. Een pakket staat niet op de reservatiewebsite zolang een artikel erin
+  uitgezet is; het back office zegt welk. Uitzetten en verwijderen (zolang geen reservatie of winkelkar ernaar
+  verwijst) zoals bij artikelen.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

@@ -10,6 +10,7 @@
     <MudText Typo="Typo.body2" Class="mb-3">
         Tot @Photo.Max foto's in JPG, PNG, WebP of GIF, elk tot 10 MB. De eerste is de hoofdfoto in het aanbod; versleep ze
         om de volgorde te kiezen. Je reservatiewebsite toont ze verkleind, met de naam als beschrijving voor schermlezers.
+        @Note
     </MudText>
 
     @if (Photos.Count > 0)
@@ -55,6 +56,9 @@
 
     /// <summary>De naam van het artikel of pakket, voor de beschrijving van de foto's.</summary>
     [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>Een extra uitleg onder de standaarduitleg, bv. wat er zonder foto's getoond wordt.</summary>
+    [Parameter] public string? Note { get; set; }
 
     /// <summary>Bewaart nieuwe foto's; geeft terug wat er mis is (leeg: gelukt).</summary>
     [Parameter, EditorRequired] public Func<IReadOnlyList<PhotoUpload>, Task<IReadOnlyList<string>>> Upload { get; set; } = null!;

@@ -18,26 +18,19 @@ internal sealed class RentalItemAdministration(
     AppDbContext db, ITenantContext tenantContext, OldSlugs oldSlugs, ShortageQuery shortages, PhotoAlbum album)
     : IRentalItemAdministration
 {
-    private const int MaxNameLength = 100;
-    private const int MaxDescriptionLength = 4000;
-
     public async Task<IReadOnlyList<RentalItemSummary>> GetAllAsync(CancellationToken ct = default)
     {
         var items = await db.RentalItems.AsNoTracking().Include(i => i.Category).ToListAsync(ct);
         return Ordered(items).Select(i => new RentalItemSummary(
             i.Id, Name(i), i.Slug, i.CategoryId, i.Stock, i.Pricing.DayPrice, i.Pricing.ExtraDayPrice, i.IsActive,
-            MissingTranslations(i))).ToList();
+            CatalogTexts.Missing(Tenant, i.Translations))).ToList();
     }
 
     public async Task<RentalItemDetails?> GetAsync(Guid itemId, CancellationToken ct = default)
     {
         var item = await db.RentalItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct);
         if (item is null) return null;
-        var texts = Tenant.Cultures
-            .Select(culture => item.Translations.FirstOrDefault(t => t.Culture == culture) is { } t
-                ? new RentalItemText(culture, t.Name, t.Description)
-                : new RentalItemText(culture, "", null))
-            .ToList();
+        var texts = CatalogTexts.ForEditing(Tenant, item.Translations);
         return new RentalItemDetails(item.Id, item.IsActive, new RentalItemInput(
             texts, item.CategoryId, item.Stock, item.Pricing.DayPrice, item.Pricing.ExtraDayPrice,
             new ItemSpecs(item.LengthCm, item.WidthCm, item.HeightCm, item.MinAge, item.MaxAge, item.MaxPersons, item.RequiresPower),
@@ -236,25 +229,7 @@ internal sealed class RentalItemAdministration(
     private (List<Translation> Translations, string? Slug) Validate(RentalItemInput input)
     {
         var problems = new List<string>();
-        foreach (var text in input.Texts.Where(t => !Tenant.Cultures.Contains(t.Culture)))
-            problems.Add($"Je biedt de taal '{text.Culture}' niet aan.");
-
-        var translations = new List<Translation>();
-        foreach (var culture in Tenant.Cultures)
-        {
-            var text = input.Texts.FirstOrDefault(t => t.Culture == culture);
-            var name = text?.Name.Trim() ?? "";
-            var description = text?.Description?.Trim().ReplaceLineEndings("\n") is { Length: > 0 } d ? d : null;
-            if (name.Length == 0)
-            {
-                if (culture == Tenant.DefaultCulture) problems.Add($"De naam in het {LanguageName(culture)} is leeg.");
-                else if (description is not null) problems.Add($"Vul ook de naam in het {LanguageName(culture)} in, of laat de beschrijving leeg.");
-                continue;
-            }
-            if (name.Length > MaxNameLength) problems.Add($"De naam in het {LanguageName(culture)} is langer dan {MaxNameLength} tekens.");
-            if (description?.Length > MaxDescriptionLength) problems.Add($"De beschrijving in het {LanguageName(culture)} is langer dan {MaxDescriptionLength} tekens.");
-            translations.Add(new Translation { Culture = culture, Name = name, Description = description });
-        }
+        var translations = CatalogTexts.Validate(Tenant, input.Texts, problems);
 
         var slug = input.Slug?.Trim() is { Length: > 0 } s ? s : null;
         if (slug is not null && RentalItemSlug.Problem(slug) is { } slugProblem) problems.Add(slugProblem);
@@ -272,31 +247,11 @@ internal sealed class RentalItemAdministration(
         return (translations, slug);
     }
 
-    /// <summary>
-    /// De talen (buiten de standaardtaal) waarin de naam ontbreekt, of de beschrijving terwijl de standaardtaal er een heeft.
-    /// </summary>
-    private IReadOnlyList<string> MissingTranslations(RentalItem item)
-    {
-        var standard = item.Translations.FirstOrDefault(t => t.Culture == Tenant.DefaultCulture);
-        return Tenant.Cultures.Where(culture => culture != Tenant.DefaultCulture)
-            .Where(culture => item.Translations.FirstOrDefault(t => t.Culture == culture) is not { } t
-                || (standard?.Description is not null && t.Description is null))
-            .ToList();
-    }
-
     /// <summary>Per categorie in de volgorde van de verhuurder, artikelen zonder categorie achteraan.</summary>
     private IEnumerable<RentalItem> Ordered(IEnumerable<RentalItem> items) =>
         items.OrderBy(i => i.Category is null).ThenBy(i => i.Category?.SortOrder).ThenBy(i => i.SortOrder).ThenBy(Name);
 
     private string Name(RentalItem item) => item.Translations.For(Tenant.DefaultCulture, Tenant.DefaultCulture)?.Name ?? item.Slug;
-
-    private static string LanguageName(string culture) => culture switch
-    {
-        "nl" => "Nederlands",
-        "fr" => "Frans",
-        "en" => "Engels",
-        _ => culture,
-    };
 
     private Domain.Tenants.Tenant Tenant => tenantContext.Tenant ?? throw new InvalidOperationException("Geen verhuurder gekend.");
 }

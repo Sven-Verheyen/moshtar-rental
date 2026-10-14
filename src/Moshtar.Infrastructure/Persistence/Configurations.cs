@@ -85,6 +85,7 @@ internal class BundleConfiguration : IEntityTypeConfiguration<Bundle>
             p.Property(x => x.ExtraDayPrice).HasColumnName("ExtraDayPrice").HasPrecision(10, 2);
         });
         b.OwnsMany(x => x.Translations, t => t.ToJson());
+        b.OwnsMany(x => x.Photos, t => t.ToJson());
         b.OwnsMany(x => x.Items, i =>
         {
             i.ToTable("BundleItems");

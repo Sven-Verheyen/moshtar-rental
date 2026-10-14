@@ -892,6 +892,30 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("Moshtar.Domain.Catalog.Bundle", b =>
                 {
+                    b.OwnsMany("Moshtar.Domain.Catalog.Photo", "Photos", b1 =>
+                        {
+                            b1.Property<Guid>("BundleId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<string>("Key")
+                                .IsRequired();
+
+                            b1.Property<int>("SortOrder");
+
+                            b1.HasKey("BundleId", "__synthesizedOrdinal");
+
+                            b1.ToTable("Bundles");
+
+                            b1
+                                .ToJson("Photos")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("BundleId");
+                        });
+
                     b.OwnsOne("Moshtar.Domain.Catalog.Pricing", "Pricing", b1 =>
                         {
                             b1.Property<Guid>("BundleId")
@@ -970,6 +994,8 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         });
 
                     b.Navigation("Items");
+
+                    b.Navigation("Photos");
 
                     b.Navigation("Pricing")
                         .IsRequired();
