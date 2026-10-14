@@ -28,6 +28,11 @@
         <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Route"
                    data-action="route-voorstellen" OnClick="OnPropose">Route voorstellen</MudButton>
     }
+    @if (SheetUrl is not null)
+    {
+        <MudButton Href="@SheetUrl" Target="_blank" Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Print"
+                   data-action="leverlijst">Leverlijst</MudButton>
+    }
 </div>
 @if (Round is { Changed: true })
 {
@@ -48,6 +53,9 @@
     [Parameter] public EventCallback OnUpdate { get; set; }
 
     [Parameter] public EventCallback<TimeOnly> OnDeparture { get; set; }
+
+    /// <summary>De link naar de Leverlijst van deze ronde, om te printen.</summary>
+    [Parameter] public string? SheetUrl { get; set; }
 
     private bool _editing;
     private string? _departure;
