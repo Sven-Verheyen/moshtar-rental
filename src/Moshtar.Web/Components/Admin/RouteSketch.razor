@@ -1,0 +1,76 @@
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Common
+
+@* Een kleine schets van de route voor op papier: de stops genummerd op hun plaats, verbonden in de volgorde van de
+   ronde, van en terug naar het bedrijf. Gewone SVG uit de punten zelf: geen kaartsleutel nodig en het print altijd. *@
+@if (_route.Count > 0)
+{
+    <svg class="leverlijst-map" viewBox="0 0 @Width @Height" role="img" aria-label="Schets van de route">
+        <rect x="0" y="0" width="@Width" height="@Height" fill="none" stroke="#999" stroke-width="1" />
+        <polyline points="@Polyline" fill="none" stroke="#333" stroke-width="2" stroke-linejoin="round" />
+        @if (_depot is { } depot)
+        {
+            <g data-depot="">
+                <rect x="@Num(depot.X - 7)" y="@Num(depot.Y - 7)" width="14" height="14" fill="#333" />
+                <text x="@Num(depot.X + 10)" y="@Num(depot.Y + 4)" font-size="11">Vertrek</text>
+            </g>
+        }
+        @foreach (var stop in _route)
+        {
+            <g data-stop="@stop.Position">
+                <circle cx="@Num(stop.X)" cy="@Num(stop.Y)" r="10" fill="#fff" stroke="#333" stroke-width="2" />
+                <text x="@Num(stop.X)" y="@Num(stop.Y + 4)" font-size="11" font-weight="bold" text-anchor="middle">@stop.Position</text>
+            </g>
+        }
+    </svg>
+}
+
+@code {
+    private const double Width = 600, Height = 280, Margin = 20;
+
+    /// <summary>De stops van de ronde, met hun plaats in de ronde.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ScheduleStop> Stops { get; set; } = [];
+
+    /// <summary>Het bedrijfsadres, waar de ronde vertrekt en terugkomt.</summary>
+    [Parameter] public GeoPoint? Start { get; set; }
+
+    private List<(int Position, double X, double Y)> _route = [];
+    private (double X, double Y)? _depot;
+
+    private string Polyline
+    {
+        get
+        {
+            var points = _route.Select(s => (s.X, s.Y)).ToList();
+            if (_depot is { } depot) points = [depot, .. points, depot];
+            return string.Join(" ", points.Select(p => $"{Num(p.X)},{Num(p.Y)}"));
+        }
+    }
+
+    protected override void OnParametersSet()
+    {
+        var stops = Stops.Where(s => s.InRound is not null && s.Point is not null).OrderBy(s => s.InRound!.Position).ToList();
+        var points = stops.Select(s => s.Point!).ToList();
+        if (Start is { } start) points.Add(start);
+        if (stops.Count == 0)
+        {
+            _route = [];
+            _depot = null;
+            return;
+        }
+
+        // Vlakke projectie: een graad lengte is korter dan een graad breedte, met de cosinus van de breedte.
+        var cos = Math.Cos(points.Average(p => p.Latitude) * Math.PI / 180);
+        double X(GeoPoint p) => p.Longitude * cos;
+        double Y(GeoPoint p) => -p.Latitude;
+        var (minX, maxX, minY, maxY) = (points.Min(X), points.Max(X), points.Min(Y), points.Max(Y));
+        var scale = Math.Min((Width - 2 * Margin) / Math.Max(maxX - minX, 1e-6), (Height - 2 * Margin) / Math.Max(maxY - minY, 1e-6));
+        var (offsetX, offsetY) = ((Width - (maxX - minX) * scale) / 2, (Height - (maxY - minY) * scale) / 2);
+        (double, double) Project(GeoPoint p) => (offsetX + (X(p) - minX) * scale, offsetY + (Y(p) - minY) * scale);
+
+        _route = stops.Select(s => { var (x, y) = Project(s.Point!); return (s.InRound!.Position, x, y); }).ToList();
+        _depot = Start is { } depot ? Project(depot) : null;
+    }
+
+    private static string Num(double value) => value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture);
+}
