@@ -66,6 +66,22 @@ _Avoid_: soort, type, rubriek
 Een vaste combinatie van artikelen met een eigen prijs, die als één geheel gereserveerd wordt.
 _Avoid_: bundel, combo, set
 
+**Uitgezet** (`IsActive = false`):
+Een artikel of pakket dat niet meer op de reservatiewebsite staat en niet meer gereserveerd kan worden, maar in oude reservaties blijft bestaan. Een artikel of pakket dat al eens gereserveerd werd, kan alleen uitgezet worden, niet verwijderd.
+_Avoid_: gearchiveerd, inactief, verborgen
+
+**Uitgelicht** (`IsFeatured`):
+Een artikel of pakket dat de verhuurder extra in de kijker zet op zijn reservatiewebsite.
+_Avoid_: populair, aanbevolen, in de kijker
+
+**Kenmerken**:
+De vaste eigenschappen van een artikel die de klant helpen kiezen: afmetingen, leeftijd, maximum aantal personen en of er stroom nodig is. Ze zijn allemaal optioneel.
+_Avoid_: specificaties, eigenschappen, specs
+
+**Slug**:
+Het stuk van het webadres dat een artikel, pakket of categorie aanduidt, zoals `springkasteel-jungle`. Wordt het gewijzigd, dan stuurt het oude adres door naar het nieuwe.
+_Avoid_: url, link, permalink
+
 ## Verhuur
 
 **Reservatie** (`Reservation`):
