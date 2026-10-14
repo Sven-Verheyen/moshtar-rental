@@ -171,7 +171,8 @@ public sealed class ExpectedTimeMailTests(MoshtarApp app) : IClassFixture<Moshta
 
         var stop = (await ScheduleAsync(day)).Deliveries.Single(s => s.ReservationId == antwerpen.Id).InRound!;
         Assert.StartsWith("https://wa.me/32470123456?text=Bonjour%20Anton%2C%20", stop.WhatsAppLink);
-        var message = Uri.UnescapeDataString(stop.WhatsAppLink![(stop.WhatsAppLink.IndexOf("text=") + 5)..]);
+        var link = stop.WhatsAppLink!;
+        var message = Uri.UnescapeDataString(link[(link.IndexOf("text=") + 5)..]);
         Assert.Contains($"{antwerpen.Number} chez Hopsakee.fun", message);
         Assert.Contains(stop.Window.ToString("fr"), message);
         Assert.DoesNotContain("{", message);
