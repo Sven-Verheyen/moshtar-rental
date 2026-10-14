@@ -9,6 +9,7 @@
 @inject TimeProvider Clock
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject Microsoft.Extensions.Options.IOptions<Moshtar.Infrastructure.Maps.MapOptions> MapOptions
 
 <PageTitle>Planning</PageTitle>
 
@@ -51,13 +52,32 @@
     }
     else
     {
+        @if (_pinFor is { } pinFor)
+        {
+            <MudPaper id="speld" Class="planning-pin pa-3 mb-3" Outlined="true">
+                <MudText Typo="Typo.subtitle1"><b>Speld zetten voor @pinFor.CustomerName (@pinFor.Number)</b></MudText>
+                <MudText Typo="Typo.body2" Class="mb-2">
+                    @(MapKey is null ? "Vul de coördinaten in" : "Klik op de kaart op de plek van het adres (je kan de speld nog verslepen), of vul de coördinaten in"),
+                    bv. 51.1702, 5.1703. Bevestig enkel als het adres zeker juist is.
+                </MudText>
+                <MudTextField @bind-Value="_coordinates" Label="Coördinaten (breedte, lengte)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                <div class="d-flex gap-2 mt-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.PushPin"
+                               OnClick="ConfirmPinAsync">Speld bevestigen</MudButton>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _pinFor = null">Annuleren</MudButton>
+                </div>
+            </MudPaper>
+        }
+        <PlanningMap Day="_day" MapKey="@MapKey" Pinning="_pinFor is not null" OnPinPlaced="PinPlaced" />
         <section id="leverronde" class="planning-round">
             <MudText Typo="Typo.h6">Leverronde</MudText>
-            <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync" />
+            <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync"
+                      OnCorrect="CorrectAsync" OnPin="StartPin" />
         </section>
         <section id="ophaalronde" class="planning-round">
             <MudText Typo="Typo.h6">Ophaalronde</MudText>
-            <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync" />
+            <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync"
+                      OnCorrect="CorrectAsync" OnPin="StartPin" />
         </section>
         @if (_day.Pickups.Count > 0)
         {
@@ -119,9 +139,17 @@
         _ => Day.AddDays(direction),
     };
 
+    /// <summary>De sleutel voor de kaart in de browser; zonder sleutel geen kaart.</summary>
+    private string? MapKey => string.IsNullOrWhiteSpace(MapOptions.Value.AzureMapsKey) ? null : MapOptions.Value.AzureMapsKey;
+
+    /// <summary>De stop waarvoor nu een speld gezet wordt, en de coördinaten van die speld.</summary>
+    private ScheduleStop? _pinFor;
+    private string? _coordinates;
+
     protected override async Task OnParametersSetAsync()
     {
         _day = null;
+        _pinFor = null;
         _days = null;
         if (View == PlanningView.Week) _days = await Schedule.GetDaysAsync(Monday, Monday.AddDays(6));
         else if (View == PlanningView.Month)
@@ -149,6 +177,54 @@
             Snackbar.Add($"Reservatie {done.Stop.Number}: {(done.Status == ReservationStatus.Delivered ? "geleverd" : "teruggebracht")}.", Severity.Info);
         }
         catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private async Task CorrectAsync((ScheduleStop Stop, Address Address) correction)
+    {
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            var reservation = await ReservationService.CorrectDeliveryAddressAsync(correction.Stop.ReservationId, correction.Address, actor);
+            if (reservation.DeliveryPoint is null)
+                Snackbar.Add($"Reservatie {reservation.Number}: adres bewaard, maar nog altijd niet gevonden op de kaart.", Severity.Warning);
+            else
+                Snackbar.Add($"Reservatie {reservation.Number}: adres verbeterd en gevonden.", Severity.Info);
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private void StartPin(ScheduleStop stop)
+    {
+        _pinFor = stop;
+        _coordinates = null;
+    }
+
+    private void PinPlaced(GeoPoint point) => _coordinates = point.ToString().Replace(",", ", ");
+
+    private async Task ConfirmPinAsync()
+    {
+        if (_pinFor is not { } stop) return;
+        if (GeoPoint.Parse(_coordinates) is not { } point)
+        {
+            Snackbar.Add("Zet eerst een speld op de kaart, of vul de coördinaten in, bv. 51.1702, 5.1703.", Severity.Warning);
+            return;
+        }
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            await ReservationService.ConfirmDeliveryPointAsync(stop.ReservationId, point, actor);
+            Snackbar.Add($"Reservatie {stop.Number}: speld bevestigd.", Severity.Info);
+            _pinFor = null;
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
         {
             Snackbar.Add(e.Message, Severity.Error);
         }

@@ -66,6 +66,33 @@ public class Reservation : TenantEntity
         Record(status == ReservationStatus.Cancelled ? ReservationEventKind.Cancelled : ReservationEventKind.StatusChanged, actor, atUtc);
     }
 
+    /// <summary>
+    /// Verbetert het leveradres, met het punt dat de kaart er nu voor vindt (null: nog altijd niet gevonden), en noteert
+    /// dat in de historiek. Een speld die eerder bevestigd werd, hoorde bij het oude adres en vervalt.
+    /// </summary>
+    public void CorrectDeliveryAddress(Address address, GeoPoint? point, ReservationActor actor, DateTime atUtc)
+    {
+        if (DeliveryMethod != DeliveryMethod.Delivery)
+            throw new InvalidOperationException($"Reservatie {Number} wordt afgehaald en heeft geen leveradres.");
+        DeliveryAddress = address;
+        DeliveryPoint = point;
+        DeliveryPointConfirmed = false;
+        Record(ReservationEventKind.AddressCorrected, actor, atUtc);
+    }
+
+    /// <summary>
+    /// Een gebruiker bevestigt dat het leveradres juist is door zelf een speld op de kaart te zetten. Vanaf dan telt
+    /// de stop als gevonden.
+    /// </summary>
+    public void ConfirmDeliveryPoint(GeoPoint point, ReservationActor actor, DateTime atUtc)
+    {
+        if (DeliveryMethod != DeliveryMethod.Delivery)
+            throw new InvalidOperationException($"Reservatie {Number} wordt afgehaald en heeft geen leveradres.");
+        DeliveryPoint = point;
+        DeliveryPointConfirmed = true;
+        Record(ReservationEventKind.PointConfirmed, actor, atUtc);
+    }
+
     private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc) =>
         History.Add(new ReservationEvent { ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId });
 

@@ -68,6 +68,10 @@ tests/
   `docs/adr/0002-verhuurder-mailt-vanaf-eigen-domein.md`). Zonder `Mail:AzureCommunicationServicesConnectionString`
   wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests. Lokaal vind je zo
   ook de link uit een uitnodiging of herstelmail terug in de console.
+- **Kaart**: adressen en de kaart in de planning komen van Azure Maps (`docs/adr/0006-azure-maps-voor-kaart-en-routes.md`), met de sleutel uit
+  `Maps:AzureMapsKey`. Zonder sleutel toont de planning geen kaart en zoekt een lokale vervanger de adressen op:
+  die vindt elk adres met een Belgische postcode en een huisnummer (zonder huisnummer: "Adres niet gevonden").
+  In de tests is het altijd de vervanger. De browser krijgt voorlopig dezelfde sleutel als de server.
 - **Vertalingen**: UI-teksten in `Resources/SharedResource.*.resx`, inhoud (namen, beschrijvingen) als JSON in de database.
 
 ## Lokaal draaien

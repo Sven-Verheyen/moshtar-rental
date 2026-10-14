@@ -28,6 +28,19 @@ public interface IReservationService
     /// </summary>
     Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, ReservationActor actor, CancellationToken ct = default);
 
+    /// <summary>
+    /// Verbetert het leveradres van een reservatie, zoekt het opnieuw op de kaart en noteert dat in de historiek.
+    /// Wordt het nog altijd niet gevonden, dan blijft het punt leeg (en de waarschuwing in de planning staan).
+    /// Geeft de bijgewerkte reservatie terug.
+    /// </summary>
+    Task<Reservation> CorrectDeliveryAddressAsync(Guid reservationId, Address address, ReservationActor actor, CancellationToken ct = default);
+
+    /// <summary>
+    /// Zet het punt van het leveradres op deze speld, voor een adres dat zeker juist is maar dat de kaart niet kent,
+    /// en noteert dat in de historiek. Geeft de bijgewerkte reservatie terug.
+    /// </summary>
+    Task<Reservation> ConfirmDeliveryPointAsync(Guid reservationId, GeoPoint point, ReservationActor actor, CancellationToken ct = default);
+
     /// <summary>De historiek van een reservatie, nieuwste bovenaan.</summary>
     Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default);
 }

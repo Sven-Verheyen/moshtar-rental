@@ -23,14 +23,42 @@
         {
             <div class="d-flex flex-wrap align-center gap-2">
                 <span class="planning-address">@AddressLine(address)</span>
+                @if (stop.PointConfirmed)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.PushPin">Speld bevestigd</MudChip>
+                }
                 <MudButton Href="@WazeUrl(address, stop.Point)" Target="_blank" Size="Size.Small" Variant="Variant.Text"
                            StartIcon="@Icons.Material.Filled.Navigation">Navigeer</MudButton>
+                @if (OnCorrect.HasDelegate && _editing != stop.ReservationId)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Edit"
+                               data-action="adres-verbeteren" OnClick="() => Edit(stop)">Adres verbeteren</MudButton>
+                }
             </div>
             @if (stop.AddressNotFound)
             {
                 <MudAlert Severity="Severity.Warning" Dense="true" Class="my-1" data-warning="adres">
-                    Adres niet gevonden op de kaart. Verbeter het adres of zet zelf een speld.
+                    Adres niet gevonden op de kaart. Verbeter het adres, of zet zelf een speld als het zeker juist is.
+                    @if (OnPin.HasDelegate)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning" StartIcon="@Icons.Material.Filled.PushPin"
+                                   data-action="speld-zetten" OnClick="() => OnPin.InvokeAsync(stop)">Speld zetten</MudButton>
+                    }
                 </MudAlert>
+            }
+            @if (_editing == stop.ReservationId)
+            {
+                <MudPaper Elevation="0" Class="planning-edit pa-2 my-2">
+                    <MudTextField @bind-Value="_street" Label="Straat en huisnummer" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <div class="d-flex gap-2">
+                        <MudTextField @bind-Value="_postalCode" Label="Postcode" Variant="Variant.Outlined" Margin="Margin.Dense" Class="planning-postal-code" />
+                        <MudTextField @bind-Value="_city" Label="Gemeente" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="() => SaveAsync(stop)">Bewaren en opzoeken</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _editing = null">Annuleren</MudButton>
+                    </div>
+                </MudPaper>
             }
         }
         <ul class="planning-lines">
@@ -72,6 +100,28 @@
     [Parameter, EditorRequired] public ReservationStatus Action { get; set; }
 
     [Parameter] public EventCallback<(ScheduleStop Stop, ReservationStatus Status)> OnDone { get; set; }
+
+    /// <summary>Het verbeterde leveradres van een stop bewaren. Zonder: geen knop "Adres verbeteren".</summary>
+    [Parameter] public EventCallback<(ScheduleStop Stop, Address Address)> OnCorrect { get; set; }
+
+    /// <summary>Een speld zetten voor een stop waarvan het adres niet gevonden wordt. Zonder: geen knop "Speld zetten".</summary>
+    [Parameter] public EventCallback<ScheduleStop> OnPin { get; set; }
+
+    /// <summary>De reservatie waarvan het adres nu verbeterd wordt, en de velden van dat formulier.</summary>
+    private Guid? _editing;
+    private string _street = "", _postalCode = "", _city = "";
+
+    private void Edit(ScheduleStop stop)
+    {
+        _editing = stop.ReservationId;
+        (_street, _postalCode, _city) = (stop.Address!.Street, stop.Address.PostalCode, stop.Address.City);
+    }
+
+    private async Task SaveAsync(ScheduleStop stop)
+    {
+        await OnCorrect.InvokeAsync((stop, new Address { Street = _street, PostalCode = _postalCode, City = _city, Country = stop.Address!.Country }));
+        _editing = null;
+    }
 
     /// <summary>Geleverd kan zolang de reservatie bevestigd is, Teruggebracht ook nog na het leveren.</summary>
     private bool CanMark(ScheduleStop stop) => Action switch

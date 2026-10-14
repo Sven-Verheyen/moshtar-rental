@@ -7,6 +7,10 @@ public enum ReservationEventKind
     Created = 1,
     StatusChanged = 2,
     Cancelled = 3,
+    /// <summary>Het leveradres werd verbeterd, en opnieuw opgezocht op de kaart.</summary>
+    AddressCorrected = 4,
+    /// <summary>Een gebruiker zette zelf een speld op de kaart voor een adres dat de kaart niet kende.</summary>
+    PointConfirmed = 5,
 }
 
 /// <summary>Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, of de klant via de reservatiewebsite.</summary>

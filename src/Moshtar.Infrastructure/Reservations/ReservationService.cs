@@ -109,6 +109,37 @@ internal sealed class ReservationService(
         return reservation;
     }
 
+    public async Task<Reservation> CorrectDeliveryAddressAsync(Guid reservationId, Address address, ReservationActor actor, CancellationToken ct = default)
+    {
+        var corrected = new Address
+        {
+            Street = address.Street.Trim(), PostalCode = address.PostalCode.Trim(), City = address.City.Trim(),
+            Country = string.IsNullOrWhiteSpace(address.Country) ? "BE" : address.Country.Trim(),
+        };
+        if (corrected.Street.Length == 0 || corrected.PostalCode.Length == 0 || corrected.City.Length == 0)
+            throw new ArgumentException("Vul de straat met huisnummer, de postcode en de gemeente in.");
+        var point = await maps.TryFindAsync(corrected, logger, ct);
+
+        db.ChangeTracker.Clear();
+        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId, ct)
+            ?? throw new InvalidOperationException("Reservatie niet gevonden.");
+        reservation.CorrectDeliveryAddress(corrected, point, actor, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(ct);
+        return reservation;
+    }
+
+    public async Task<Reservation> ConfirmDeliveryPointAsync(Guid reservationId, GeoPoint point, ReservationActor actor, CancellationToken ct = default)
+    {
+        if (!GeoPoint.IsValid(point.Latitude, point.Longitude))
+            throw new ArgumentException("Dit is geen punt op de kaart.");
+        db.ChangeTracker.Clear();
+        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId, ct)
+            ?? throw new InvalidOperationException("Reservatie niet gevonden.");
+        reservation.ConfirmDeliveryPoint(point, actor, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(ct);
+        return reservation;
+    }
+
     public async Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default) =>
         await (from e in db.ReservationEvents.AsNoTracking()
                where e.ReservationId == reservationId
