@@ -85,7 +85,8 @@
             <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Opbouwtijd"
                       DefaultHandlingMinutes="@(_day.DeliveryRound?.DefaultHandlingMinutes ?? 0)"
-                      OnMove="m => MoveAsync(RoundKind.Delivery, m)" OnTune="t => TuneAsync(RoundKind.Delivery, t)" />
+                      OnMove="m => MoveAsync(RoundKind.Delivery, m)" OnTune="t => TuneAsync(RoundKind.Delivery, t)"
+                      OnWhatsApp="s => WhatsAppAsync(RoundKind.Delivery, s)" />
         </section>
         <section id="ophaalronde" class="planning-round">
             <MudText Typo="Typo.h6">Ophaalronde</MudText>
@@ -100,7 +101,8 @@
             <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Afbouwtijd"
                       DefaultHandlingMinutes="@(_day.CollectionRound?.DefaultHandlingMinutes ?? 0)"
-                      OnMove="m => MoveAsync(RoundKind.Collection, m)" OnTune="t => TuneAsync(RoundKind.Collection, t)" />
+                      OnMove="m => MoveAsync(RoundKind.Collection, m)" OnTune="t => TuneAsync(RoundKind.Collection, t)"
+                      OnWhatsApp="s => WhatsAppAsync(RoundKind.Collection, s)" />
         </section>
         @if (_day.Pickups.Count > 0)
         {
@@ -244,6 +246,20 @@
                 1 => $"{round}: 1 klant gemaild.",
                 _ => $"{round}: {mailed} klanten gemaild.",
             }, Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    /// <summary>De WhatsApp-knop opent WhatsApp in een nieuw tabblad; hier wordt enkel onthouden dat erop gedrukt werd.</summary>
+    private async Task WhatsAppAsync(RoundKind kind, ScheduleStop stop)
+    {
+        try
+        {
+            await RoundMessages.RecordWhatsAppAsync(Day, kind, stop.ReservationId);
         }
         catch (InvalidOperationException e)
         {

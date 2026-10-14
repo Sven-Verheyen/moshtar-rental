@@ -48,6 +48,16 @@
                         <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Venster gewijzigd sinds de mail</MudChip>
                     }
                 }
+                @if (times.WhatsAppLink is { } whatsAppLink)
+                {
+                    @* Opent WhatsApp met het ingevulde bericht; de gebruiker verstuurt het zelf. De klik wordt onthouden. *@
+                    <MudButton Href="@whatsAppLink" Target="_blank" Rel="noopener" Size="Size.Small" Variant="Variant.Text"
+                               StartIcon="@Icons.Custom.Brands.WhatsApp" data-action="whatsapp" OnClick="() => OnWhatsApp.InvokeAsync(stop)">WhatsApp</MudButton>
+                }
+                @if (times.WhatsAppAt is { } whatsAppAt)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Custom.Brands.WhatsApp">WhatsApp op @Local(whatsAppAt)</MudChip>
+                }
                 @if (OnMove.HasDelegate)
                 {
                     <MudSpacer />
@@ -174,6 +184,9 @@
 
     /// <summary>Het vaste uur (null: geen) en de eigen opbouw- of afbouwtijd (null: de standaard) van een stop bewaren.</summary>
     [Parameter] public EventCallback<(ScheduleStop Stop, TimeOnly? FixedTime, int? HandlingMinutes)> OnTune { get; set; }
+
+    /// <summary>Onthouden dat op de WhatsApp-knop van een stop gedrukt werd.</summary>
+    [Parameter] public EventCallback<ScheduleStop> OnWhatsApp { get; set; }
 
     /// <summary>"Opbouwtijd" in de leverronde, "Afbouwtijd" in de ophaalronde.</summary>
     [Parameter] public string HandlingLabel { get; set; } = "Opbouwtijd";

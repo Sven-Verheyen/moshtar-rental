@@ -35,7 +35,7 @@ internal sealed class RoundMessages(AppDbContext db, ITenantContext tenantContex
         {
             if (!reservations.TryGetValue(stop.ReservationId, out var reservation)) continue;
             var language = ReservationConfirmation.LanguageOf(reservation, tenant);
-            var template = customizations.SingleOrDefault(c => c.Culture == language)?.Text ?? MailKinds.For(mailKind).Standard(language);
+            var template = ExpectedTimeMail.Template(customizations, mailKind, language);
             try
             {
                 await mailer.SendAsync(ExpectedTimeMail.Create(reservation, tenant, template, day, stop.Window), ct);
@@ -55,5 +55,15 @@ internal sealed class RoundMessages(AppDbContext db, ITenantContext tenantContex
             mailed++;
         }
         return mailed;
+    }
+
+    public async Task RecordWhatsAppAsync(DateOnly day, RoundKind kind, Guid reservationId, CancellationToken ct = default)
+    {
+        var round = await db.Rounds.SingleOrDefaultAsync(r => r.Day == day && r.Kind == kind, ct)
+            ?? throw new InvalidOperationException("Deze ronde heeft nog geen route. Stel eerst een route voor.");
+        var stop = round.Stops.SingleOrDefault(s => s.ReservationId == reservationId)
+            ?? throw new InvalidOperationException("Deze reservatie zit niet in de ronde. Werk de ronde eerst bij.");
+        stop.WhatsAppAt = clock.GetUtcNow();
+        await db.SaveChangesAsync(ct);
     }
 }

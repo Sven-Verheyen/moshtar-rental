@@ -187,6 +187,7 @@ internal class MailTemplateCustomizationConfiguration : IEntityTypeConfiguration
         b.Property(t => t.Kind).HasConversion<string>().HasMaxLength(40);
         b.Property(t => t.Culture).HasMaxLength(10);
         b.Property(t => t.Subject).HasMaxLength(300);
+        b.Property(t => t.WhatsApp).HasMaxLength(1000);
         b.Ignore(t => t.Text);
         b.HasIndex(t => new { t.TenantId, t.Kind, t.Culture }).IsUnique();
         // Gebruikers worden uitgeschakeld, nooit verwijderd.

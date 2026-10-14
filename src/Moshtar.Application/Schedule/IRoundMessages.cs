@@ -16,4 +16,11 @@ public interface IRoundMessages
     /// Gooit een <see cref="InvalidOperationException"/> als de ronde nog geen route heeft.
     /// </summary>
     Task<int> MailExpectedTimesAsync(DateOnly day, RoundKind kind, ReservationActor actor, CancellationToken ct = default);
+
+    /// <summary>
+    /// Onthoudt dat de gebruiker op de WhatsApp-knop van deze stop drukte. Moshtar verstuurt zelf niets: de gebruiker
+    /// verstuurt het ingevulde bericht vanaf zijn eigen nummer. Gooit een <see cref="InvalidOperationException"/> als
+    /// de ronde nog geen route heeft of de reservatie er niet in zit.
+    /// </summary>
+    Task RecordWhatsAppAsync(DateOnly day, RoundKind kind, Guid reservationId, CancellationToken ct = default);
 }

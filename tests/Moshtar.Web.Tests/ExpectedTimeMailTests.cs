@@ -1,11 +1,13 @@
 using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Mail;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Schedule;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Rounds;
 using Moshtar.Infrastructure.Identity;
@@ -155,6 +157,106 @@ public sealed class ExpectedTimeMailTests(MoshtarApp app) : IClassFixture<Moshta
         var changed = Stop(round, last.Number);
         Assert.Contains($"data-mailed-window=\"{windows[last.Id]}\"", changed);
         Assert.Contains("Venster gewijzigd sinds de mail", changed);
+    }
+
+    [Fact]
+    public async Task Each_stop_of_a_route_has_a_whatsapp_link_to_the_customer_with_the_message_in_their_language()
+    {
+        var day = TestReservations.FutureDay(238);
+        var (_, antwerpen, _) = await SquareAsync(day, "whatsapp-link");
+        var client = await app.LoggedInClientAsync("whatsapp-link@hopsakee.test", UserRole.Staff);
+        Assert.DoesNotContain("wa.me", Section(await PlanningAsync(client, day), "leverronde"));
+
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+
+        var stop = (await ScheduleAsync(day)).Deliveries.Single(s => s.ReservationId == antwerpen.Id).InRound!;
+        Assert.StartsWith("https://wa.me/32470123456?text=Bonjour%20Anton%2C%20", stop.WhatsAppLink);
+        var message = Uri.UnescapeDataString(stop.WhatsAppLink![(stop.WhatsAppLink.IndexOf("text=") + 5)..]);
+        Assert.Contains($"{antwerpen.Number} chez Hopsakee.fun", message);
+        Assert.Contains(stop.Window.ToString("fr"), message);
+        Assert.DoesNotContain("{", message);
+        var html = Stop(Section(await PlanningAsync(client, day), "leverronde"), antwerpen.Number);
+        Assert.Contains($"href=\"{stop.WhatsAppLink}\"", html);
+        Assert.Contains("target=\"_blank\"", html[html.IndexOf("wa.me")..]);
+    }
+
+    [Fact]
+    public async Task The_whatsapp_message_follows_the_customized_template_of_the_collection()
+    {
+        var day = TestReservations.FutureDay(239);
+        var (gent, _, _) = await SquareAsync(day, "whatsapp-sjabloon");
+        var user = await app.CreateUserAsync("hopsakee", "whatsapp-sjabloon@hopsakee.test");
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+            await scope.ServiceProvider.GetRequiredService<IMailTemplateAdministration>().SaveAsync(MailKind.ExpectedCollectionTime, "nl",
+                MailKinds.ExpectedCollectionTime.Standard("nl") with { WhatsApp = "Dag {firstName}, we komen {expectedWindow}." }, user.Id);
+        var collectionDay = day.AddDays(1);
+
+        await PlanAsync(p => p.ProposeAsync(collectionDay, RoundKind.Collection));
+
+        var stop = (await ScheduleAsync(collectionDay)).Collections.Single(s => s.ReservationId == gent.Id).InRound!;
+        Assert.Equal($"https://wa.me/32470123456?text=Dag%20Greet%2C%20we%20komen%20{Uri.EscapeDataString(stop.Window.ToString("nl"))}.", stop.WhatsAppLink);
+    }
+
+    [Fact]
+    public async Task A_customer_without_a_phone_number_gets_no_whatsapp_button()
+    {
+        var day = TestReservations.FutureDay(240);
+        var (gent, _, namen) = await SquareAsync(day, "whatsapp-geen-nummer");
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+        {
+            // Een reservatie van voor het telefoonnummer verplicht was.
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var customer = await db.Reservations.Where(r => r.Id == gent.Id).Select(r => r.Customer!).SingleAsync();
+            customer.Phone = null;
+            await db.SaveChangesAsync();
+        }
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        var client = await app.LoggedInClientAsync("whatsapp-geen-nummer@hopsakee.test", UserRole.Staff);
+
+        var deliveries = (await ScheduleAsync(day)).Deliveries;
+        Assert.Null(deliveries.Single(s => s.ReservationId == gent.Id).InRound!.WhatsAppLink);
+        Assert.NotNull(deliveries.Single(s => s.ReservationId == namen.Id).InRound!.WhatsAppLink);
+        var round = Section(await PlanningAsync(client, day), "leverronde");
+        Assert.DoesNotContain("wa.me", Stop(round, gent.Number));
+        Assert.Contains("wa.me", Stop(round, namen.Number));
+    }
+
+    [Fact]
+    public async Task Pressing_the_whatsapp_button_is_remembered_and_shown_per_stop()
+    {
+        var day = TestReservations.FutureDay(241);
+        var (gent, antwerpen, _) = await SquareAsync(day, "whatsapp-klik");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        var client = await app.LoggedInClientAsync("whatsapp-klik@hopsakee.test", UserRole.Staff);
+        Assert.DoesNotContain("WhatsApp op", Section(await PlanningAsync(client, day), "leverronde"));
+
+        var before = DateTimeOffset.UtcNow;
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+            await scope.ServiceProvider.GetRequiredService<IRoundMessages>().RecordWhatsAppAsync(day, RoundKind.Delivery, gent.Id);
+
+        var deliveries = (await ScheduleAsync(day)).Deliveries;
+        Assert.InRange(deliveries.Single(s => s.ReservationId == gent.Id).InRound!.WhatsAppAt!.Value, before, DateTimeOffset.UtcNow);
+        Assert.Null(deliveries.Single(s => s.ReservationId == antwerpen.Id).InRound!.WhatsAppAt);
+        var round = Section(await PlanningAsync(client, day), "leverronde");
+        Assert.Contains("WhatsApp op", Stop(round, gent.Number));
+        Assert.DoesNotContain("WhatsApp op", Stop(round, antwerpen.Number));
+    }
+
+    [Fact]
+    public async Task Without_a_route_no_whatsapp_click_is_recorded()
+    {
+        var day = TestReservations.FutureDay(242);
+        var (gent, _, _) = await SquareAsync(day, "whatsapp-geen-route");
+
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<IRoundMessages>().RecordWhatsAppAsync(day, RoundKind.Delivery, gent.Id));
+    }
+
+    private async Task<ScheduleDay> ScheduleAsync(DateOnly day)
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        return await scope.ServiceProvider.GetRequiredService<ISchedule>().GetDayAsync(day);
     }
 
     /// <summary>Het bedrijf in Bergen, en een levering in Gent (nl), Antwerpen (fr) en Namen (en) op deze dag.</summary>

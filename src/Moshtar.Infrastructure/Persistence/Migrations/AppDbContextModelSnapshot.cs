@@ -340,6 +340,10 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("UpdatedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("WhatsApp")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("TenantId");

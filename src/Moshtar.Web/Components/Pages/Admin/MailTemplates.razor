@@ -64,6 +64,11 @@
                             {
                                 <MudText Typo="Typo.body2" Class="mt-1">{@block} @MailKinds.Describe(block)@(kind.IsRequired(block) ? " en moet in de tekst staan" : "").</MudText>
                             }
+                            @if (kind.HasWhatsApp)
+                            {
+                                <MudTextField @bind-Value="draft.WhatsApp" Label="WhatsApp-bericht" Variant="Variant.Outlined" Lines="3" Class="mt-4"
+                                              HelperText="Het bericht achter de WhatsApp-knop in de Planning. Zelfde plaatshouders, zonder opmaak; de gebruiker verstuurt het zelf." />
+                            }
                             @if (_problems.GetValueOrDefault((kind.Kind, version.Culture)) is { Count: > 0 } problems)
                             {
                                 <MudAlert Severity="Severity.Error" Class="mt-3">
@@ -89,6 +94,13 @@
                                     <div class="mail-preview">@((MarkupString)preview.HtmlBody)</div>
                                 </MudPaper>
                             }
+                            @if (_whatsAppPreviews.GetValueOrDefault((kind.Kind, version.Culture)) is { } whatsAppPreview)
+                            {
+                                <MudPaper Outlined="true" Class="pa-4 mt-2">
+                                    <MudText Typo="Typo.overline">WhatsApp-bericht met fictieve gegevens</MudText>
+                                    <MudText Typo="Typo.body2" Style="white-space: pre-line">@whatsAppPreview</MudText>
+                                </MudPaper>
+                            }
                         </MudTabPanel>
                     }
                 </MudTabs>
@@ -102,6 +114,7 @@
     {
         public string Subject { get; set; } = "";
         public string Body { get; set; } = "";
+        public string? WhatsApp { get; set; }
     }
 
     [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
@@ -111,6 +124,7 @@
     private readonly Dictionary<(MailKind, string), Draft> _drafts = [];
     private readonly Dictionary<(MailKind, string), IReadOnlyList<string>> _problems = [];
     private readonly Dictionary<(MailKind, string), MailMessage> _previews = [];
+    private readonly Dictionary<(MailKind, string), string> _whatsAppPreviews = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -124,7 +138,7 @@
         _versions[kind] = versions;
         foreach (var version in versions)
             if (culture is null || version.Culture == culture || !_drafts.ContainsKey((kind, version.Culture)))
-                _drafts[(kind, version.Culture)] = new Draft { Subject = version.Text.Subject, Body = version.Text.Body };
+                _drafts[(kind, version.Culture)] = new Draft { Subject = version.Text.Subject, Body = version.Text.Body, WhatsApp = version.Text.WhatsApp };
     }
 
     private Task SaveAsync(MailKindDefinition kind, string culture) =>
@@ -136,7 +150,12 @@
         });
 
     private Task PreviewAsync(MailKindDefinition kind, string culture) =>
-        CheckedAsync(kind, culture, async text => _previews[(kind.Kind, culture)] = await Templates.PreviewAsync(kind.Kind, culture, text));
+        CheckedAsync(kind, culture, async text =>
+        {
+            _previews[(kind.Kind, culture)] = await Templates.PreviewAsync(kind.Kind, culture, text);
+            if (kind.HasWhatsApp)
+                _whatsAppPreviews[(kind.Kind, culture)] = await Templates.PreviewWhatsAppAsync(kind.Kind, culture, text);
+        });
 
     private Task SendTestAsync(MailKindDefinition kind, string culture) =>
         CheckedAsync(kind, culture, async text =>
@@ -165,13 +184,14 @@
         var draft = _drafts[(kind.Kind, culture)];
         try
         {
-            await action(new MailTemplateText(draft.Subject ?? "", draft.Body ?? ""));
+            await action(new MailTemplateText(draft.Subject ?? "", draft.Body ?? "", kind.HasWhatsApp ? draft.WhatsApp ?? "" : null));
             _problems.Remove((kind.Kind, culture));
         }
         catch (MailTemplateException e)
         {
             _problems[(kind.Kind, culture)] = e.Problems;
             _previews.Remove((kind.Kind, culture));
+            _whatsAppPreviews.Remove((kind.Kind, culture));
         }
     }
 
@@ -207,6 +227,7 @@
         await Templates.ResetAsync(kind.Kind, culture);
         _problems.Remove((kind.Kind, culture));
         _previews.Remove((kind.Kind, culture));
+        _whatsAppPreviews.Remove((kind.Kind, culture));
         Snackbar.Add($"{kind.Name} in het {LanguageName(culture)} gebruikt weer de standaardtekst.", Severity.Success);
         await LoadAsync(kind.Kind, culture);
     }

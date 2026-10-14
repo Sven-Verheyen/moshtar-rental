@@ -38,6 +38,13 @@ public interface IMailTemplateAdministration
     /// </summary>
     Task<MailMessage> PreviewAsync(MailKind kind, string culture, MailTemplateText text, CancellationToken ct = default);
 
+    /// <summary>
+    /// Het WhatsApp-bericht zoals een klant het zou krijgen met deze (nog niet bewaarde) tekst, ingevuld met een fictieve
+    /// reservatie, zonder opmaak. Gooit een <see cref="MailTemplateException"/> bij dezelfde problemen als <see cref="SaveAsync"/>,
+    /// of als deze soort mail geen WhatsApp-bericht heeft.
+    /// </summary>
+    Task<string> PreviewWhatsAppAsync(MailKind kind, string culture, MailTemplateText text, CancellationToken ct = default);
+
     /// <summary>Stuurt het voorbeeld als testmail naar de gebruiker zelf, vanaf het domein van de verhuurder.</summary>
     Task SendTestAsync(MailKind kind, string culture, MailTemplateText text, Guid userId, CancellationToken ct = default);
 }
