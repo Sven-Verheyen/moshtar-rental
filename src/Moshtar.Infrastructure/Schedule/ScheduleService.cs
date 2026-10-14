@@ -4,10 +4,13 @@ using Moshtar.Application.Maps;
 using Moshtar.Application.Schedule;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Rounds;
+using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Maps;
 using Moshtar.Infrastructure.Persistence;
+using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Schedule;
 
@@ -41,18 +44,21 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
         }
         var names = await NamesAsync(reservations, ct);
         var rounds = await db.Rounds.AsNoTracking().Where(r => r.Day >= from && r.Day <= to).ToListAsync(ct);
-        var settings = (await db.Tenants.AsNoTracking().SingleOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct))?.RoundSettings ?? RoundSettings.Default;
+        var tenant = await db.Tenants.AsNoTracking().SingleOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct);
+        var settings = tenant?.RoundSettings ?? RoundSettings.Default;
+        var whatsApp = await WhatsAppLinksAsync(tenant, rounds, ct);
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
         return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
-            .Select(i => Day(from.AddDays(i), stops, rounds, settings, businessPoint))
+            .Select(i => Day(from.AddDays(i), stops, rounds, settings, businessPoint, whatsApp))
             .ToList();
     }
 
     private static ScheduleDay Day(
         DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops, IReadOnlyList<Round> rounds,
-        RoundSettings settings, GeoPoint? businessPoint)
+        RoundSettings settings, GeoPoint? businessPoint, WhatsAppLinks whatsApp)
     {
+        var byId = stops.ToDictionary(s => s.Stop.ReservationId, s => s.Reservation);
         IReadOnlyList<ScheduleStop> Select(DeliveryMethod method, Func<Reservation, bool> onDay) => stops
             .Where(s => s.Reservation.DeliveryMethod == method && onDay(s.Reservation))
             .Select(s => s.Stop)
@@ -61,8 +67,8 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
 
         var deliveries = Select(DeliveryMethod.Delivery, r => r.StartDate == day);
         var collections = Select(DeliveryMethod.Delivery, r => r.EndDate == day);
-        var (deliveryRound, orderedDeliveries) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Delivery), deliveries, settings);
-        var (collectionRound, orderedCollections) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Collection), collections, settings);
+        var (deliveryRound, orderedDeliveries) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Delivery), deliveries, settings, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
+        var (collectionRound, orderedCollections) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Collection), collections, settings, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
         return new ScheduleDay(
             day,
             Deliveries: orderedDeliveries,
@@ -78,13 +84,14 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// De stops van een ronde in de volgorde van de bewaarde ronde, met hun uren; wat er niet in zit (nieuw, of zonder
     /// punt) erachter op postcode. Zonder bewaarde ronde: de stops zoals ze zijn, op postcode.
     /// </summary>
-    private static (ScheduleRound? Round, IReadOnlyList<ScheduleStop> Stops) InRound(Round? round, IReadOnlyList<ScheduleStop> stops, RoundSettings settings)
+    private static (ScheduleRound? Round, IReadOnlyList<ScheduleStop> Stops) InRound(
+        Round? round, IReadOnlyList<ScheduleStop> stops, RoundSettings settings, Func<Round, RoundStop, string?> whatsAppLink)
     {
         if (round is null) return (null, stops);
         var saved = round.Stops.ToDictionary(s => s.ReservationId);
         var inRound = stops
             .Where(s => saved.TryGetValue(s.ReservationId, out var stop) && stop.Point == s.Point)
-            .Select(s => s with { InRound = ToRoundStop(saved[s.ReservationId]) })
+            .Select(s => s with { InRound = ToRoundStop(saved[s.ReservationId], whatsAppLink(round, saved[s.ReservationId])) })
             .OrderBy(s => s.InRound!.Position)
             .ToList();
         var rest = stops.Where(s => inRound.All(r => r.ReservationId != s.ReservationId)).ToList();
@@ -92,9 +99,29 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
         return (new ScheduleRound(round.Departure, round.Return, changed, settings.HandlingMinutes(round.Kind)), [.. inRound, .. rest]);
     }
 
-    private static ScheduleRoundStop ToRoundStop(RoundStop s) =>
+    private static ScheduleRoundStop ToRoundStop(RoundStop s, string? whatsAppLink) =>
         new(s.Position, s.Arrival, s.Window, s.FixedTime, s.HandlingMinutes, s.Late,
-            s is { MailedWindowStart: { } start, MailedWindowEnd: { } end } ? new ExpectedWindow(start, end) : null, s.MailedAt);
+            s is { MailedWindowStart: { } start, MailedWindowEnd: { } end } ? new ExpectedWindow(start, end) : null, s.MailedAt,
+            whatsAppLink, s.WhatsAppAt);
+
+    /// <summary>De WhatsApp-link van een stop in een ronde, of null zonder geldig telefoonnummer.</summary>
+    private delegate string? WhatsAppLinks(Reservation reservation, Round round, RoundStop stop);
+
+    /// <summary>
+    /// Maakt de WhatsApp-links met het bericht uit het sjabloon Verwacht leveruur of Verwacht ophaaluur, in de taal van
+    /// elke reservatie. Zonder rondes worden de sjablonen niet opgehaald.
+    /// </summary>
+    private async Task<WhatsAppLinks> WhatsAppLinksAsync(Tenant? tenant, IReadOnlyList<Round> rounds, CancellationToken ct)
+    {
+        if (tenant is null || rounds.Count == 0) return (_, _, _) => null;
+        MailKind[] kinds = [MailKind.ExpectedDeliveryTime, MailKind.ExpectedCollectionTime];
+        var customizations = await db.MailTemplateCustomizations.AsNoTracking().Where(t => kinds.Contains(t.Kind)).ToListAsync(ct);
+        return (reservation, round, stop) =>
+        {
+            var template = ExpectedTimeMail.Template(customizations, ExpectedTimeMail.KindFor(round.Kind), ReservationConfirmation.LanguageOf(reservation, tenant));
+            return ExpectedTimeMail.WhatsAppLink(reservation, tenant, template, round.Day, stop.Window);
+        };
+    }
 
     /// <summary>
     /// Zoekt de punten op van leveradressen die er nog geen hebben: reservaties van voor er punten waren, of waarvan

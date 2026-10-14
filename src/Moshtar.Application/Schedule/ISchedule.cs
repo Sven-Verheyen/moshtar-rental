@@ -86,6 +86,8 @@ public record ScheduleRound(TimeOnly Departure, TimeOnly Return, bool Changed, i
 /// Een stop in een bewaarde ronde: de plaats (vanaf 1), de berekende aankomst en het verwacht tijdsvenster, het vaste
 /// uur en de eigen opbouw- of afbouwtijd als de gebruiker die koos, en of de aankomst na het vaste uur valt.
 /// <see cref="MailedWindow"/> en <see cref="MailedAt"/>: het venster dat de klant laatst gemaild kreeg, en wanneer.
+/// <see cref="WhatsAppLink"/>: de click-to-chat-link (wa.me) met het ingevulde WhatsApp-bericht in de taal van de
+/// reservatie, null als de klant geen geldig telefoonnummer heeft; <see cref="WhatsAppAt"/>: wanneer laatst op die knop gedrukt werd.
 /// </summary>
 public record ScheduleRoundStop(
     int Position,
@@ -95,7 +97,9 @@ public record ScheduleRoundStop(
     int? HandlingMinutes,
     bool Late,
     ExpectedWindow? MailedWindow = null,
-    DateTimeOffset? MailedAt = null)
+    DateTimeOffset? MailedAt = null,
+    string? WhatsAppLink = null,
+    DateTimeOffset? WhatsAppAt = null)
 {
     /// <summary>De klant kreeg een mail, maar het venster veranderde sindsdien: opnieuw mailen stuurt hem het nieuwe.</summary>
     public bool WindowChangedSinceMail => MailedWindow is not null && MailedWindow != Window;

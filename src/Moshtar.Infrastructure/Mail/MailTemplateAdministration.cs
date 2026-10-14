@@ -13,6 +13,7 @@ namespace Moshtar.Infrastructure.Mail;
 internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer) : IMailTemplateAdministration
 {
     private const int MaxSubjectLength = 300;
+    private const int MaxWhatsAppLength = 1000;
 
     public async Task<IReadOnlyList<MailTemplateVersion>> GetAsync(MailKind kind, CancellationToken ct = default)
     {
@@ -22,12 +23,12 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
             where t.Kind == kind
             join u in db.Users on t.UpdatedByUserId equals u.Id into users
             from u in users.DefaultIfEmpty()
-            select new { t.Culture, t.Subject, t.Body, t.UpdatedAtUtc, Email = u == null ? null : u.Email })
+            select new { t.Culture, t.Subject, t.Body, t.WhatsApp, t.UpdatedAtUtc, Email = u == null ? null : u.Email })
             .ToListAsync(ct);
 
         return Tenant.Cultures.Select(culture =>
             customizations.SingleOrDefault(c => c.Culture == culture) is { } c
-                ? new MailTemplateVersion(kind, culture, new MailTemplateText(c.Subject, c.Body), true, c.UpdatedAtUtc, c.Email)
+                ? new MailTemplateVersion(kind, culture, definition.WithStandardWhatsApp(new MailTemplateText(c.Subject, c.Body, c.WhatsApp), culture), true, c.UpdatedAtUtc, c.Email)
                 : new MailTemplateVersion(kind, culture, definition.Standard(culture), false, null, null))
             .ToList();
     }
@@ -50,6 +51,7 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
             db.MailTemplateCustomizations.Add(customization = new MailTemplateCustomization { Kind = kind, Culture = culture });
         customization.Subject = text.Subject;
         customization.Body = text.Body;
+        customization.WhatsApp = text.WhatsApp;
         customization.UpdatedAtUtc = clock.GetUtcNow().UtcDateTime;
         customization.UpdatedByUserId = userId;
         await db.SaveChangesAsync(ct);
@@ -57,6 +59,16 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
 
     public Task<MailMessage> PreviewAsync(MailKind kind, string culture, MailTemplateText text, CancellationToken ct = default) =>
         PreviewAsync(kind, culture, text, to: "", ct);
+
+    public Task<string> PreviewWhatsAppAsync(MailKind kind, string culture, MailTemplateText text, CancellationToken ct = default)
+    {
+        var definition = MailKinds.For(kind);
+        if (!definition.HasWhatsApp)
+            throw new MailTemplateException([$"{definition.Name} heeft geen WhatsApp-bericht."]);
+        text = Checked(definition, culture, text);
+        var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
+        return Task.FromResult(ExpectedTimeMail.ExampleWhatsApp(kind, culture, today, Tenant, text));
+    }
 
     public async Task SendTestAsync(MailKind kind, string culture, MailTemplateText text, Guid userId, CancellationToken ct = default)
     {
@@ -91,8 +103,12 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
     {
         if (!Tenant.Cultures.Contains(culture))
             throw new MailTemplateException([$"Je biedt de taal '{culture}' niet aan."]);
-        text = new MailTemplateText(text.Subject.Trim(), text.Body.Trim().ReplaceLineEndings("\n"));
-        var problems = definition.Problems(text).ToList();
+        // Het WhatsApp-bericht is één korte tekst; een soort mail zonder WhatsApp-bericht bewaart er geen.
+        var whatsApp = definition.HasWhatsApp ? (text.WhatsApp ?? "").Trim().ReplaceLineEndings("\n") : null;
+        text = new MailTemplateText(text.Subject.Trim(), text.Body.Trim().ReplaceLineEndings("\n"), whatsApp);
+        var problems = definition.Problems(whatsApp is { Length: 0 } ? text with { WhatsApp = null } : text).ToList();
+        if (whatsApp is { Length: 0 }) problems.Insert(0, "Het WhatsApp-bericht is leeg.");
+        if (whatsApp is { Length: > MaxWhatsAppLength }) problems.Insert(0, $"Het WhatsApp-bericht is langer dan {MaxWhatsAppLength} tekens.");
         if (text.Subject.Length == 0) problems.Insert(0, "Het onderwerp is leeg.");
         if (text.Subject.Length > MaxSubjectLength) problems.Insert(0, $"Het onderwerp is langer dan {MaxSubjectLength} tekens.");
         if (problems.Count > 0) throw new MailTemplateException(problems);

@@ -169,13 +169,57 @@ public sealed class MailTemplateAdministrationTests(MoshtarApp app) : IClassFixt
     {
         var user = await app.CreateUserAsync("hopsakee", "sjabloon-ophaaluur@hopsakee.test");
         await using var scope = await app.TenantScopeAsync("hopsakee");
-        var text = new MailTemplateText("We komen {expectedWindow}", "Dag {firstName}, we halen op {expectedDate} op tussen {expectedWindow}.");
+        var text = new MailTemplateText("We komen {expectedWindow}", "Dag {firstName}, we halen op {expectedDate} op tussen {expectedWindow}.", "Tot {expectedWindow}!");
 
         await Templates(scope).SendTestAsync(MailKind.ExpectedCollectionTime, "en", text, user.Id);
 
         var mail = Assert.Single(Outbox.Sent, m => m.To == "sjabloon-ophaaluur@hopsakee.test");
         Assert.Equal("[Testmail] We komen 9:30 – 10:30", mail.Subject);
         Assert.StartsWith("Dag Alex, we halen op ", mail.TextBody);
+    }
+
+    [Fact]
+    public async Task The_whatsapp_message_of_an_expected_time_is_saved_per_language_next_to_the_mail()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "sjabloon-whatsapp@hopsakee.test");
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var standard = MailKinds.ExpectedDeliveryTime.Standard("en");
+        var before = (await Templates(scope).GetAsync(MailKind.ExpectedDeliveryTime)).Single(v => v.Culture == "en");
+        Assert.Equal(standard.WhatsApp, before.Text.WhatsApp);
+
+        await Templates(scope).SaveAsync(MailKind.ExpectedDeliveryTime, "en", standard with { WhatsApp = "  Hi {firstName}, see you {expectedWindow}!  " }, user.Id);
+
+        var versions = await Templates(scope).GetAsync(MailKind.ExpectedDeliveryTime);
+        var english = versions.Single(v => v.Culture == "en");
+        Assert.True(english.IsCustomized);
+        Assert.Equal("Hi {firstName}, see you {expectedWindow}!", english.Text.WhatsApp);
+        Assert.Equal(standard.Body.ReplaceLineEndings("\n"), english.Text.Body);
+        Assert.Equal(MailKinds.ExpectedDeliveryTime.Standard("nl").WhatsApp, versions.Single(v => v.Culture == "nl").Text.WhatsApp);
+        Assert.Null((await Templates(scope).GetAsync(Confirmation)).Single(v => v.Culture == "en").Text.WhatsApp);
+    }
+
+    [Fact]
+    public async Task An_expected_time_template_without_a_whatsapp_message_is_refused()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "sjabloon-whatsapp-leeg@hopsakee.test");
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+
+        var error = await Assert.ThrowsAsync<MailTemplateException>(() => Templates(scope).SaveAsync(
+            MailKind.ExpectedCollectionTime, "nl", MailKinds.ExpectedCollectionTime.Standard("nl") with { WhatsApp = " " }, user.Id));
+
+        Assert.Equal(["Het WhatsApp-bericht is leeg."], error.Problems);
+        Assert.False((await Templates(scope).GetAsync(MailKind.ExpectedCollectionTime)).Single(v => v.Culture == "nl").IsCustomized);
+    }
+
+    [Fact]
+    public async Task Preview_of_the_whatsapp_message_fills_the_example_without_formatting()
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var text = MailKinds.ExpectedCollectionTime.Standard("nl") with { WhatsApp = "Dag **{firstName}**, we komen {expectedWindow} naar {deliveryAddress}." };
+
+        var preview = await Templates(scope).PreviewWhatsAppAsync(MailKind.ExpectedCollectionTime, "nl", text);
+
+        Assert.Equal("Dag **Lotte**, we komen 9u30 – 10u30 naar Kerkstraat 1, 9000 Gent.", preview);
     }
 
     [Fact]
@@ -243,6 +287,20 @@ public sealed class MailTemplateAdministrationTests(MoshtarApp app) : IClassFixt
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         Assert.Contains("href=\"admin/mailsjablonen\"", await page.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task The_expected_time_templates_show_their_whatsapp_message_on_the_page()
+    {
+        var client = await app.LoggedInClientAsync("sjabloon-whatsapp-pagina@hopsakee.test", UserRole.Administrator);
+
+        var html = WebUtility.HtmlDecode(await (await client.GetAsync("/admin/mailsjablonen")).Content.ReadAsStringAsync());
+
+        Assert.Contains("WhatsApp-bericht", html);
+        Assert.Contains(MailKinds.ExpectedDeliveryTime.Standard("nl").WhatsApp!, html);
+        Assert.Contains(MailKinds.ExpectedCollectionTime.Standard("nl").WhatsApp!, html);
+        var confirmation = html[html.IndexOf("Reservatiebevestiging")..html.IndexOf("Herinnering winkelkar")];
+        Assert.DoesNotContain("WhatsApp-bericht", confirmation);
     }
 
     [Fact]
