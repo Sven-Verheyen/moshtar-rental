@@ -15,26 +15,38 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// <summary>Het back office is Nederlandstalig.</summary>
     private const string Culture = "nl";
 
+    /// <summary>
+    /// Eén dag openen zoekt ook de ontbrekende punten op (van de leveradressen en het bedrijfsadres) voor de kaart.
+    /// De week en de maand niet: die tonen geen kaart, en zo vraagt een maand niet tientallen adressen tegelijk op.
+    /// </summary>
     public async Task<ScheduleDay> GetDayAsync(DateOnly day, CancellationToken ct = default) =>
-        (await GetDaysAsync(day, day, ct))[0];
+        (await LoadAsync(day, day, findPoints: true, ct))[0];
 
-    public async Task<IReadOnlyList<ScheduleDay>> GetDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
+    public Task<IReadOnlyList<ScheduleDay>> GetDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default) =>
+        LoadAsync(from, to, findPoints: false, ct);
+
+    private async Task<IReadOnlyList<ScheduleDay>> LoadAsync(DateOnly from, DateOnly to, bool findPoints, CancellationToken ct)
     {
         if (to < from) throw new ArgumentException("Het einde ligt voor het begin.", nameof(to));
         var reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
             .Where(r => r.Status != ReservationStatus.Cancelled
                 && ((r.StartDate >= from && r.StartDate <= to) || (r.EndDate >= from && r.EndDate <= to)))
             .ToListAsync(ct);
-        await FindMissingPointsAsync(reservations, ct);
+        GeoPoint? businessPoint = null;
+        if (findPoints)
+        {
+            await FindMissingPointsAsync(reservations, ct);
+            businessPoint = await BusinessPointAsync(ct);
+        }
         var names = await NamesAsync(reservations, ct);
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
         return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
-            .Select(i => Day(from.AddDays(i), stops))
+            .Select(i => Day(from.AddDays(i), stops, businessPoint))
             .ToList();
     }
 
-    private static ScheduleDay Day(DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops)
+    private static ScheduleDay Day(DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops, GeoPoint? businessPoint)
     {
         IReadOnlyList<ScheduleStop> Select(DeliveryMethod method, Func<Reservation, bool> onDay) => stops
             .Where(s => s.Reservation.DeliveryMethod == method && onDay(s.Reservation))
@@ -48,7 +60,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
             Collections: Select(DeliveryMethod.Delivery, r => r.EndDate == day),
             Pickups: Select(DeliveryMethod.Pickup, r => r.StartDate == day),
             Returns: Select(DeliveryMethod.Pickup, r => r.EndDate == day),
-            BusinessPoint: await BusinessPointAsync(ct));
+            BusinessPoint: businessPoint);
     }
 
     /// <summary>
