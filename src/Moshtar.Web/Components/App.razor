@@ -19,7 +19,7 @@
            Geen <base>: dan wijzen ankers als #reserveren naar de pagina zelf, ook onder /fr of /en. *@
         <link rel="stylesheet" href="/@Assets["site.css"]" />
         @* Het logo als icoontje; zonder logo geen icoontje, en dus ook geen vergeefse vraag naar /favicon.ico. *@
-        <link rel="icon" href="@(Moshtar.Domain.Tenants.Branding.LogoUrl(TenantContext.Tenant?.LogoUrl) ?? "data:,")" />
+        <link rel="icon" href="@(Images.LogoUrl(TenantContext.Tenant) ?? "data:,")" />
         @* Kleur uit de huisstijl; Branding laat alleen een hexcode door, dus hier kan niets anders in de CSS komen. *@
         <style>:root { --brand: @Brand; --on-brand: @Moshtar.Domain.Tenants.Branding.TextColorOn(Brand); }</style>
         @* Google Analytics pas na "Accepteren" in de toestemmingsbalk. Het meet-ID is gevalideerd (G- met letters en cijfers). *@
@@ -50,6 +50,7 @@
 
     [CascadingParameter] private HttpContext? HttpContext { get; set; }
     [Inject] private ITenantContext TenantContext { get; set; } = default!;
+    [Inject] private IImageStore Images { get; set; } = default!;
 
     private string Brand => Moshtar.Domain.Tenants.Branding.Color(TenantContext.Tenant?.PrimaryColor) ?? NeutralBrand;
 

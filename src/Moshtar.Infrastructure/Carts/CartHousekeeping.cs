@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moshtar.Application.Carts;
+using Moshtar.Application.Images;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Carts;
@@ -10,7 +11,7 @@ using Moshtar.Infrastructure.Persistence;
 namespace Moshtar.Infrastructure.Carts;
 
 internal sealed class CartHousekeeping(
-    AppDbContext db, ICartService carts, ITenantContext tenantContext, IMailer mailer, ILogger<CartHousekeeping> logger) : ICartHousekeeping
+    AppDbContext db, ICartService carts, ITenantContext tenantContext, IMailer mailer, IImageStore images, ILogger<CartHousekeeping> logger) : ICartHousekeeping
 {
     public async Task<CartHousekeepingResult> RunAsync(DateTime nowUtc, CancellationToken ct = default)
     {
@@ -58,7 +59,7 @@ internal sealed class CartHousekeeping(
                     .SingleOrDefaultAsync(t => t.Kind == MailKind.CartReminder && t.Culture == language, ct);
                 var template = customization?.Text ?? MailKinds.CartReminder.Standard(language);
                 var link = $"https://{host}{CartReminderPath.For(reminderKey)}";
-                await mailer.SendAsync(CartReminder.Create(view, language, tenant, template, link), CancellationToken.None);
+                await mailer.SendAsync(CartReminder.Create(view, language, tenant, images.LogoUrl(tenant), template, link), CancellationToken.None);
                 sent++;
                 await db.Carts.Where(c => c.Id == cart.Id)
                     .ExecuteUpdateAsync(s => s.SetProperty(c => c.ReminderSentAtUtc, nowUtc), CancellationToken.None);

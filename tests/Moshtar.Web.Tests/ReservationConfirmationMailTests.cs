@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Images;
 using Moshtar.Application.Reservations;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
@@ -124,22 +125,23 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
     [Fact]
     public async Task Logo_and_colour_of_the_rental_company_head_the_html_version()
     {
-        var mail = await BrandedConfirmationAsync("merk-logo-kleur", " https://merk.test/logo.png ", "#E91E63");
+        var mail = await BrandedConfirmationAsync("merk-logo-kleur", logo: true, "#E91E63");
 
         Assert.StartsWith(
             "<div style=\"background-color:#e91e63;padding:16px 24px;margin-bottom:16px;text-align:center\">"
-            + "<img src=\"https://merk.test/logo.png\" alt=\"merk-logo-kleur\"", mail.HtmlBody);
+            + "<img src=\"https://merk-logo-kleur.test/afbeeldingen/", mail.HtmlBody);
+        Assert.Contains("/400.webp\" alt=\"merk-logo-kleur\"", mail.HtmlBody);
         Assert.StartsWith("Hallo Klant,", mail.TextBody);
-        Assert.DoesNotContain("logo.png", mail.TextBody);
+        Assert.DoesNotContain("afbeeldingen", mail.TextBody);
     }
 
     [Fact]
     public async Task Without_a_colour_the_logo_gets_a_neutral_header()
     {
-        var mail = await BrandedConfirmationAsync("merk-logo", "https://merk.test/logo.png", null);
+        var mail = await BrandedConfirmationAsync("merk-logo", logo: true, null);
 
         Assert.StartsWith("<div style=\"background-color:#f4f4f5;", mail.HtmlBody);
-        Assert.Contains("<img src=\"https://merk.test/logo.png\" alt=\"merk-logo\"", mail.HtmlBody);
+        Assert.Contains("<img src=\"https://merk-logo.test/afbeeldingen/", mail.HtmlBody);
     }
 
     [Theory]
@@ -148,7 +150,7 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
     [InlineData("#00ff00", "#000000")]
     public async Task Without_a_logo_the_header_shows_the_name_in_the_colour(string color, string textColor)
     {
-        var mail = await BrandedConfirmationAsync($"merk-kleur-{color[1..]}", null, color);
+        var mail = await BrandedConfirmationAsync($"merk-kleur-{color[1..]}", logo: false, color);
 
         Assert.StartsWith($"<div style=\"background-color:{color};", mail.HtmlBody);
         Assert.Contains($"<span style=\"font-size:20px;font-weight:bold;color:{textColor}\">merk-kleur-{color[1..]}</span>", mail.HtmlBody);
@@ -156,13 +158,13 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
     }
 
     [Theory]
-    [InlineData("merk-niets", null, null)]
-    [InlineData("merk-leeg", "", " ")]
-    [InlineData("merk-ongeldig", "/logo.png", "red;background:url(https://kwaad.test)")]
-    [InlineData("merk-html", "javascript:alert(1)", "\"><script>alert(1)</script>")]
-    public async Task Without_a_valid_logo_or_colour_there_is_no_header(string slug, string? logo, string? color)
+    [InlineData("merk-niets", null)]
+    [InlineData("merk-leeg", " ")]
+    [InlineData("merk-ongeldig", "red;background:url(https://kwaad.test)")]
+    [InlineData("merk-html", "\"><script>alert(1)</script>")]
+    public async Task Without_a_logo_or_valid_colour_there_is_no_header(string slug, string? color)
     {
-        var mail = await BrandedConfirmationAsync(slug, logo, color);
+        var mail = await BrandedConfirmationAsync(slug, logo: false, color);
 
         Assert.StartsWith("<p>Hallo Klant,</p>", mail.HtmlBody);
         Assert.DoesNotContain("<img", mail.HtmlBody);
@@ -173,21 +175,22 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
     [Fact]
     public async Task An_invalid_colour_never_reaches_the_html_next_to_a_logo()
     {
-        var mail = await BrandedConfirmationAsync("merk-logo-ongeldig", "https://merk.test/logo.png", "#123;background:url(https://kwaad.test)");
+        var mail = await BrandedConfirmationAsync("merk-logo-ongeldig", logo: true, "#123;background:url(https://kwaad.test)");
 
         Assert.StartsWith("<div style=\"background-color:#f4f4f5;", mail.HtmlBody);
         Assert.DoesNotContain("kwaad", mail.HtmlBody);
     }
 
-    /// <summary>De bevestiging van een reservatie bij een nieuwe verhuurder met dit logo en deze kleur.</summary>
-    private async Task<OutgoingMail> BrandedConfirmationAsync(string slug, string? logo, string? color)
+    /// <summary>De bevestiging van een reservatie bij een nieuwe verhuurder met (of zonder) een geüpload logo en deze kleur.</summary>
+    private async Task<OutgoingMail> BrandedConfirmationAsync(string slug, bool logo, string? color)
     {
         await app.CreateTenantAsync(slug, $"{slug}.test");
-        await using (var scope = app.Services.CreateAsyncScope())
+        await using (var scope = await app.TenantScopeAsync(slug))
         {
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var tenant = db.Tenants.Single(t => t.Slug == slug);
-            tenant.LogoUrl = logo;
+            if (logo)
+                tenant.LogoImageKey = await scope.ServiceProvider.GetRequiredService<IImageStore>().UploadAsync(TestImages.Png(600, 200));
             tenant.PrimaryColor = color;
             await db.SaveChangesAsync();
         }

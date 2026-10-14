@@ -2,6 +2,8 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Moshtar.Application.Catalog;
+using Moshtar.Application.Images;
+using Moshtar.Application.Tenancy;
 using Moshtar.Application.Website;
 using Moshtar.Domain.Tenants;
 using Moshtar.Domain.Website;
@@ -27,14 +29,14 @@ public static class StructuredData
     /// <summary>Hetzelfde id op elke pagina, zodat een Offer naar de verhuurder kan verwijzen.</summary>
     public static string BusinessId(SiteLinks links) => links.Absolute(SiteRoute.Home, links.DefaultCulture) + "#verhuurder";
 
-    public static JsonObject LocalBusiness(Tenant tenant, SiteLinks links)
+    public static JsonObject LocalBusiness(Tenant tenant, SiteLinks links, IImageStore images)
     {
         var data = Node("LocalBusiness");
         data["@id"] = BusinessId(links);
         data["name"] = tenant.Name;
         data["url"] = links.Absolute(SiteRoute.Home, links.Culture);
-        Add(data, "logo", Branding.LogoUrl(tenant.LogoUrl));
-        Add(data, "image", Branding.HeroImageUrl(tenant.HeroImageUrl) ?? Branding.LogoUrl(tenant.LogoUrl));
+        Add(data, "logo", images.LogoUrl(tenant));
+        Add(data, "image", images.HeroImageUrl(tenant) ?? images.LogoUrl(tenant));
         Add(data, "telephone", BusinessDetails.Phone(tenant.ContactPhone));
         Add(data, "email", BusinessDetails.Email(tenant.ContactEmail));
         Add(data, "vatID", tenant.VatNumber);

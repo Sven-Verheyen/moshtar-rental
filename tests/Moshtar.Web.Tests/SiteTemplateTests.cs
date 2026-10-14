@@ -20,14 +20,18 @@ public sealed class SiteTemplateTests(MoshtarApp app) : IClassFixture<MoshtarApp
     {
         await app.CreateTenantAsync("sjabloon-merk", "sjabloon-merk.test");
         await using (var scope = await app.TenantScopeAsync("sjabloon-merk"))
-            await scope.ServiceProvider.GetRequiredService<IBrandingAdministration>()
-                .SaveAsync(new BrandingSettings("https://merk.test/logo.png", "#ffeb3b", "https://merk.test/feest.jpg"));
+        {
+            var branding = scope.ServiceProvider.GetRequiredService<IBrandingAdministration>();
+            await branding.UploadAsync(BrandingImage.Logo, TestImages.Png(600, 200));
+            await branding.SaveColorAsync("#ffeb3b");
+            await branding.UploadAsync(BrandingImage.HeroImage, TestImages.Jpeg(2400, 1200));
+        }
 
         var html = await app.CreateClient("sjabloon-merk.test").GetStringAsync("/");
 
-        Assert.Contains("<img src=\"https://merk.test/logo.png\" alt=\"sjabloon-merk\"", html);
+        Assert.Matches(@"<img src=""https://sjabloon-merk\.test/afbeeldingen/[0-9a-f/]+/400\.webp"" alt=""sjabloon-merk""", html);
         Assert.Contains("--brand: #ffeb3b; --on-brand: #000000;", html);
-        Assert.Contains("<img class=\"hero-image\" src=\"https://merk.test/feest.jpg\"", html);
+        Assert.Matches(@"<img class=""hero-image"" src=""https://sjabloon-merk\.test/afbeeldingen/[0-9a-f/]+/1600\.webp"" srcset=""[^""]+/400\.webp 400w, [^""]+/800\.webp 800w, [^""]+/1600\.webp 1600w""", html);
         Assert.DoesNotContain("hero-plain", html);
     }
 

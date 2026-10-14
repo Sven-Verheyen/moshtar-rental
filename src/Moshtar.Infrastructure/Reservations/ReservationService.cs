@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Moshtar.Application.Images;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Tenancy;
@@ -15,7 +16,7 @@ using Moshtar.Infrastructure.Persistence;
 namespace Moshtar.Infrastructure.Reservations;
 
 internal sealed class ReservationService(
-    AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<ReservationService> logger) : IReservationService
+    AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images, ILogger<ReservationService> logger) : IReservationService
 {
     private static readonly ReservationStatus[] OccupyingStatuses =
         [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned];
@@ -81,7 +82,7 @@ internal sealed class ReservationService(
             var customization = await db.MailTemplateCustomizations.AsNoTracking().SingleOrDefaultAsync(
                 t => t.Kind == MailKind.ReservationConfirmation && t.Culture == language, CancellationToken.None);
             var template = customization?.Text ?? MailKinds.ReservationConfirmation.Standard(language);
-            await mailer.SendAsync(ReservationConfirmation.Create(reservation, tenant, template), CancellationToken.None);
+            await mailer.SendAsync(ReservationConfirmation.Create(reservation, tenant, images.LogoUrl(tenant), template), CancellationToken.None);
         }
         catch (Exception e)
         {

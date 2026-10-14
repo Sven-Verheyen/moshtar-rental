@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Images;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Infrastructure.Persistence;
@@ -106,7 +107,7 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 
             Assert.Equal("Seo Verhuur", business.GetProperty("name").GetString());
             Assert.Equal("+32470123456", business.GetProperty("telephone").GetString());
-            Assert.Equal("https://seo.test/logo.png", business.GetProperty("logo").GetString());
+            Assert.Matches("^https://seo-bedrijf.test/afbeeldingen/[0-9a-f]{32}/[0-9a-f]{32}/400.webp$", business.GetProperty("logo").GetString());
             Assert.Equal("Kerkstraat 1", business.GetProperty("address").GetProperty("streetAddress").GetString());
             Assert.Equal("Mortsel", business.GetProperty("address").GetProperty("addressLocality").GetString());
             Assert.Equal(["Mortsel", "Edegem"], business.GetProperty("areaServed").EnumerateArray().Select(a => a.GetProperty("name").GetString()));
@@ -231,7 +232,7 @@ public sealed partial class SeoTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var tenant = await db.Tenants.SingleAsync(t => t.Slug == slug);
         tenant.Name = "Seo Verhuur";
-        tenant.LogoUrl = "https://seo.test/logo.png";
+        tenant.LogoImageKey = await scope.ServiceProvider.GetRequiredService<IImageStore>().UploadAsync(TestImages.Png(600, 200));
         tenant.Street = "Kerkstraat 1";
         tenant.PostalCode = "2640";
         tenant.City = "Mortsel";

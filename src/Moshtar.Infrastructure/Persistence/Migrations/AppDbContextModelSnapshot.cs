@@ -555,14 +555,14 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("HeroImageUrl")
+                    b.Property<string>("HeroImageKey")
                         .HasColumnType("text");
 
                     b.Property<string>("InstagramUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("LogoUrl")
+                    b.Property<string>("LogoImageKey")
                         .HasColumnType("text");
 
                     b.Property<string>("Name")

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Carts;
+using Moshtar.Application.Images;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Mail;
@@ -9,7 +10,7 @@ using Moshtar.Infrastructure.Reservations;
 
 namespace Moshtar.Infrastructure.Mail;
 
-internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer) : IMailTemplateAdministration
+internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images) : IMailTemplateAdministration
 {
     private const int MaxSubjectLength = 300;
 
@@ -76,8 +77,8 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
         var mail = kind switch
         {
-            MailKind.ReservationConfirmation => ReservationConfirmation.Create(ReservationConfirmation.Example(culture, today), Tenant, text),
-            MailKind.CartReminder => CartReminder.Create(CartReminder.Example(culture, today), CartReminder.LanguageOf(culture, Tenant), Tenant, text,
+            MailKind.ReservationConfirmation => ReservationConfirmation.Create(ReservationConfirmation.Example(culture, today), Tenant, images.LogoUrl(Tenant), text),
+            MailKind.CartReminder => CartReminder.Create(CartReminder.Example(culture, today), CartReminder.LanguageOf(culture, Tenant), Tenant, images.LogoUrl(Tenant), text,
                 $"https://{host ?? "www.example.com"}{CartReminderPath.For("voorbeeld")}"),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
