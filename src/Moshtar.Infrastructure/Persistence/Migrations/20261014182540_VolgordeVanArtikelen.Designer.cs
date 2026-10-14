@@ -13,7 +13,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Moshtar.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261014181652_VolgordeVanArtikelen")]
+    [Migration("20261014182540_VolgordeVanArtikelen")]
     partial class VolgordeVanArtikelen
     {
         /// <inheritdoc />
@@ -603,14 +603,14 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("HeroImageUrl")
+                    b.Property<string>("HeroImageKey")
                         .HasColumnType("text");
 
                     b.Property<string>("InstagramUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<string>("LogoUrl")
+                    b.Property<string>("LogoImageKey")
                         .HasColumnType("text");
 
                     b.Property<string>("Name")
