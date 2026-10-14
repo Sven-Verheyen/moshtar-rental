@@ -23,6 +23,18 @@ public sealed record ExpectedWindow(TimeOnly Start, TimeOnly End)
 {
     public override string ToString() => $"{Time(Start)} – {Time(End)}";
 
+    /// <summary>
+    /// Het venster zoals een klant het leest in zijn taal: 9u30 – 10u30, 9h30 – 10h30 of 9:30 – 10:30. Een andere taal
+    /// krijgt de Vlaamse schrijfwijze.
+    /// </summary>
+    public string ToString(string language)
+    {
+        var separator = language switch { "fr" => "h", "en" => ":", _ => "u" };
+        return $"{Write(Start)} – {Write(End)}";
+
+        string Write(TimeOnly time) => $"{time.Hour}{separator}{time.Minute:00}";
+    }
+
     /// <summary>Een uur zoals in Vlaanderen geschreven: 9u30, 18u00.</summary>
     public static string Time(TimeOnly time) => $"{time.Hour}u{time.Minute:00}";
 }

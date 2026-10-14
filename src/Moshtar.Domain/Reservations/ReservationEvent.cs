@@ -11,6 +11,8 @@ public enum ReservationEventKind
     AddressCorrected = 4,
     /// <summary>Een gebruiker zette zelf een speld op de kaart voor een adres dat de kaart niet kende.</summary>
     PointConfirmed = 5,
+    /// <summary>De klant kreeg zijn verwacht tijdsvenster voor de levering of ophaling gemaild.</summary>
+    ExpectedTimeMailed = 6,
 }
 
 /// <summary>Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, of de klant via de reservatiewebsite.</summary>

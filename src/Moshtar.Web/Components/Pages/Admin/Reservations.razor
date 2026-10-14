@@ -136,6 +136,7 @@
         ReservationEventKind.Cancelled => "Geannuleerd",
         ReservationEventKind.AddressCorrected => "Leveradres verbeterd",
         ReservationEventKind.PointConfirmed => "Speld op de kaart bevestigd",
+        ReservationEventKind.ExpectedTimeMailed => "Verwacht tijdsvenster gemaild",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",
     };
 

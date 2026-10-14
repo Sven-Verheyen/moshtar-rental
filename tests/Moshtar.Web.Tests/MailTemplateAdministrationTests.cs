@@ -151,6 +151,34 @@ public sealed class MailTemplateAdministrationTests(MoshtarApp app) : IClassFixt
     }
 
     [Fact]
+    public async Task Preview_of_an_expected_delivery_time_fills_an_example_window_and_address_in_that_language()
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+
+        var preview = await Templates(scope).PreviewAsync(MailKind.ExpectedDeliveryTime, "fr", MailKinds.ExpectedDeliveryTime.Standard("fr"));
+
+        Assert.StartsWith("Livraison de votre réservation chez Hopsakee.fun le ", preview.Subject);
+        Assert.EndsWith(" : 9h30 – 10h30", preview.Subject);
+        Assert.StartsWith("Bonjour Camille,", preview.TextBody);
+        Assert.Contains("Kerkstraat 1, 9000 Gent", preview.TextBody);
+        Assert.DoesNotContain("{", preview.TextBody);
+    }
+
+    [Fact]
+    public async Task Test_mail_of_an_expected_collection_time_goes_to_the_user_with_a_customized_text()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "sjabloon-ophaaluur@hopsakee.test");
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var text = new MailTemplateText("We komen {expectedWindow}", "Dag {firstName}, we halen op {expectedDate} op tussen {expectedWindow}.");
+
+        await Templates(scope).SendTestAsync(MailKind.ExpectedCollectionTime, "en", text, user.Id);
+
+        var mail = Assert.Single(Outbox.Sent, m => m.To == "sjabloon-ophaaluur@hopsakee.test");
+        Assert.Equal("[Testmail] We komen 9:30 – 10:30", mail.Subject);
+        Assert.StartsWith("Dag Alex, we halen op ", mail.TextBody);
+    }
+
+    [Fact]
     public async Task Preview_follows_the_same_checks_as_saving()
     {
         await using var scope = await app.TenantScopeAsync("hopsakee");

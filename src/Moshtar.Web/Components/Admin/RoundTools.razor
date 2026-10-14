@@ -1,7 +1,7 @@
 @using Moshtar.Application.Schedule
 @using Moshtar.Domain.Rounds
 
-@* Boven een ronde in de Planning: een route voorstellen, het vertrekuur van die dag, en "Ronde gewijzigd". *@
+@* Boven een ronde in de Planning: een route voorstellen, het vertrekuur van die dag, verwachte uren mailen en "Ronde gewijzigd". *@
 <div class="planning-round-tools d-flex flex-wrap align-center gap-2 mb-2">
     @if (Round is { } round)
     {
@@ -22,6 +22,8 @@
         }
         <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Route" data-action="route-voorstellen"
                    OnClick="OnPropose">Route opnieuw voorstellen</MudButton>
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Email" data-action="uren-mailen"
+                   OnClick="OnMail">Verwachte uren mailen</MudButton>
     }
     else
     {
@@ -48,6 +50,9 @@
     [Parameter] public EventCallback OnUpdate { get; set; }
 
     [Parameter] public EventCallback<TimeOnly> OnDeparture { get; set; }
+
+    /// <summary>"Verwachte uren mailen": wie nog geen of een ander venster kreeg, krijgt een mail.</summary>
+    [Parameter] public EventCallback OnMail { get; set; }
 
     private bool _editing;
     private string? _departure;

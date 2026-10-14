@@ -6,6 +6,7 @@ using Moshtar.Domain.Mail;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Carts;
 using Moshtar.Infrastructure.Reservations;
+using Moshtar.Infrastructure.Schedule;
 
 namespace Moshtar.Infrastructure.Mail;
 
@@ -79,6 +80,7 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
             MailKind.ReservationConfirmation => ReservationConfirmation.Create(ReservationConfirmation.Example(culture, today), Tenant, text),
             MailKind.CartReminder => CartReminder.Create(CartReminder.Example(culture, today), CartReminder.LanguageOf(culture, Tenant), Tenant, text,
                 $"https://{host ?? "www.example.com"}{CartReminderPath.For("voorbeeld")}"),
+            MailKind.ExpectedDeliveryTime or MailKind.ExpectedCollectionTime => ExpectedTimeMail.Example(kind, culture, today, Tenant, text),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
         return mail with { To = to };

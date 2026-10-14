@@ -79,4 +79,14 @@ public class RoundTimesTests
     {
         Assert.Equal("9u30 – 10u30", new ExpectedWindow(new TimeOnly(9, 30), new TimeOnly(10, 30)).ToString());
     }
+
+    [Theory]
+    [InlineData("nl", "9u30 – 10u30")]
+    [InlineData("fr", "9h30 – 10h30")]
+    [InlineData("en", "9:30 – 10:30")]
+    [InlineData("de", "9u30 – 10u30")]
+    public void A_window_for_a_customer_is_written_the_way_of_their_language(string language, string expected)
+    {
+        Assert.Equal(expected, new ExpectedWindow(new TimeOnly(9, 30), new TimeOnly(10, 30)).ToString(language));
+    }
 }

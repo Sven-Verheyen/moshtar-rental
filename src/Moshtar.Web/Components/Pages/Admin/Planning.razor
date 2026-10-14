@@ -7,6 +7,7 @@
 @using Moshtar.Domain.Rounds
 @inject ISchedule Schedule
 @inject IRoundPlanner Rounds
+@inject IRoundMessages RoundMessages
 @inject IReservationService ReservationService
 @inject TimeProvider Clock
 @inject NavigationManager Navigation
@@ -77,7 +78,8 @@
             {
                 <RoundTools Round="_day.DeliveryRound" OnPropose="() => ProposeAsync(RoundKind.Delivery)"
                             OnUpdate="() => UpdateRoundAsync(RoundKind.Delivery)"
-                            OnDeparture="t => DepartureAsync(RoundKind.Delivery, t)" />
+                            OnDeparture="t => DepartureAsync(RoundKind.Delivery, t)"
+                            OnMail="() => MailAsync(RoundKind.Delivery)" />
             }
             <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Opbouwtijd"
@@ -90,7 +92,8 @@
             {
                 <RoundTools Round="_day.CollectionRound" OnPropose="() => ProposeAsync(RoundKind.Collection)"
                             OnUpdate="() => UpdateRoundAsync(RoundKind.Collection)"
-                            OnDeparture="t => DepartureAsync(RoundKind.Collection, t)" />
+                            OnDeparture="t => DepartureAsync(RoundKind.Collection, t)"
+                            OnMail="() => MailAsync(RoundKind.Collection)" />
             }
             <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Afbouwtijd"
@@ -225,6 +228,27 @@
     private Task UpdateRoundAsync(RoundKind kind) => PlanAsync(kind, p => p.UpdateAsync(Day, kind), "ronde bijgewerkt.");
 
     private Task DepartureAsync(RoundKind kind, TimeOnly departure) => PlanAsync(kind, p => p.SetDepartureAsync(Day, kind, departure));
+
+    private async Task MailAsync(RoundKind kind)
+    {
+        var round = kind == RoundKind.Delivery ? "Leverronde" : "Ophaalronde";
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            var mailed = await RoundMessages.MailExpectedTimesAsync(Day, kind, actor);
+            Snackbar.Add(mailed switch
+            {
+                0 => $"{round}: iedereen kreeg zijn venster al.",
+                1 => $"{round}: 1 klant gemaild.",
+                _ => $"{round}: {mailed} klanten gemaild.",
+            }, Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
 
     private Task MoveAsync(RoundKind kind, (ScheduleStop Stop, int Position) move) =>
         PlanAsync(kind, p => p.MoveAsync(Day, kind, move.Stop.ReservationId, move.Position));

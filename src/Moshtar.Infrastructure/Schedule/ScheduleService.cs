@@ -93,7 +93,8 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     }
 
     private static ScheduleRoundStop ToRoundStop(RoundStop s) =>
-        new(s.Position, s.Arrival, s.Window, s.FixedTime, s.HandlingMinutes, s.Late);
+        new(s.Position, s.Arrival, s.Window, s.FixedTime, s.HandlingMinutes, s.Late,
+            s is { MailedWindowStart: { } start, MailedWindowEnd: { } end } ? new ExpectedWindow(start, end) : null, s.MailedAt);
 
     /// <summary>
     /// Zoekt de punten op van leveradressen die er nog geen hebben: reservaties van voor er punten waren, of waarvan

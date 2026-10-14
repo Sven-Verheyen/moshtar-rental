@@ -1,0 +1,261 @@
+using System.Net;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Reservations;
+using Moshtar.Application.Schedule;
+using Moshtar.Application.Tenancy;
+using Moshtar.Domain.Catalog;
+using Moshtar.Domain.Common;
+using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Rounds;
+using Moshtar.Infrastructure.Identity;
+using Moshtar.Infrastructure.Mail;
+using Moshtar.Infrastructure.Persistence;
+
+namespace Moshtar.Web.Tests;
+
+/// <summary>
+/// Verwachte uren mailen per ronde, met de lokale vervanger van Azure Maps (zie <see cref="RoundTests"/>): het bedrijf
+/// ligt in Bergen, de klanten in Gent, Antwerpen en Namen. De mails worden gelogd in plaats van verstuurd.
+/// </summary>
+public sealed class ExpectedTimeMailTests(MoshtarApp app) : IClassFixture<MoshtarApp>
+{
+    private static readonly Address Business = new() { Street = "Grote Markt 1", PostalCode = "7000", City = "Bergen" };
+
+    private RecordingMailTransport Outbox => app.Services.GetRequiredService<RecordingMailTransport>();
+
+    [Fact]
+    public async Task Every_customer_of_the_round_gets_the_mail_in_their_language_with_their_window()
+    {
+        var day = TestReservations.FutureDay(230);
+        var (gent, antwerpen, namen) = await SquareAsync(day, "mail-ieder");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        var windows = await WindowsAsync(day, RoundKind.Delivery);
+
+        var sent = await MailAsync(day, RoundKind.Delivery);
+
+        Assert.Equal(3, sent.Count);
+        var dutch = Assert.Single(sent, m => m.To == gent.Customer!.Email);
+        Assert.StartsWith("Levering van je reservatie bij Hopsakee.fun op ", dutch.Subject);
+        Assert.EndsWith($": {windows[gent.Id].ToString("nl")}", dutch.Subject);
+        Assert.Contains("Hallo Greet,", dutch.TextBody);
+        Assert.Contains(windows[gent.Id].ToString("nl"), dutch.TextBody);
+        Assert.Contains(gent.Number, dutch.TextBody);
+        var french = Assert.Single(sent, m => m.To == antwerpen.Customer!.Email);
+        Assert.Contains(windows[antwerpen.Id].ToString("fr"), french.Subject);
+        Assert.StartsWith("Bonjour Anton,", french.TextBody);
+        var english = Assert.Single(sent, m => m.To == namen.Customer!.Email);
+        Assert.Contains(windows[namen.Id].ToString("en"), english.TextBody);
+        Assert.Equal("noreply@hopsakee.test", english.FromAddress);
+    }
+
+    [Fact]
+    public async Task Mailing_again_only_mails_the_customers_whose_window_changed_since_their_last_mail()
+    {
+        var day = TestReservations.FutureDay(231);
+        await SquareAsync(day, "mail-opnieuw");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        await MailAsync(day, RoundKind.Delivery);
+
+        Assert.Empty(await MailAsync(day, RoundKind.Delivery));
+
+        // Een vast uur op de laatste stop verschuift enkel haar venster.
+        var last = (await StopsAsync(day, RoundKind.Delivery)).Last();
+        await PlanAsync(p => p.SetFixedTimeAsync(day, RoundKind.Delivery, last.Id, new TimeOnly(15, 0)));
+        var windows = await WindowsAsync(day, RoundKind.Delivery);
+        var again = await MailAsync(day, RoundKind.Delivery);
+
+        var mail = Assert.Single(again);
+        Assert.Equal(last.Customer!.Email, mail.To);
+        Assert.Contains("15", windows[last.Id].ToString());
+        Assert.Contains(windows[last.Id].ToString(last.Culture), mail.TextBody);
+    }
+
+    [Fact]
+    public async Task The_collection_round_mails_the_expected_collection_time_on_the_last_day()
+    {
+        var day = TestReservations.FutureDay(232);
+        var (gent, _, _) = await SquareAsync(day, "mail-ophalen");
+        var collectionDay = day.AddDays(1);
+        await PlanAsync(p => p.ProposeAsync(collectionDay, RoundKind.Collection));
+        var windows = await WindowsAsync(collectionDay, RoundKind.Collection);
+
+        var sent = await MailAsync(collectionDay, RoundKind.Collection);
+
+        Assert.Equal(3, sent.Count);
+        var dutch = Assert.Single(sent, m => m.To == gent.Customer!.Email);
+        Assert.StartsWith("Ophaling van je reservatie bij Hopsakee.fun op ", dutch.Subject);
+        Assert.Contains(windows[gent.Id].ToString("nl"), dutch.TextBody);
+        Assert.Contains("Veldstraat 10, 9000 Gent", dutch.TextBody);
+    }
+
+    [Fact]
+    public async Task Each_mail_is_an_event_in_the_history_of_the_reservation_with_who_sent_it()
+    {
+        var day = TestReservations.FutureDay(233);
+        var (gent, _, _) = await SquareAsync(day, "mail-historiek");
+        var user = await app.CreateUserAsync("hopsakee", "uren-mailen@hopsakee.test", UserRole.Staff);
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+
+        await MailAsync(day, RoundKind.Delivery, ReservationActor.User(user.Id));
+
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var history = await scope.ServiceProvider.GetRequiredService<IReservationService>().GetHistoryAsync(gent.Id);
+        var mailed = Assert.Single(history, e => e.Kind == ReservationEventKind.ExpectedTimeMailed);
+        Assert.Equal("uren-mailen@hopsakee.test", mailed.UserEmail);
+    }
+
+    [Fact]
+    public async Task Without_a_route_nothing_is_mailed()
+    {
+        var day = TestReservations.FutureDay(234);
+        await SquareAsync(day, "mail-geen-route");
+
+        var before = Outbox.Sent.Count;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => MailAsync(day, RoundKind.Delivery));
+        Assert.Equal(before, Outbox.Sent.Count);
+    }
+
+    [Theory]
+    [InlineData(UserRole.Staff)]
+    [InlineData(UserRole.Administrator)]
+    public async Task The_planning_shows_the_mail_button_only_for_a_round_with_a_route(UserRole role)
+    {
+        var day = TestReservations.FutureDay(role == UserRole.Staff ? 235 : 236);
+        await SquareAsync(day, $"mail-knop-{role}");
+        var client = await app.LoggedInClientAsync($"uren-knop-{role}@hopsakee.test".ToLowerInvariant(), role);
+        Assert.DoesNotContain("Verwachte uren mailen", Section(await PlanningAsync(client, day), "leverronde"));
+
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+
+        Assert.Contains("data-action=\"uren-mailen\"", Section(await PlanningAsync(client, day), "leverronde"));
+        Assert.DoesNotContain("Verwachte uren mailen", Section(await PlanningAsync(client, day), "ophaalronde"));
+    }
+
+    [Fact]
+    public async Task Each_stop_shows_when_it_was_mailed_and_which_window()
+    {
+        var day = TestReservations.FutureDay(237);
+        await SquareAsync(day, "mail-getoond");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        var client = await app.LoggedInClientAsync("uren-getoond@hopsakee.test", UserRole.Staff);
+        var stops = await StopsAsync(day, RoundKind.Delivery);
+        Assert.DoesNotContain("Gemaild op", Section(await PlanningAsync(client, day), "leverronde"));
+
+        await MailAsync(day, RoundKind.Delivery);
+        var windows = await WindowsAsync(day, RoundKind.Delivery);
+        var last = stops.Last();
+        await PlanAsync(p => p.SetFixedTimeAsync(day, RoundKind.Delivery, last.Id, new TimeOnly(15, 0)));
+        var round = Section(await PlanningAsync(client, day), "leverronde");
+
+        var first = Stop(round, stops[0].Number);
+        Assert.Contains("Gemaild op", first);
+        Assert.Contains($"data-mailed-window=\"{windows[stops[0].Id]}\"", first);
+        Assert.DoesNotContain("Venster gewijzigd", first);
+        var changed = Stop(round, last.Number);
+        Assert.Contains($"data-mailed-window=\"{windows[last.Id]}\"", changed);
+        Assert.Contains("Venster gewijzigd sinds de mail", changed);
+    }
+
+    /// <summary>Het bedrijf in Bergen, en een levering in Gent (nl), Antwerpen (fr) en Namen (en) op deze dag.</summary>
+    private async Task<(Reservation Gent, Reservation Antwerpen, Reservation Namen)> SquareAsync(DateOnly day, string tag)
+    {
+        await MoveBusinessAsync(Business);
+        return (
+            await ReserveAsync("Greet", $"gent-{tag}", day, "Veldstraat 10", "9000", "Gent", "nl"),
+            await ReserveAsync("Anton", $"antwerpen-{tag}", day, "Meir 10", "2000", "Antwerpen", "fr"),
+            await ReserveAsync("Nico", $"namen-{tag}", day, "Rue de Fer 10", "5000", "Namen", "en"));
+    }
+
+    private async Task PlanAsync(Func<IRoundPlanner, Task> plan)
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        await plan(scope.ServiceProvider.GetRequiredService<IRoundPlanner>());
+    }
+
+    /// <summary>Drukt op "Verwachte uren mailen" en geeft de mails die daardoor vertrokken.</summary>
+    private async Task<IReadOnlyList<OutgoingMail>> MailAsync(DateOnly day, RoundKind kind, ReservationActor? actor = null)
+    {
+        var before = Outbox.Sent.Count;
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var count = await scope.ServiceProvider.GetRequiredService<IRoundMessages>().MailExpectedTimesAsync(day, kind, actor ?? ReservationActor.Website);
+        var sent = Outbox.Sent.Skip(before).ToList();
+        Assert.Equal(sent.Count, count);
+        return sent;
+    }
+
+    /// <summary>De reservaties van de ronde, in rijvolgorde.</summary>
+    private async Task<List<Reservation>> StopsAsync(DateOnly day, RoundKind kind)
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var schedule = await scope.ServiceProvider.GetRequiredService<ISchedule>().GetDayAsync(day);
+        var ids = (kind == RoundKind.Delivery ? schedule.Deliveries : schedule.Collections)
+            .Where(s => s.InRound is not null).OrderBy(s => s.InRound!.Position).Select(s => s.ReservationId).ToList();
+        var reservations = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.AsNoTracking()
+            .Include(r => r.Customer).Where(r => ids.Contains(r.Id)).ToListAsync();
+        return ids.Select(id => reservations.Single(r => r.Id == id)).ToList();
+    }
+
+    /// <summary>Het verwacht tijdsvenster per reservatie, zoals de Planning het toont.</summary>
+    private async Task<Dictionary<Guid, ExpectedWindow>> WindowsAsync(DateOnly day, RoundKind kind)
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var schedule = await scope.ServiceProvider.GetRequiredService<ISchedule>().GetDayAsync(day);
+        return (kind == RoundKind.Delivery ? schedule.Deliveries : schedule.Collections)
+            .Where(s => s.InRound is not null)
+            .ToDictionary(s => s.ReservationId, s => s.InRound!.Window);
+    }
+
+    private static async Task<string> PlanningAsync(HttpClient client, DateOnly day)
+    {
+        var response = await client.GetAsync($"/admin/planning?dag={day:yyyy-MM-dd}");
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+    }
+
+    /// <summary>Het stuk van de pagina tussen het begin van de sectie met deze id en de volgende sectie.</summary>
+    private static string Section(string html, string id)
+    {
+        var start = html.IndexOf($"id=\"{id}\"", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Sectie {id} niet gevonden.");
+        var end = html.IndexOf("<section", start, StringComparison.Ordinal);
+        return end < 0 ? html[start..] : html[start..end];
+    }
+
+    /// <summary>Het kaartje van één reservatie binnen een sectie, tot het volgende kaartje.</summary>
+    private static string Stop(string section, string number)
+    {
+        var start = section.IndexOf($"data-reservation=\"{number}\"", StringComparison.Ordinal);
+        Assert.True(start >= 0, $"Reservatie {number} niet gevonden.");
+        var end = section.IndexOf("data-reservation=", start + 1, StringComparison.Ordinal);
+        return end < 0 ? section[start..] : section[start..end];
+    }
+
+    private async Task MoveBusinessAsync(Address address)
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var details = scope.ServiceProvider.GetRequiredService<IBusinessDetailsAdministration>();
+        await details.SaveAsync(await details.GetAsync() with { Street = address.Street, PostalCode = address.PostalCode, City = address.City });
+    }
+
+    private async Task<Reservation> ReserveAsync(
+        string firstName, string lastName, DateOnly day, string street, string postalCode, string city, string culture)
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var item = await db.RentalItems.SingleOrDefaultAsync(i => i.Slug == "springkasteel");
+        if (item is null)
+        {
+            item = new RentalItem { Slug = "springkasteel", Stock = 50, Pricing = new Pricing { DayPrice = 100 }, Translations = [new Translation { Culture = "nl", Name = "Springkasteel" }] };
+            db.RentalItems.Add(item);
+            await db.SaveChangesAsync();
+        }
+        var address = new Address { Street = street, PostalCode = postalCode, City = city };
+        var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
+            new DateRange(day, day.AddDays(1)),
+            [new ReservationLineRequest(item.Id, null, 1)],
+            new ReservationCustomer(firstName, lastName, $"{firstName}.{lastName}@example.test".ToLowerInvariant(), "0470 12 34 56", address),
+            DeliveryMethod.Delivery, address, null, culture), ReservationActor.Website);
+        return result.Reservation ?? throw new InvalidOperationException("Reserveren mislukt.");
+    }
+}
