@@ -44,6 +44,8 @@ public static class DependencyInjection
         services.AddScoped<IReservationService, ReservationService>();
         services.AddScoped<ICatalogService, CatalogService>();
         services.AddScoped<ICategoryAdministration, CategoryAdministration>();
+        services.AddScoped<IRentalItemAdministration, RentalItemAdministration>();
+        services.AddScoped<ShortageQuery>();
         services.AddScoped<OldSlugs>();
         services.AddScoped<IOldSlugs>(sp => sp.GetRequiredService<OldSlugs>());
         services.AddScoped<ICartService, CartService>();

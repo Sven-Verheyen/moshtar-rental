@@ -66,6 +66,8 @@ internal static class SiteLanguage
 
             culture ??= tenant.DefaultCulture;
             var route = SiteRoute.Parse(path) ?? await CategoryRouteAsync(context, path, culture);
+            if (route is RentalRoute rental && await CurrentRentalRouteAsync(context, rental.Slug, culture) is { } current)
+                route = current;
             if (route is not null && route.PathIn(culture) != path)
             {
                 context.Response.Redirect(SiteLinks.Href(route, culture, tenant.DefaultCulture) + request.QueryString, permanent: true);
@@ -90,6 +92,19 @@ internal static class SiteLanguage
             && await context.RequestServices.GetRequiredService<IOldSlugs>().FindAsync(SlugKind.Category, culture, path, context.RequestAborted) is { } id)
             category = categories.FirstOrDefault(c => c.CategoryId == id);
         return category is null ? null : new CategoryRoute(category.CategoryId, category.PerCulture);
+    }
+
+    /// <summary>
+    /// Een oude slug van een artikel stuurt door naar zijn huidige pagina, tenzij een artikel of pakket die slug nu
+    /// heeft. Null als de slug geen oude slug is.
+    /// </summary>
+    private static async Task<RentalRoute?> CurrentRentalRouteAsync(HttpContext context, string slug, string culture)
+    {
+        if (await context.RequestServices.GetRequiredService<IOldSlugs>().FindAsync(SlugKind.RentalItem, culture, slug, context.RequestAborted) is not { } id)
+            return null;
+        var catalog = await context.RequestServices.GetRequiredService<ICatalogService>().GetCatalogAsync(culture, context.RequestAborted);
+        if (catalog.Any(e => e.Slug == slug)) return null;
+        return catalog.FirstOrDefault(e => e.Kind == CatalogEntryKind.Item && e.Id == id) is { } item ? new RentalRoute(item.Slug) : null;
     }
 
     private static void UseCulture(HttpContext context, string culture, SiteRoute? route)

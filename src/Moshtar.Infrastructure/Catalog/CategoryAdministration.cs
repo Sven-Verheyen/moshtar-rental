@@ -226,12 +226,7 @@ internal sealed class CategoryAdministration(AppDbContext db, ITenantContext ten
     }
 
     /// <summary>De vaste slug van een nieuwe categorie, uniek bij de verhuurder: "spellen", anders "spellen-2", ...</summary>
-    private static string Unique(string slug, IReadOnlyCollection<string> taken)
-    {
-        var unique = slug;
-        for (var n = 2; taken.Contains(unique); n++) unique = $"{slug}-{n}";
-        return unique;
-    }
+    private static string Unique(string slug, IReadOnlyCollection<string> taken) => SlugText.Unique(slug, taken);
 
     /// <summary>Bij meer dan één taal zegt een probleem met een slug in welke taal het is.</summary>
     private string InLanguage(string culture, string problem) =>

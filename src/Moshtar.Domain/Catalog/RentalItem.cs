@@ -9,6 +9,9 @@ public class RentalItem : TenantEntity
     public Guid? CategoryId { get; set; }
     public Category? Category { get; set; }
 
+    /// <summary>De plaats binnen de categorie, zoals de verhuurder ze versleept; nieuwe artikelen komen achteraan.</summary>
+    public int SortOrder { get; set; }
+
     /// <summary>Aantal exemplaren dat de verhuurder bezit.</summary>
     public int Stock { get; set; } = 1;
     public bool IsActive { get; set; } = true;

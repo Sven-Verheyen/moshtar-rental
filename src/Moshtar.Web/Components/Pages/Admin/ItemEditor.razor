@@ -1,0 +1,226 @@
+@page "/admin/artikelen/nieuw"
+@page "/admin/artikelen/{Id:guid}"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Domain.Availability
+@using Moshtar.Domain.Catalog
+@inject IRentalItemAdministration Admin
+@inject ICategoryAdministration CategoryAdmin
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+@inject NavigationManager Navigation
+
+<PageTitle>@Title</PageTitle>
+
+<AdminShell Title="@Title">
+    <MudLink Href="admin/artikelen" Class="mb-4 d-inline-block">← Alle artikelen</MudLink>
+
+    @if (_loaded && _draft is null)
+    {
+        <MudAlert Severity="Severity.Warning">Dit artikel bestaat niet (meer).</MudAlert>
+    }
+    else if (_draft is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else
+    {
+        @if (_shortages is { Count: > 0 })
+        {
+            <MudAlert Severity="Severity.Warning" Class="mb-4">
+                <div>Bewaard, maar op deze dagen is meer gereserveerd dan verhuurbaar:</div>
+                <ul>
+                    @foreach (var shortage in _shortages)
+                    {
+                        <li>@ShortageText(shortage)</li>
+                    }
+                </ul>
+            </MudAlert>
+        }
+        @if (Id is not null && !_isActive)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">Dit artikel is uitgezet: het staat niet op je reservatiewebsite. Zet het weer aan in het overzicht.</MudAlert>
+        }
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Naam en beschrijving</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">
+                Alleen de naam in het @LanguageName(DefaultCulture) is verplicht. Een taal zonder naam of beschrijving toont
+                die van het @LanguageName(DefaultCulture).
+            </MudText>
+            <MudTabs Elevation="0" Rounded="true" TabPanelsClass="pt-4">
+                @foreach (var culture in Cultures)
+                {
+                    var text = _draft.Texts[culture];
+                    <MudTabPanel Text="@LanguageName(culture)">
+                        <MudTextField @bind-Value="text.Name" Label="Naam" Variant="Variant.Outlined" Required="@(culture == DefaultCulture)" Immediate="true" Class="mb-3" />
+                        <MudTextField @bind-Value="text.Description" Label="Beschrijving" Variant="Variant.Outlined" Lines="5"
+                                      HelperText="Laat een lege regel tussen twee alinea's." />
+                    </MudTabPanel>
+                }
+            </MudTabs>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Verhuur</MudText>
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudSelect T="Guid?" @bind-Value="_draft.CategoryId" Label="Categorie" Variant="Variant.Outlined">
+                        <MudSelectItem T="Guid?" Value="null">Geen categorie</MudSelectItem>
+                        @foreach (var category in _categories)
+                        {
+                            <MudSelectItem T="Guid?" Value="category.Id">@category.Texts[DefaultCulture].Name.Value</MudSelectItem>
+                        }
+                    </MudSelect>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudTextField @bind-Value="_draft.Slug" Label="Slug in de URL" Variant="Variant.Outlined"
+                                  Placeholder="@RentalItemSlug.From(_draft.Texts[DefaultCulture].Name ?? "")"
+                                  HelperText="Kleine letters, cijfers en koppeltekens, bv. springkasteel-jungle. Leeg: uit de naam. Het oude adres stuurt door naar het nieuwe." />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="int" @bind-Value="_draft.Stock" Label="Voorraad" Min="0" Variant="Variant.Outlined"
+                                     HelperText="Het aantal exemplaren dat je bezit." />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="decimal" @bind-Value="_draft.DayPrice" Label="Dagprijs (€, incl. btw)" Min="0" Format="N2" Variant="Variant.Outlined" />
+                </MudItem>
+                <MudItem xs="12" md="4">
+                    <MudNumericField T="decimal?" @bind-Value="_draft.ExtraDayPrice" Label="Prijs per extra dag (€, incl. btw)" Min="0" Format="N2" Variant="Variant.Outlined"
+                                     HelperText="Leeg: de dagprijs." />
+                </MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <MudPaper Class="pa-4 mb-4" Elevation="1">
+            <MudText Typo="Typo.h6" Class="mb-2">Kenmerken</MudText>
+            <MudText Typo="Typo.body2" Class="mb-2">Allemaal optioneel; ze helpen klanten het juiste artikel kiezen.</MudText>
+            <MudGrid>
+                <MudItem xs="12" md="4"><MudNumericField T="int?" @bind-Value="_draft.LengthCm" Label="Lengte (cm)" Min="1" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="int?" @bind-Value="_draft.WidthCm" Label="Breedte (cm)" Min="1" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="int?" @bind-Value="_draft.HeightCm" Label="Hoogte (cm)" Min="1" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="int?" @bind-Value="_draft.MinAge" Label="Leeftijd vanaf" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="int?" @bind-Value="_draft.MaxAge" Label="Leeftijd tot" Min="0" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12" md="4"><MudNumericField T="int?" @bind-Value="_draft.MaxPersons" Label="Max. personen" Min="1" Variant="Variant.Outlined" /></MudItem>
+                <MudItem xs="12"><MudCheckBox T="bool" @bind-Value="_draft.RequiresPower" Label="Stroom nodig" Color="Color.Primary" /></MudItem>
+            </MudGrid>
+        </MudPaper>
+
+        <Problems Items="_problems" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="SaveAsync">@(Id is null ? "Aanmaken" : "Opslaan")</MudButton>
+    }
+</AdminShell>
+
+@code {
+    private sealed class TextDraft { public string? Name { get; set; } public string? Description { get; set; } }
+
+    private sealed class Draft
+    {
+        public Dictionary<string, TextDraft> Texts { get; } = [];
+        public Guid? CategoryId { get; set; }
+        public string? Slug { get; set; }
+        public int Stock { get; set; } = 1;
+        public decimal DayPrice { get; set; }
+        public decimal? ExtraDayPrice { get; set; }
+        public int? LengthCm { get; set; }
+        public int? WidthCm { get; set; }
+        public int? HeightCm { get; set; }
+        public int? MinAge { get; set; }
+        public int? MaxAge { get; set; }
+        public int? MaxPersons { get; set; }
+        public bool RequiresPower { get; set; }
+    }
+
+    [Parameter] public Guid? Id { get; set; }
+
+    private Draft? _draft;
+    private bool _loaded;
+    private bool _isActive = true;
+    private IReadOnlyList<CategoryDetails> _categories = [];
+    private IReadOnlyList<string>? _problems;
+    private IReadOnlyList<Shortage>? _shortages;
+
+    private string Title => Id is null ? "Nieuw artikel" : "Artikel wijzigen";
+    private IReadOnlyList<string> Cultures => TenantContext.Tenant?.Cultures ?? [];
+    private string DefaultCulture => TenantContext.Tenant?.DefaultCulture ?? "nl";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _categories = await CategoryAdmin.GetAllAsync();
+        _draft = null;
+        _problems = null;
+        if (Id is { } id)
+        {
+            if (await Admin.GetAsync(id) is { } item)
+            {
+                _isActive = item.IsActive;
+                _draft = ToDraft(item.Input);
+            }
+        }
+        else
+        {
+            _draft = new Draft { CategoryId = _categories.FirstOrDefault()?.Id };
+            foreach (var culture in Cultures) _draft.Texts[culture] = new TextDraft();
+        }
+        _loaded = true;
+    }
+
+    private Draft ToDraft(RentalItemInput input)
+    {
+        var draft = new Draft
+        {
+            CategoryId = input.CategoryId, Slug = input.Slug, Stock = input.Stock, DayPrice = input.DayPrice, ExtraDayPrice = input.ExtraDayPrice,
+            LengthCm = input.Specs.LengthCm, WidthCm = input.Specs.WidthCm, HeightCm = input.Specs.HeightCm,
+            MinAge = input.Specs.MinAge, MaxAge = input.Specs.MaxAge, MaxPersons = input.Specs.MaxPersons, RequiresPower = input.Specs.RequiresPower,
+        };
+        foreach (var culture in Cultures)
+            draft.Texts[culture] = input.Texts.FirstOrDefault(t => t.Culture == culture) is { } t
+                ? new TextDraft { Name = t.Name, Description = t.Description }
+                : new TextDraft();
+        return draft;
+    }
+
+    private RentalItemInput ToInput(Draft d) => new(
+        Cultures.Select(c => new RentalItemText(c, d.Texts[c].Name ?? "", d.Texts[c].Description)).ToList(),
+        d.CategoryId, d.Stock, d.DayPrice, d.ExtraDayPrice,
+        new ItemSpecs(d.LengthCm, d.WidthCm, d.HeightCm, d.MinAge, d.MaxAge, d.MaxPersons, d.RequiresPower),
+        d.Slug);
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null) return;
+        try
+        {
+            if (Id is { } id)
+            {
+                _shortages = await Admin.SaveAsync(id, ToInput(_draft));
+                _problems = null;
+                if (await Admin.GetAsync(id) is { } saved) _draft = ToDraft(saved.Input);
+                Snackbar.Add("Artikel bewaard.", _shortages.Count > 0 ? Severity.Warning : Severity.Success);
+            }
+            else
+            {
+                var created = await Admin.CreateAsync(ToInput(_draft));
+                Snackbar.Add("Artikel aangemaakt.", Severity.Success);
+                Navigation.NavigateTo($"admin/artikelen/{created}");
+            }
+        }
+        catch (RentalItemException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private static string ShortageText(Shortage shortage) =>
+        $"{shortage.Day.ToString("dddd d MMMM yyyy", CultureInfo.GetCultureInfo("nl-BE"))}: {shortage.Reserved} gereserveerd, "
+        + $"{shortage.Rentable} verhuurbaar ({(shortage.ReservationIds.Count == 1 ? "1 reservatie" : $"{shortage.ReservationIds.Count} reservaties")})";
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+}

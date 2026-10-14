@@ -2,60 +2,157 @@
 @layout AdminLayout
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = Roles.Administrator)]
-@using Microsoft.EntityFrameworkCore
-@using Moshtar.Domain.Catalog
-@using Moshtar.Domain.Common
-@using Moshtar.Infrastructure.Persistence
-@inject IDbContextFactory<AppDbContext> DbFactory
+@inject IRentalItemAdministration Admin
+@inject ICategoryAdministration CategoryAdmin
 @inject ITenantContext TenantContext
 @inject ISnackbar Snackbar
+@inject IDialogService Dialogs
 
 <PageTitle>Artikelen</PageTitle>
 
 <AdminShell Title="Artikelen">
-    <MudTable Items="_items" Loading="_items is null" Dense="true">
-        <HeaderContent>
-            <MudTh>Naam</MudTh>
-            <MudTh>Categorie</MudTh>
-            <MudTh>Voorraad</MudTh>
-            <MudTh>Dagprijs</MudTh>
-            <MudTh>Extra dag</MudTh>
-            <MudTh>Actief</MudTh>
-            <MudTh></MudTh>
-        </HeaderContent>
-        <RowTemplate>
-            <MudTd>@Name(context.Translations, context.Slug)</MudTd>
-            <MudTd>@(context.Category is { } c ? Name(c.Translations, c.Slug) : "")</MudTd>
-            <MudTd><MudNumericField @bind-Value="context.Stock" Min="0" Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 6rem" /></MudTd>
-            <MudTd><MudNumericField @bind-Value="context.Pricing.DayPrice" Min="0" Format="N2" Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 8rem" /></MudTd>
-            <MudTd><MudNumericField @bind-Value="context.Pricing.ExtraDayPrice" Min="0" Format="N2" Variant="Variant.Outlined" Margin="Margin.Dense" Style="width: 8rem" /></MudTd>
-            <MudTd><MudSwitch @bind-Value="context.IsActive" Color="Color.Primary" /></MudTd>
-            <MudTd><MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SaveAsync(context)">Opslaan</MudButton></MudTd>
-        </RowTemplate>
-    </MudTable>
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudText Typo="Typo.body1" Class="flex-grow-1">
+            Versleep de artikelen binnen een categorie om hun volgorde op je reservatiewebsite te kiezen. Een uitgezet
+            artikel staat niet meer op je reservatiewebsite; bestaande reservaties blijven ongewijzigd.
+        </MudText>
+        <MudButton Href="admin/artikelen/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Nieuw artikel</MudButton>
+    </MudStack>
+
+    @if (_groups is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_groups.Count == 0)
+    {
+        <MudText Typo="Typo.body2">Je hebt nog geen artikelen.</MudText>
+    }
+    else
+    {
+        @foreach (var group in _groups)
+        {
+            var items = group.Items;
+            <MudPaper Class="pa-4 mb-4" Elevation="1">
+                <MudText Typo="Typo.h6" Class="mb-2">@group.Name</MudText>
+                <MudDropContainer T="RentalItemSummary" Items="items" ItemsSelector="@((_, _) => true)" ItemDropped="dropped => DroppedAsync(group, dropped)">
+                    <ChildContent>
+                        <MudDropZone T="RentalItemSummary" Identifier="volgorde" AllowReorder="true" />
+                    </ChildContent>
+                    <ItemRenderer>
+                        @{ var index = items.IndexOf(context); var item = context; }
+                        <MudPaper Outlined="true" Class="pa-2 mb-2" Style="cursor: grab">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                                <MudIcon Icon="@Icons.Material.Filled.DragIndicator" />
+                                <MudStack Spacing="0" Class="flex-grow-1">
+                                    <MudLink Href="@($"admin/artikelen/{item.Id}")"><strong>@item.Name</strong></MudLink>
+                                    <MudText Typo="Typo.body2">
+                                        Voorraad @item.Stock · @item.DayPrice.ToString("C", Money) per dag@(item.ExtraDayPrice is { } extra ? $" · {extra.ToString("C", Money)} per extra dag" : "")
+                                    </MudText>
+                                </MudStack>
+                                @if (item.MissingTranslations.Count > 0)
+                                {
+                                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Variant="Variant.Outlined">Vertaling ontbreekt: @string.Join(", ", item.MissingTranslations.Select(c => c.ToUpperInvariant()))</MudChip>
+                                }
+                                <MudSwitch T="bool" Value="item.IsActive" ValueChanged="active => SetActiveAsync(item, active)" Color="Color.Primary"
+                                           Label="@(item.IsActive ? "Aan" : "Uitgezet")" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" aria-label="Naar boven" Disabled="index == 0" OnClick="() => MoveAsync(group, index, -1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" aria-label="Naar beneden" Disabled="index == items.Count - 1" OnClick="() => MoveAsync(group, index, 1)" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Edit" aria-label="Wijzigen" Href="@($"admin/artikelen/{item.Id}")" />
+                                <MudIconButton Icon="@Icons.Material.Filled.Delete" aria-label="Verwijderen" Color="Color.Error" OnClick="() => DeleteAsync(item)" />
+                            </MudStack>
+                        </MudPaper>
+                    </ItemRenderer>
+                </MudDropContainer>
+            </MudPaper>
+        }
+    }
 </AdminShell>
 
 @code {
-    private List<RentalItem>? _items;
+    /// <summary>De artikelen van één categorie (of zonder categorie), in hun volgorde.</summary>
+    private sealed record Group(Guid? CategoryId, string Name, List<RentalItemSummary> Items);
 
-    protected override async Task OnInitializedAsync()
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
+
+    private List<Group>? _groups;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        _items = await db.RentalItems.AsNoTracking().Include(i => i.Category).OrderBy(i => i.Slug).ToListAsync();
+        var culture = TenantContext.Tenant?.DefaultCulture ?? "nl";
+        var categories = await CategoryAdmin.GetAllAsync();
+        var items = await Admin.GetAllAsync();
+        _groups = categories
+            .Select(c => new Group(c.Id, c.Texts[culture].Name.Value, items.Where(i => i.CategoryId == c.Id).ToList()))
+            .Append(new Group(null, "Zonder categorie", items.Where(i => i.CategoryId is null).ToList()))
+            .Where(g => g.Items.Count > 0)
+            .ToList();
     }
 
-    private async Task SaveAsync(RentalItem edited)
+    private async Task DroppedAsync(Group group, MudItemDropInfo<RentalItemSummary> dropped)
     {
-        await using var db = await DbFactory.CreateDbContextAsync();
-        var item = await db.RentalItems.FirstAsync(i => i.Id == edited.Id);
-        item.Stock = edited.Stock;
-        item.Pricing.DayPrice = edited.Pricing.DayPrice;
-        item.Pricing.ExtraDayPrice = edited.Pricing.ExtraDayPrice;
-        item.IsActive = edited.IsActive;
-        await db.SaveChangesAsync();
-        Snackbar.Add("Opgeslagen.", Severity.Success);
+        if (dropped.Item is not { } item) return;
+        var order = group.Items.Where(i => i.Id != item.Id).ToList();
+        order.Insert(Math.Clamp(dropped.IndexInZone, 0, order.Count), item);
+        await ReorderAsync(group, order);
     }
 
-    private string Name(IEnumerable<Translation> translations, string fallback) =>
-        translations.For("nl", TenantContext.Tenant?.DefaultCulture ?? "nl")?.Name ?? fallback;
+    private Task MoveAsync(Group group, int index, int offset)
+    {
+        var order = group.Items.ToList();
+        (order[index], order[index + offset]) = (order[index + offset], order[index]);
+        return ReorderAsync(group, order);
+    }
+
+    private async Task ReorderAsync(Group group, List<RentalItemSummary> order)
+    {
+        try
+        {
+            await Admin.ReorderAsync(group.CategoryId, order.Select(i => i.Id).ToList());
+            Snackbar.Add("Volgorde bewaard.", Severity.Success);
+        }
+        catch (RentalItemException e)
+        {
+            Snackbar.Add(string.Join(" ", e.Problems), Severity.Error);
+        }
+        await LoadAsync();
+    }
+
+    private async Task SetActiveAsync(RentalItemSummary item, bool isActive)
+    {
+        try
+        {
+            await Admin.SetActiveAsync(item.Id, isActive);
+            Snackbar.Add(isActive ? $"\"{item.Name}\" staat weer aan." : $"\"{item.Name}\" is uitgezet.", Severity.Success);
+        }
+        catch (RentalItemException e)
+        {
+            Snackbar.Add(string.Join(" ", e.Problems), Severity.Error);
+        }
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(RentalItemSummary item)
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Artikel verwijderen",
+            $"Wil je het artikel \"{item.Name}\" verwijderen? Het verdwijnt van je reservatiewebsite.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        try
+        {
+            await Admin.DeleteAsync(item.Id);
+            Snackbar.Add("Artikel verwijderd.", Severity.Success);
+        }
+        catch (RentalItemException e) when (e.CanSwitchOff && item.IsActive)
+        {
+            var switchOff = await Dialogs.ShowMessageBoxAsync("Artikel uitzetten?", e.Message, yesText: "Uitzetten", cancelText: "Annuleren");
+            if (switchOff == true) await SetActiveAsync(item, false);
+        }
+        catch (RentalItemException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        await LoadAsync();
+    }
 }

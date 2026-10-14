@@ -21,11 +21,13 @@ internal sealed class CatalogService(AppDbContext db, ITenantContext tenantConte
         var itemNames = items.ToDictionary(i => i.Id, i => i.Translations.For(culture, fallback)?.Name ?? i.Slug);
 
         var entries = items
-            .OrderBy(i => i.Category?.SortOrder).ThenBy(i => itemNames[i.Id])
+            .OrderBy(i => i.Category is null).ThenBy(i => i.Category?.SortOrder).ThenBy(i => i.SortOrder).ThenBy(i => itemNames[i.Id])
             .Select(i =>
             {
                 var t = i.Translations.For(culture, fallback);
-                return new CatalogEntry(i.Id, CatalogEntryKind.Item, i.Slug, t?.Name ?? i.Slug, t?.Description,
+                // Zonder vertaalde beschrijving de beschrijving in de standaardtaal.
+                var description = t?.Description ?? i.Translations.For(fallback, fallback)?.Description;
+                return new CatalogEntry(i.Id, CatalogEntryKind.Item, i.Slug, t?.Name ?? i.Slug, description,
                     i.CategoryId, i.CategoryId is { } categoryId ? categoryNames.GetValueOrDefault(categoryId) : null,
                     i.Pricing.DayPrice, i.Pricing.ExtraDayPrice,
                     i.Images.OrderBy(x => x.SortOrder).Select(x => x.Url).ToList(), [],

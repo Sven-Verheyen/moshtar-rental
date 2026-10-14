@@ -17,7 +17,7 @@ aan andere verhuurbedrijven aangeboden te worden.
   beheerder aan op `/admin/websiteteksten`; anders gelden de standaardteksten van Moshtar. Categorieën maakt hij aan op
   `/admin/categorieen`, met naam, slug en inleiding per taal en een volgorde die hij versleept; een lege categorie kan
   hij er verwijderen. Een gewijzigde slug stuurt het oude adres met een 301 door naar het nieuwe, per taal (tabel
-  `OldSlugs`, ook bedoeld voor artikelen en pakketten).
+  `OldSlugs`, ook voor artikelen en pakketten).
   Met een GA4-meet-ID (op `/admin/bedrijfsgegevens`) vraagt een toestemmingsbalk of Google Analytics mag; het script
   laadt pas na "Accepteren" en meet dan ook gecontroleerde beschikbaarheid en bevestigde reservaties, zonder
   persoonsgegevens. De keuze staat in de cookie `moshtar-analytics` (`POST /toestemming`, wijzigen via "Cookie-instellingen"
@@ -30,7 +30,11 @@ aan andere verhuurbedrijven aangeboden te worden.
   zijn taal (NL, FR of EN), ook als de reservatie in het back office ingevoerd werd.
 - **Back office** (`/admin`): reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie
   (wie wat deed en wanneer). Zelf een reservatie invoeren, bv. voor een klant die belt (`/admin/reservaties/nieuw`),
-  met dezelfde voorraadcontrole als de reservatiewebsite. Voorraad en prijzen van artikelen aanpassen, categorieën beheren.
+  met dezelfde voorraadcontrole als de reservatiewebsite. Categorieën beheren. Artikelen aanmaken en wijzigen
+  (`/admin/artikelen`): naam en beschrijving per taal (alleen de standaardtaal verplicht; het overzicht toont welke
+  vertalingen ontbreken), categorie, kenmerken, voorraad, prijzen en slug, met een volgorde binnen de categorie die de
+  beheerder versleept. Een artikel kan uitgezet worden, en verwijderd zolang geen reservatie, pakket of winkelkar ernaar
+  verwijst. Een voorraad onder wat al gereserveerd is, mag, met een waarschuwing per dag (`ShortageCalculator`).
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).
@@ -59,7 +63,8 @@ tests/
 
 - **Beschikbaarheid**: per dag wordt de voorraad vergeleken met bevestigde reservaties en blokkeringen.
   Pakketten worden opengeklapt naar hun artikelen, en de bufferdagen van de tenant (leveren, poetsen)
-  worden rond elke verhuur gelegd. Zie `AvailabilityCalculator`.
+  worden rond elke verhuur gelegd. Zie `AvailabilityCalculator`. Tekorten (dagen vanaf vandaag met meer gereserveerd
+  dan verhuurbaar) worden op dezelfde manier berekend, niet bewaard. Zie `ShortageCalculator` en `ShortageQuery`.
 - **Geen dubbele reservaties**: reservaties per tenant worden binnen een transactie met een
   PostgreSQL advisory lock na elkaar afgehandeld. Zie `ReservationService`.
 - **Prijzen**: eerste dag aan dagprijs, elke extra dag aan de prijs per extra dag (incl. btw).

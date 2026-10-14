@@ -17,7 +17,8 @@ namespace Moshtar.Infrastructure.Reservations;
 internal sealed class ReservationService(
     AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, ILogger<ReservationService> logger) : IReservationService
 {
-    private static readonly ReservationStatus[] OccupyingStatuses =
+    /// <summary>De reservaties die voorraad bezetten.</summary>
+    internal static readonly ReservationStatus[] OccupyingStatuses =
         [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned];
 
     public async Task<IReadOnlyList<StockShortage>> CheckAvailabilityAsync(
@@ -150,7 +151,8 @@ internal sealed class ReservationService(
         if (lines.Any(l => l.RentalItemId is { } id && (!items.TryGetValue(id, out var i) || !i.IsActive)))
             throw new ArgumentException("Onbekend of inactief artikel.");
 
-        var stock = items.ToDictionary(kv => kv.Key, kv => kv.Value.Stock);
+        // Een uitgezet artikel in een pakket is niet meer te reserveren: het heeft geen voorraad voor nieuwe reservaties.
+        var stock = items.ToDictionary(kv => kv.Key, kv => kv.Value.IsActive ? kv.Value.Stock : 0);
         var shortages = AvailabilityCalculator.FindShortages(stock, reserved, blocked, requested, tenant.BufferDaysBefore, tenant.BufferDaysAfter);
         return (shortages, items, bundles);
     }

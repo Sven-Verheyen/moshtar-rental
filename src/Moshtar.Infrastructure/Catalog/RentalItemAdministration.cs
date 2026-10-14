@@ -1,0 +1,247 @@
+using Microsoft.EntityFrameworkCore;
+using Moshtar.Application.Catalog;
+using Moshtar.Application.Tenancy;
+using Moshtar.Domain.Availability;
+using Moshtar.Domain.Catalog;
+using Moshtar.Domain.Common;
+using Moshtar.Infrastructure.Persistence;
+using Moshtar.Infrastructure.Reservations;
+
+namespace Moshtar.Infrastructure.Catalog;
+
+/// <summary>
+/// De artikelen beheren. Een artikel heeft één slug in alle talen; de oude slugs worden per taal bewaard
+/// (<see cref="OldSlugs"/>), zodat het oude adres in elke taal doorstuurt.
+/// </summary>
+internal sealed class RentalItemAdministration(AppDbContext db, ITenantContext tenantContext, OldSlugs oldSlugs, ShortageQuery shortages)
+    : IRentalItemAdministration
+{
+    private const int MaxNameLength = 100;
+    private const int MaxDescriptionLength = 4000;
+
+    public async Task<IReadOnlyList<RentalItemSummary>> GetAllAsync(CancellationToken ct = default)
+    {
+        var items = await db.RentalItems.AsNoTracking().Include(i => i.Category).ToListAsync(ct);
+        return Ordered(items).Select(i => new RentalItemSummary(
+            i.Id, Name(i), i.Slug, i.CategoryId, i.Stock, i.Pricing.DayPrice, i.Pricing.ExtraDayPrice, i.IsActive,
+            MissingTranslations(i))).ToList();
+    }
+
+    public async Task<RentalItemDetails?> GetAsync(Guid itemId, CancellationToken ct = default)
+    {
+        var item = await db.RentalItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct);
+        if (item is null) return null;
+        var texts = Tenant.Cultures
+            .Select(culture => item.Translations.FirstOrDefault(t => t.Culture == culture) is { } t
+                ? new RentalItemText(culture, t.Name, t.Description)
+                : new RentalItemText(culture, "", null))
+            .ToList();
+        return new RentalItemDetails(item.Id, item.IsActive, new RentalItemInput(
+            texts, item.CategoryId, item.Stock, item.Pricing.DayPrice, item.Pricing.ExtraDayPrice,
+            new ItemSpecs(item.LengthCm, item.WidthCm, item.HeightCm, item.MinAge, item.MaxAge, item.MaxPersons, item.RequiresPower),
+            item.Slug));
+    }
+
+    public async Task<Guid> CreateAsync(RentalItemInput input, CancellationToken ct = default)
+    {
+        var (translations, slug) = Validate(input);
+        var item = new RentalItem();
+        await ChangeAsync(async () =>
+        {
+            await CheckCategoryAsync(input.CategoryId, ct);
+            item.Slug = await SlugAsync(slug, translations, item.Id, ct);
+            item.SortOrder = await NextSortOrderAsync(input.CategoryId, ct);
+            Apply(item, input, translations);
+            db.RentalItems.Add(item);
+        }, ct);
+        return item.Id;
+    }
+
+    public async Task<IReadOnlyList<Shortage>> SaveAsync(Guid itemId, RentalItemInput input, CancellationToken ct = default)
+    {
+        var (translations, slug) = Validate(input);
+        await ChangeAsync(async () =>
+        {
+            var item = await FindAsync(itemId, ct);
+            await CheckCategoryAsync(input.CategoryId, ct);
+            item.Slug = await SlugAsync(slug, translations, item.Id, ct);
+            if (item.CategoryId != input.CategoryId) item.SortOrder = await NextSortOrderAsync(input.CategoryId, ct);
+            Apply(item, input, translations);
+        }, ct);
+        return await shortages.FindAsync(itemId, ct);
+    }
+
+    public Task ReorderAsync(Guid? categoryId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default) =>
+        ChangeAsync(async () =>
+        {
+            var items = await db.RentalItems.Where(i => i.CategoryId == categoryId).ToListAsync(ct);
+            if (itemIds.Count != items.Count || itemIds.Distinct().Count() != items.Count || !items.All(i => itemIds.Contains(i.Id)))
+                throw new RentalItemException(["De artikelen zijn intussen gewijzigd; laad de pagina opnieuw."]);
+            var order = itemIds.ToList();
+            foreach (var item in items) item.SortOrder = order.IndexOf(item.Id) + 1;
+        }, ct);
+
+    public Task SetActiveAsync(Guid itemId, bool isActive, CancellationToken ct = default) =>
+        ChangeAsync(async () => (await FindAsync(itemId, ct)).IsActive = isActive, ct);
+
+    public Task DeleteAsync(Guid itemId, CancellationToken ct = default) =>
+        ChangeAsync(async () =>
+        {
+            var item = await FindAsync(itemId, ct);
+            var name = Name(item);
+            var bundles = await db.Bundles.AsNoTracking().Where(b => b.Items.Any(x => x.RentalItemId == itemId)).ToListAsync(ct);
+            if (bundles.Count > 0)
+            {
+                var names = string.Join(", ", bundles.Select(b => $"\"{b.Translations.For(Tenant.DefaultCulture, Tenant.DefaultCulture)?.Name ?? b.Slug}\""));
+                throw new RentalItemException(
+                    [$"Het artikel \"{name}\" zit in {(bundles.Count == 1 ? "het pakket" : "de pakketten")} {names} en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite."],
+                    canSwitchOff: true);
+            }
+            if (await db.Reservations.AnyAsync(r => r.Lines.Any(l => l.RentalItemId == itemId), ct))
+                throw new RentalItemException(
+                    [$"Het artikel \"{name}\" werd al gereserveerd en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite en blijven de reservaties ongewijzigd."],
+                    canSwitchOff: true);
+            if (await db.Carts.AnyAsync(c => c.Lines.Any(l => l.RentalItemId == itemId), ct))
+                throw new RentalItemException(
+                    [$"Het artikel \"{name}\" ligt in de winkelkar van een klant en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite."],
+                    canSwitchOff: true);
+            await oldSlugs.ForgetAsync(SlugKind.RentalItem, itemId, ct);
+            db.RentalItems.Remove(item);
+        }, ct);
+
+    /// <summary>
+    /// Voert een wijziging uit als enige wijziging aan de slugs van de artikelen en pakketten van deze verhuurder. Een
+    /// slug die daardoor anders werd, stuurt voortaan door naar het nieuwe adres; een slug die weer in gebruik is, niet meer.
+    /// </summary>
+    private async Task ChangeAsync(Func<Task> change, CancellationToken ct)
+    {
+        // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen.
+        db.ChangeTracker.Clear();
+        await using var transaction = await CatalogSlugLock.AcquireAsync(db, Tenant.Id, ct);
+        var before = await SlugsAsync(ct);
+        await change();
+        await db.SaveChangesAsync(ct);
+        await oldSlugs.RecordAsync(SlugKind.RentalItem, before, await SlugsAsync(ct), ct);
+        await db.SaveChangesAsync(ct);
+        await transaction.CommitAsync(ct);
+    }
+
+    /// <summary>De slug van elk artikel, in elke taal van de verhuurder: een artikel heeft dezelfde slug in alle talen.</summary>
+    private async Task<IReadOnlyDictionary<(Guid TargetId, string Culture), string>> SlugsAsync(CancellationToken ct)
+    {
+        var items = await db.RentalItems.AsNoTracking().Select(i => new { i.Id, i.Slug }).ToListAsync(ct);
+        return items.SelectMany(i => Tenant.Cultures.Select(culture => (Key: (i.Id, culture), i.Slug))).ToDictionary(x => x.Key, x => x.Slug);
+    }
+
+    /// <summary>
+    /// De slug die de beheerder gaf, als ze nog vrij is; zonder slug een vrije slug uit de naam in de standaardtaal.
+    /// Artikelen en pakketten delen hun padwoord, dus ook hun slugs.
+    /// </summary>
+    private async Task<string> SlugAsync(string? given, List<Translation> translations, Guid itemId, CancellationToken ct)
+    {
+        var taken = await db.RentalItems.AsNoTracking().Where(i => i.Id != itemId).Select(i => i.Slug)
+            .Concat(db.Bundles.AsNoTracking().Select(b => b.Slug))
+            .ToListAsync(ct);
+        if (given is not null)
+        {
+            if (taken.Contains(given))
+                throw new RentalItemException([$"De slug \"{given}\" hoort al bij een ander artikel of pakket; kies een andere."]);
+            return given;
+        }
+        var fromName = RentalItemSlug.From(translations.Single(t => t.Culture == Tenant.DefaultCulture).Name);
+        if (RentalItemSlug.Problem(fromName) is { } problem)
+            throw new RentalItemException([$"Uit de naam kan geen slug gemaakt worden; vul er zelf een in. {problem}"]);
+        return RentalItemSlug.Unique(fromName, taken);
+    }
+
+    private async Task<int> NextSortOrderAsync(Guid? categoryId, CancellationToken ct) =>
+        (await db.RentalItems.Where(i => i.CategoryId == categoryId).MaxAsync(i => (int?)i.SortOrder, ct) ?? 0) + 1;
+
+    private async Task CheckCategoryAsync(Guid? categoryId, CancellationToken ct)
+    {
+        if (categoryId is { } id && !await db.Categories.AnyAsync(c => c.Id == id, ct))
+            throw new RentalItemException(["Deze categorie bestaat niet (meer)."]);
+    }
+
+    private async Task<RentalItem> FindAsync(Guid itemId, CancellationToken ct) =>
+        await db.RentalItems.FirstOrDefaultAsync(i => i.Id == itemId, ct)
+            ?? throw new RentalItemException(["Dit artikel bestaat niet (meer)."]);
+
+    private static void Apply(RentalItem item, RentalItemInput input, List<Translation> translations)
+    {
+        item.CategoryId = input.CategoryId;
+        item.Translations = translations;
+        item.Stock = input.Stock;
+        item.Pricing = new Pricing { DayPrice = input.DayPrice, ExtraDayPrice = input.ExtraDayPrice };
+        (item.LengthCm, item.WidthCm, item.HeightCm) = (input.Specs.LengthCm, input.Specs.WidthCm, input.Specs.HeightCm);
+        (item.MinAge, item.MaxAge, item.MaxPersons, item.RequiresPower) = (input.Specs.MinAge, input.Specs.MaxAge, input.Specs.MaxPersons, input.Specs.RequiresPower);
+    }
+
+    /// <summary>Controleert wat de beheerder ingaf; geeft de vertalingen (alleen talen met een naam) en de gegeven slug terug.</summary>
+    private (List<Translation> Translations, string? Slug) Validate(RentalItemInput input)
+    {
+        var problems = new List<string>();
+        foreach (var text in input.Texts.Where(t => !Tenant.Cultures.Contains(t.Culture)))
+            problems.Add($"Je biedt de taal '{text.Culture}' niet aan.");
+
+        var translations = new List<Translation>();
+        foreach (var culture in Tenant.Cultures)
+        {
+            var text = input.Texts.FirstOrDefault(t => t.Culture == culture);
+            var name = text?.Name.Trim() ?? "";
+            var description = text?.Description?.Trim().ReplaceLineEndings("\n") is { Length: > 0 } d ? d : null;
+            if (name.Length == 0)
+            {
+                if (culture == Tenant.DefaultCulture) problems.Add($"De naam in het {LanguageName(culture)} is leeg.");
+                else if (description is not null) problems.Add($"Vul ook de naam in het {LanguageName(culture)} in, of laat de beschrijving leeg.");
+                continue;
+            }
+            if (name.Length > MaxNameLength) problems.Add($"De naam in het {LanguageName(culture)} is langer dan {MaxNameLength} tekens.");
+            if (description?.Length > MaxDescriptionLength) problems.Add($"De beschrijving in het {LanguageName(culture)} is langer dan {MaxDescriptionLength} tekens.");
+            translations.Add(new Translation { Culture = culture, Name = name, Description = description });
+        }
+
+        var slug = input.Slug?.Trim() is { Length: > 0 } s ? s : null;
+        if (slug is not null && RentalItemSlug.Problem(slug) is { } slugProblem) problems.Add(slugProblem);
+
+        if (input.Stock < 0) problems.Add("De voorraad kan niet negatief zijn.");
+        if (input.DayPrice < 0) problems.Add("De dagprijs kan niet negatief zijn.");
+        if (input.ExtraDayPrice < 0) problems.Add("De prijs per extra dag kan niet negatief zijn.");
+        var specs = input.Specs;
+        if (specs.LengthCm <= 0 || specs.WidthCm <= 0 || specs.HeightCm <= 0) problems.Add("Afmetingen zijn groter dan 0 cm.");
+        if (specs.MinAge < 0 || specs.MaxAge < 0) problems.Add("Een leeftijd kan niet negatief zijn.");
+        if (specs.MinAge > specs.MaxAge) problems.Add("De minimumleeftijd is hoger dan de maximumleeftijd.");
+        if (specs.MaxPersons <= 0) problems.Add("Het maximum aantal personen is minstens 1.");
+
+        if (problems.Count > 0) throw new RentalItemException(problems);
+        return (translations, slug);
+    }
+
+    /// <summary>
+    /// De talen (buiten de standaardtaal) waarin de naam ontbreekt, of de beschrijving terwijl de standaardtaal er een heeft.
+    /// </summary>
+    private IReadOnlyList<string> MissingTranslations(RentalItem item)
+    {
+        var standard = item.Translations.FirstOrDefault(t => t.Culture == Tenant.DefaultCulture);
+        return Tenant.Cultures.Where(culture => culture != Tenant.DefaultCulture)
+            .Where(culture => item.Translations.FirstOrDefault(t => t.Culture == culture) is not { } t
+                || (standard?.Description is not null && t.Description is null))
+            .ToList();
+    }
+
+    /// <summary>Per categorie in de volgorde van de verhuurder, artikelen zonder categorie achteraan.</summary>
+    private IEnumerable<RentalItem> Ordered(IEnumerable<RentalItem> items) =>
+        items.OrderBy(i => i.Category is null).ThenBy(i => i.Category?.SortOrder).ThenBy(i => i.SortOrder).ThenBy(Name);
+
+    private string Name(RentalItem item) => item.Translations.For(Tenant.DefaultCulture, Tenant.DefaultCulture)?.Name ?? item.Slug;
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+
+    private Domain.Tenants.Tenant Tenant => tenantContext.Tenant ?? throw new InvalidOperationException("Geen verhuurder gekend.");
+}
