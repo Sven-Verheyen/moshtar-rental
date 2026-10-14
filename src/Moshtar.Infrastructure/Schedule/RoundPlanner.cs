@@ -23,7 +23,7 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
     private async Task ProposeLockedAsync(AppDbContext db, DateOnly day, RoundKind kind, CancellationToken ct)
     {
         var tenant = await TenantAsync(db, ct);
-        var start = await BusinessPointAsync(tenant, ct);
+        var start = await BusinessPointAsync(db, ct);
         var candidates = await CandidatesAsync(db, day, kind, ct);
         if (candidates.Count == 0)
             throw new InvalidOperationException("Er is geen stop met een adres op de kaart om een route mee te maken.");
@@ -56,14 +56,14 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
     }
 
     public Task MoveAsync(DateOnly day, RoundKind kind, Guid reservationId, int position, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, async (_, round, tenant) =>
+        ChangeAsync(day, kind, ct, async (db, round, _) =>
         {
             var ordered = round.Ordered.ToList();
             var stop = Stop(round, reservationId);
             ordered.Remove(stop);
             ordered.Insert(Math.Clamp(position, 1, ordered.Count + 1) - 1, stop);
             Renumber(ordered);
-            await RefreshLegsAsync(round, tenant, ct);
+            await RefreshLegsAsync(db, round, ct);
         });
 
     public Task SetFixedTimeAsync(DateOnly day, RoundKind kind, Guid reservationId, TimeOnly? time, CancellationToken ct = default) =>
@@ -84,16 +84,16 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
 
     /// <summary>Een ander vertrekuur is ander verkeer: de reistijden worden opnieuw gevraagd.</summary>
     public Task SetDepartureAsync(DateOnly day, RoundKind kind, TimeOnly departure, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, async (_, round, tenant) =>
+        ChangeAsync(day, kind, ct, async (db, round, _) =>
         {
             round.Departure = departure;
-            await RefreshLegsAsync(round, tenant, ct);
+            await RefreshLegsAsync(db, round, ct);
         });
 
     public Task UpdateAsync(DateOnly day, RoundKind kind, CancellationToken ct = default) =>
-        ChangeAsync(day, kind, ct, async (db, round, tenant) =>
+        ChangeAsync(day, kind, ct, async (db, round, _) =>
         {
-            var start = await BusinessPointAsync(tenant, ct);
+            var start = await BusinessPointAsync(db, ct);
             var candidates = await CandidatesAsync(db, day, kind, ct);
             // Weggevallen: eruit. Een ander punt (een verbeterd adres): de stop houdt haar plaats, vast uur, eigen tijd en
             // wat de klant al kreeg; enkel de reistijden en dus de uren worden opnieuw berekend.
@@ -104,7 +104,7 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
                 else stop.Point = candidate.Point;
             }
             var added = candidates.Where(c => round.Stops.All(s => s.ReservationId != c.ReservationId)).ToList();
-            await RefreshLegsAsync(round, tenant, ct);
+            await RefreshLegsAsync(db, round, ct);
 
             var departure = Departure(day, round.Departure);
             foreach (var candidate in added)
@@ -124,7 +124,7 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
                 if (position < ordered.Count) ordered[position].TravelMinutes = Minutes(fromNew[0][position]);
                 else round.ReturnTravelMinutes = Minutes(fromNew[0][position]);
             }
-            if (added.Count > 0) await RefreshLegsAsync(round, tenant, ct);
+            if (added.Count > 0) await RefreshLegsAsync(db, round, ct);
         });
 
     /// <summary>Laadt de ronde, past ze aan, rekent de uren opnieuw uit en bewaart ze.</summary>
@@ -159,9 +159,9 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
     }
 
     /// <summary>Vraagt de reistijden van de ronde in haar huidige volgorde opnieuw op, met het verkeer op het vertrekuur.</summary>
-    private async Task RefreshLegsAsync(Round round, Tenant tenant, CancellationToken ct)
+    private async Task RefreshLegsAsync(AppDbContext db, Round round, CancellationToken ct)
     {
-        var start = await BusinessPointAsync(tenant, ct);
+        var start = await BusinessPointAsync(db, ct);
         var ordered = round.Ordered;
         var route = await MapsAsync(() => maps.RouteAsync(start, ordered.Select(s => s.Point).ToList(), Departure(round.Day, round.Departure), bestOrder: false, ct));
         ApplyLegs(round, route.Legs);
@@ -214,8 +214,8 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
     }
 
     /// <summary>Het punt van het bedrijfsadres, waar elke ronde vertrekt en eindigt; opgezocht als het er nog niet is.</summary>
-    private async Task<GeoPoint> BusinessPointAsync(Tenant tenant, CancellationToken ct) =>
-        await maps.FindBusinessPointAsync(tenant, logger, ct)
+    private async Task<GeoPoint> BusinessPointAsync(AppDbContext db, CancellationToken ct) =>
+        await maps.FindBusinessPointAsync(db, tenantContext.TenantId, logger, ct)
             ?? throw new InvalidOperationException("Het bedrijfsadres staat niet op de kaart. Vul het in bij Bedrijfsgegevens; daar vertrekt elke ronde.");
 
     /// <summary>Een kaartdienst die niet antwoordt, wordt een melding voor de gebruiker; de ronde blijft zoals ze was.</summary>

@@ -51,6 +51,57 @@ public sealed class PlanningRaceTests(MoshtarApp app) : IClassFixture<MoshtarApp
         Assert.NotNull((await ScheduleAsync(other)).Deliveries.Single(s => s.ReservationId == gent.Id).InRound!.WhatsAppAt);
     }
 
+    [Fact]
+    public async Task A_business_address_changed_while_the_old_one_is_looked_up_keeps_no_old_point()
+    {
+        var day = TestReservations.FutureDay(252);
+        var old = new Address { Street = "Oude Baan 1", PostalCode = "2400", City = "Mol" };
+        var moved = new Address { Street = "Nieuwe Baan 3", PostalCode = "3000", City = "Leuven" };
+        await MoveBusinessAsync(old);
+        var maps = new HeldMaps { HoldFind = a => a.Street == old.Street };
+        await using var held = WithMaps(maps);
+        await using var screen = await TenantScopeAsync(held);
+
+        var opening = screen.ServiceProvider.GetRequiredService<ISchedule>().GetDayAsync(day);
+        await maps.Held;
+        await MoveBusinessAsync(moved);
+        maps.Release();
+        await opening;
+
+        Assert.Equal(await new LocalMapService().FindAsync(moved), (await ScheduleAsync(day)).BusinessPoint);
+    }
+
+    [Fact]
+    public async Task A_delivery_address_corrected_while_the_old_one_is_looked_up_keeps_no_old_point()
+    {
+        var day = TestReservations.FutureDay(253);
+        await MoveBusinessAsync(Business);
+        var reservation = await ReserveAsync("Oscar", "Ouder", day, "Grote Markt 7", "2300", "Turnhout");
+        // Zoals een reservatie van voor er punten waren.
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            (await db.Reservations.SingleAsync(r => r.Id == reservation.Id)).DeliveryPoint = null;
+            await db.SaveChangesAsync();
+        }
+        var maps = new HeldMaps { HoldFind = a => a.Street == "Grote Markt 7" };
+        await using var held = WithMaps(maps);
+        await using var screen = await TenantScopeAsync(held);
+
+        var opening = screen.ServiceProvider.GetRequiredService<ISchedule>().GetDayAsync(day);
+        await maps.Held;
+        // Het verbeterde adres wordt (nog) niet gevonden: het blijft zonder punt.
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+            await scope.ServiceProvider.GetRequiredService<IReservationService>().CorrectDeliveryAddressAsync(
+                reservation.Id, new Address { Street = "Kerkplein", PostalCode = "2300", City = "Turnhout" }, ReservationActor.Website);
+        maps.Release();
+        await opening;
+
+        var stop = (await ScheduleAsync(day)).Deliveries.Single(s => s.ReservationId == reservation.Id);
+        Assert.Equal("Kerkplein", stop.Address!.Street);
+        Assert.Null(stop.Point);
+    }
+
     /// <summary>Een variant van de app met deze kaartdienst, op dezelfde database.</summary>
     private WebApplicationFactory<Program> WithMaps(IMapService maps) =>
         app.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton(maps)));

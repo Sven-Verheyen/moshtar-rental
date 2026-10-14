@@ -135,32 +135,26 @@ internal sealed class ScheduleService(IDbContextFactory<AppDbContext> contexts, 
     private async Task FindMissingPointsAsync(AppDbContext db, IReadOnlyList<Reservation> reservations, CancellationToken ct)
     {
         var missing = reservations.Where(r => r is { DeliveryMethod: DeliveryMethod.Delivery, DeliveryAddress: not null, DeliveryPoint: null }).ToList();
-        var found = new Dictionary<Guid, GeoPoint>();
         foreach (var reservation in missing)
-            if (await maps.TryFindAsync(reservation.DeliveryAddress!, logger, ct) is { } point)
-                found[reservation.Id] = reservation.DeliveryPoint = point;
-        if (found.Count == 0) return;
-
-        var ids = found.Keys.ToList();
-        // Enkel waar intussen niemand een punt zette (een speld, een verbeterd adres).
-        foreach (var tracked in await db.Reservations.Where(r => ids.Contains(r.Id) && r.DeliveryPoint == null).ToListAsync(ct))
-            tracked.DeliveryPoint = found[tracked.Id];
-        await db.SaveChangesAsync(ct);
-        db.ChangeTracker.Clear();
+        {
+            var address = reservation.DeliveryAddress!;
+            if (await maps.TryFindAsync(address, logger, ct) is not { } point) continue;
+            // Enkel als het adres intussen niet verbeterd werd en niemand een punt of speld zette: anders kwam het punt
+            // van het oude adres bij het nieuwe, of verdween een bevestigde speld.
+            var saved = await db.Reservations
+                .Where(r => r.Id == reservation.Id && r.DeliveryPoint == null && !r.DeliveryPointConfirmed
+                    && r.DeliveryAddress!.Street == address.Street && r.DeliveryAddress.PostalCode == address.PostalCode
+                    && r.DeliveryAddress.City == address.City && r.DeliveryAddress.Country == address.Country)
+                .ExecuteUpdateAsync(s => s
+                    .SetProperty(r => r.DeliveryPoint!.Latitude, point.Latitude)
+                    .SetProperty(r => r.DeliveryPoint!.Longitude, point.Longitude), ct);
+            if (saved == 1) reservation.DeliveryPoint = point;
+        }
     }
 
     /// <summary>Het punt van het bedrijfsadres, opgezocht bij het eerste gebruik (en opnieuw na een adreswijziging).</summary>
-    private async Task<GeoPoint?> BusinessPointAsync(AppDbContext db, CancellationToken ct)
-    {
-        var id = tenantContext.TenantId;
-        var tenant = await db.Tenants.SingleOrDefaultAsync(t => t.Id == id, ct);
-        if (tenant is null || tenant.AddressPoint is not null)
-            return tenant?.AddressPoint;
-        if (await maps.FindBusinessPointAsync(tenant, logger, ct) is not null)
-            await db.SaveChangesAsync(ct);
-        db.ChangeTracker.Clear();
-        return tenant.AddressPoint;
-    }
+    private Task<GeoPoint?> BusinessPointAsync(AppDbContext db, CancellationToken ct) =>
+        maps.FindBusinessPointAsync(db, tenantContext.TenantId, logger, ct);
 
     private static ScheduleStop ToStop(Reservation r, CatalogNames names) => new(
         r.Id,
