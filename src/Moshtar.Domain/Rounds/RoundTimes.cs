@@ -8,9 +8,10 @@ public sealed record RoundTimesStop(TimeSpan Travel, TimeSpan Handling, TimeOnly
 
 /// <summary>
 /// Het aankomstuur bij een stop en het verwacht tijdsvenster dat de klant krijgt. <see cref="Late"/>: de stop heeft een
-/// vast uur en de verhuurder is er pas later; dan telt het echte aankomstuur.
+/// vast uur en de verhuurder is er pas later; dan telt het echte aankomstuur. <see cref="PastMidnight"/>: het venster
+/// loopt over middernacht of ligt erna, dus niet (helemaal) op de dag van de ronde.
 /// </summary>
-public sealed record StopTimes(TimeOnly Arrival, ExpectedWindow Window, bool Late);
+public sealed record StopTimes(TimeOnly Arrival, ExpectedWindow Window, bool Late, bool PastMidnight = false);
 
 /// <summary>
 /// De uren van een ronde: per stop, in volgorde, en wanneer de bestelwagen terug is. <see cref="PastMidnight"/>: de
@@ -69,7 +70,9 @@ public static class RoundTimes
                 else late = arrival > fixedAt;
             }
             var arrivalTime = TimeOnly.FromTimeSpan(OfDay(arrival));
-            result.Add(new StopTimes(arrivalTime, Window(arrivalTime, windowMinutes), late));
+            var windowStart = WindowStartMinutes(arrival, windowMinutes);
+            var pastMidnight = windowStart < 0 || windowStart + windowMinutes > MinutesPerDay;
+            result.Add(new StopTimes(arrivalTime, Window(arrivalTime, windowMinutes), late, pastMidnight));
             clock = arrival + stop.Handling;
         }
         var back = clock + returnTravel;
@@ -79,9 +82,17 @@ public static class RoundTimes
     /// <summary>Het venster rond een aankomst, beginnend op het dichtstbije halve uur (bij gelijke afstand het latere).</summary>
     public static ExpectedWindow Window(TimeOnly arrival, int windowMinutes)
     {
-        var centredStart = (int)arrival.ToTimeSpan().TotalMinutes - windowMinutes / 2;
-        var start = (int)Math.Floor((centredStart + 15) / 30.0) * 30;
+        var start = WindowStartMinutes(arrival.ToTimeSpan(), windowMinutes);
         return new ExpectedWindow(MinutesOfDay(start), MinutesOfDay(start + windowMinutes));
+    }
+
+    private const int MinutesPerDay = 24 * 60;
+
+    /// <summary>Het begin van het venster in minuten na middernacht van de dag van de ronde (na 24u00: de volgende dag).</summary>
+    private static int WindowStartMinutes(TimeSpan arrival, int windowMinutes)
+    {
+        var centredStart = (int)arrival.TotalMinutes - windowMinutes / 2;
+        return (int)Math.Floor((centredStart + 15) / 30.0) * 30;
     }
 
     private static TimeSpan OfDay(TimeSpan time) => TimeSpan.FromTicks(time.Ticks % TimeSpan.TicksPerDay);

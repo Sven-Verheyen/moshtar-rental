@@ -55,13 +55,13 @@ internal sealed class ScheduleService(IDbContextFactory<AppDbContext> contexts, 
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
         return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
-            .Select(i => Day(from.AddDays(i), stops, rounds, settings, businessPoint, whatsApp))
+            .Select(i => Day(from.AddDays(i), stops, rounds, settings, businessPoint, tenant?.AddressPoint, whatsApp))
             .ToList();
     }
 
     private static ScheduleDay Day(
         DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops, IReadOnlyList<Round> rounds,
-        RoundSettings settings, GeoPoint? businessPoint, WhatsAppLinks whatsApp)
+        RoundSettings settings, GeoPoint? businessPoint, GeoPoint? currentBusinessPoint, WhatsAppLinks whatsApp)
     {
         var byId = stops.ToDictionary(s => s.Stop.ReservationId, s => s.Reservation);
         IReadOnlyList<ScheduleStop> Select(DeliveryMethod method, Func<Reservation, bool> onDay) => stops
@@ -72,8 +72,8 @@ internal sealed class ScheduleService(IDbContextFactory<AppDbContext> contexts, 
 
         var deliveries = Select(DeliveryMethod.Delivery, r => r.StartDate == day);
         var collections = Select(DeliveryMethod.Delivery, r => r.EndDate == day);
-        var (deliveryRound, orderedDeliveries) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Delivery), deliveries, settings, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
-        var (collectionRound, orderedCollections) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Collection), collections, settings, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
+        var (deliveryRound, orderedDeliveries) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Delivery), deliveries, settings, currentBusinessPoint, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
+        var (collectionRound, orderedCollections) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Collection), collections, settings, currentBusinessPoint, (round, stop) => whatsApp(byId[stop.ReservationId], round, stop));
         return new ScheduleDay(
             day,
             Deliveries: orderedDeliveries,
@@ -90,24 +90,25 @@ internal sealed class ScheduleService(IDbContextFactory<AppDbContext> contexts, 
     /// punt) erachter op postcode. Zonder bewaarde ronde: de stops zoals ze zijn, op postcode.
     /// </summary>
     private static (ScheduleRound? Round, IReadOnlyList<ScheduleStop> Stops) InRound(
-        Round? round, IReadOnlyList<ScheduleStop> stops, RoundSettings settings, Func<Round, RoundStop, string?> whatsAppLink)
+        Round? round, IReadOnlyList<ScheduleStop> stops, RoundSettings settings, GeoPoint? businessPoint, Func<Round, RoundStop, string?> whatsAppLink)
     {
         if (round is null) return (null, stops);
         var saved = round.Stops.ToDictionary(s => s.ReservationId);
+        var changed = !round.IsCurrent(stops.Where(s => s.Point is not null).Select(s => (s.ReservationId, s.Point!)), businessPoint);
+        // Een gewijzigde ronde heeft vensters die niet meer kloppen: geen WhatsApp-bericht tot ze bijgewerkt is.
         var inRound = stops
             .Where(s => saved.TryGetValue(s.ReservationId, out var stop) && stop.Point == s.Point)
-            .Select(s => s with { InRound = ToRoundStop(saved[s.ReservationId], whatsAppLink(round, saved[s.ReservationId])) })
+            .Select(s => s with { InRound = ToRoundStop(saved[s.ReservationId], changed ? null : whatsAppLink(round, saved[s.ReservationId])) })
             .OrderBy(s => s.InRound!.Position)
             .ToList();
         var rest = stops.Where(s => inRound.All(r => r.ReservationId != s.ReservationId)).ToList();
-        var changed = rest.Any(s => s.Point is not null) || inRound.Count != round.Stops.Count;
         return (new ScheduleRound(round.Departure, round.Return, changed, settings.HandlingMinutes(round.Kind), round.PastMidnight), [.. inRound, .. rest]);
     }
 
     private static ScheduleRoundStop ToRoundStop(RoundStop s, string? whatsAppLink) =>
         new(s.Position, s.Arrival, s.Window, s.FixedTime, s.HandlingMinutes, s.Late,
             s is { MailedWindowStart: { } start, MailedWindowEnd: { } end } ? new ExpectedWindow(start, end) : null, s.MailedAt,
-            whatsAppLink, s.WhatsAppAt);
+            whatsAppLink, s.WhatsAppAt, s.WindowPastMidnight);
 
     /// <summary>De WhatsApp-link van een stop in een ronde, of null zonder geldig telefoonnummer.</summary>
     private delegate string? WhatsAppLinks(Reservation reservation, Round round, RoundStop stop);
@@ -123,6 +124,8 @@ internal sealed class ScheduleService(IDbContextFactory<AppDbContext> contexts, 
         var customizations = await db.MailTemplateCustomizations.AsNoTracking().Where(t => kinds.Contains(t.Kind)).ToListAsync(ct);
         return (reservation, round, stop) =>
         {
+            // Het bericht noemt de dag van de ronde; na middernacht klopt die niet.
+            if (stop.WindowPastMidnight) return null;
             var template = ExpectedTimeMail.Template(customizations, ExpectedTimeMail.KindFor(round.Kind), ReservationConfirmation.LanguageOf(reservation, tenant));
             return ExpectedTimeMail.WhatsAppLink(reservation, tenant, template, round.Day, stop.Window);
         };

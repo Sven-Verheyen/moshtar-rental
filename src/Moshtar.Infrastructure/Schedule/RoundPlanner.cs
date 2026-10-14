@@ -51,6 +51,7 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
             stop.Position = i + 1;
             stop.Point = candidate.Point;
         }
+        round.BusinessPoint = start;
         ApplyLegs(round, route.Legs);
         await SaveAsync(db, round, tenant, ct);
     }
@@ -158,12 +159,16 @@ internal sealed class RoundPlanner(IDbContextFactory<AppDbContext> contexts, ITe
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>Vraagt de reistijden van de ronde in haar huidige volgorde opnieuw op, met het verkeer op het vertrekuur.</summary>
+    /// <summary>
+    /// Vraagt de reistijden van de ronde in haar huidige volgorde opnieuw op, met het verkeer op het vertrekuur, vanaf
+    /// het huidige bedrijfsadres.
+    /// </summary>
     private async Task RefreshLegsAsync(AppDbContext db, Round round, CancellationToken ct)
     {
         var start = await BusinessPointAsync(db, ct);
         var ordered = round.Ordered;
         var route = await MapsAsync(() => maps.RouteAsync(start, ordered.Select(s => s.Point).ToList(), Departure(round.Day, round.Departure), bestOrder: false, ct));
+        round.BusinessPoint = start;
         ApplyLegs(round, route.Legs);
     }
 

@@ -95,6 +95,18 @@ public class RoundTimesTests
         Assert.True(times.Stops[1].Late);
     }
 
+    [Theory]
+    [InlineData(40, 23, 40, false)] // 23u00 – 0u00: eindigt om middernacht
+    [InlineData(50, 23, 50, true)] // 23u30 – 0u30
+    [InlineData(110, 0, 50, true)] // 0u30 – 1u30, de volgende dag
+    public void A_window_that_runs_past_midnight_is_marked(int travel, int hour, int minute, bool pastMidnight)
+    {
+        var stop = RoundTimes.Calculate(new TimeOnly(23, 0), [Stop(travel)], Minutes(10), 60).Stops[0];
+
+        Assert.Equal(new TimeOnly(hour, minute), stop.Arrival);
+        Assert.Equal(pastMidnight, stop.PastMidnight);
+    }
+
     [Fact]
     public void A_window_is_written_the_belgian_way()
     {

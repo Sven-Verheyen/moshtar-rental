@@ -214,6 +214,66 @@ public sealed class RoundTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
+    public async Task A_round_that_comes_back_the_next_day_later_than_its_departure_still_shows_the_midnight_warning()
+    {
+        var day = TestReservations.FutureDay(216);
+        await SquareAsync(day);
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        var client = await app.LoggedInClientAsync("ronde-hele-dag@hopsakee.test", UserRole.Staff);
+        var order = Order(Section(await PlanningAsync(client, day), "leverronde"));
+
+        // Drie keer acht uur opbouwen vanaf 8u00: terug de volgende dag, na 8u00.
+        foreach (var number in order)
+            await PlanAsync(async p => await p.SetHandlingMinutesAsync(day, RoundKind.Delivery, await IdAsync(number), 480));
+
+        Assert.Contains("Deze ronde loopt over middernacht", Section(await PlanningAsync(client, day), "leverronde"));
+    }
+
+    [Fact]
+    public async Task A_stop_reached_after_midnight_is_late_for_a_fixed_time_before_midnight()
+    {
+        var day = TestReservations.FutureDay(217);
+        await SquareAsync(day);
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        await PlanAsync(p => p.SetDepartureAsync(day, RoundKind.Delivery, new TimeOnly(23, 0)));
+        var client = await app.LoggedInClientAsync("ronde-te-laat-na-middernacht@hopsakee.test", UserRole.Staff);
+        var first = Order(Section(await PlanningAsync(client, day), "leverronde"))[0];
+
+        await PlanAsync(async p => await p.SetFixedTimeAsync(day, RoundKind.Delivery, await IdAsync(first), new TimeOnly(23, 5)));
+        var round = Section(await PlanningAsync(client, day), "leverronde");
+
+        Assert.True(Arrival(round, first) < new TimeOnly(23, 0), "De eerste stop wordt na middernacht bereikt.");
+        Assert.Contains("Te laat", Stop(round, first));
+    }
+
+    [Fact]
+    public async Task A_new_business_address_shows_round_changed_and_updating_recalculates_the_travel_from_there_in_the_same_order()
+    {
+        var day = TestReservations.FutureDay(218);
+        await SquareAsync(day);
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        var client = await app.LoggedInClientAsync("ronde-verhuisd@hopsakee.test", UserRole.Staff);
+        var order = Order(Section(await PlanningAsync(client, day), "leverronde"));
+        var moved = new Address { Street = "Place Charles II 1", PostalCode = "6000", City = "Charleroi" };
+
+        await MoveBusinessAsync(moved);
+        Assert.Contains("Ronde gewijzigd", Section(await PlanningAsync(client, day), "leverronde"));
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+        {
+            var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                scope.ServiceProvider.GetRequiredService<IRoundMessages>().MailExpectedTimesAsync(day, RoundKind.Delivery, ReservationActor.Website));
+            Assert.StartsWith("Werk eerst de ronde bij", refused.Message);
+        }
+        await PlanAsync(p => p.UpdateAsync(day, RoundKind.Delivery));
+        var round = Section(await PlanningAsync(client, day), "leverronde");
+
+        Assert.DoesNotContain("Ronde gewijzigd", round);
+        Assert.Equal(order, Order(round));
+        var first = await ReservationAsync(order[0]);
+        Assert.Equal(new TimeOnly(8, 0).Add(LocalMapService.Travel(await PointAsync(moved), first.DeliveryPoint!)), Arrival(round, first.Number));
+    }
+
+    [Fact]
     public async Task An_improved_address_keeps_the_place_and_settings_of_the_stop_and_recalculates_its_times()
     {
         var day = TestReservations.FutureDay(206);
