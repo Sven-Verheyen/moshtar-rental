@@ -1,6 +1,7 @@
 @using System.Text.Json
 @using Moshtar.Application.Schedule
 @using Moshtar.Domain.Common
+@using Moshtar.Domain.Rounds
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
@@ -40,8 +41,8 @@ else
     /// route heeft. Een stop zonder punt kan niet op de kaart.
     /// </summary>
     private string StopsJson => JsonSerializer.Serialize(
-        Day.Deliveries.Select(s => (Stop: s, Round: "levering"))
-            .Concat(Day.Collections.Select(s => (Stop: s, Round: "ophaling")))
+        Day.Deliveries.Select(s => (Stop: s, Round: RoundKind.Delivery.Slug()))
+            .Concat(Day.Collections.Select(s => (Stop: s, Round: RoundKind.Collection.Slug())))
             .Where(x => x.Stop.Point is not null)
             .Select(x => new { nummer = x.Stop.Number, klant = x.Stop.CustomerName, ronde = x.Round, punt = x.Stop.Point!.ToString(), volgorde = x.Stop.InRound?.Position }));
 

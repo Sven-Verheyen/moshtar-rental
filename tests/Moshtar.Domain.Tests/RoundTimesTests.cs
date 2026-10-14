@@ -75,6 +75,27 @@ public class RoundTimesTests
     }
 
     [Fact]
+    public void A_round_that_runs_past_midnight_is_marked()
+    {
+        var late = RoundTimes.Calculate(new TimeOnly(22, 0), [Stop(90, handling: 60)], Minutes(60), 60);
+        var inTime = RoundTimes.Calculate(new TimeOnly(20, 0), [Stop(90, handling: 60)], Minutes(60), 60);
+
+        Assert.True(late.PastMidnight);
+        Assert.Equal(new TimeOnly(23, 30), late.Stops[0].Arrival);
+        Assert.False(inTime.PastMidnight);
+    }
+
+    [Fact]
+    public void Arriving_after_midnight_is_late_for_a_fixed_time_before_midnight()
+    {
+        var times = RoundTimes.Calculate(new TimeOnly(23, 0), [Stop(20), Stop(60, fixedTime: new TimeOnly(23, 45))], Minutes(10), 60);
+
+        Assert.True(times.PastMidnight);
+        Assert.Equal(new TimeOnly(0, 50), times.Stops[1].Arrival);
+        Assert.True(times.Stops[1].Late);
+    }
+
+    [Fact]
     public void A_window_is_written_the_belgian_way()
     {
         Assert.Equal("9u30 – 10u30", new ExpectedWindow(new TimeOnly(9, 30), new TimeOnly(10, 30)).ToString());

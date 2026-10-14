@@ -1,8 +1,10 @@
 @page "/admin/planning/leverlijst"
 @layout AdminLayout
 @using Moshtar.Application.Schedule
+@using Moshtar.Domain.Common
 @using Moshtar.Domain.Rounds
 @inject ISchedule Schedule
+@inject TimeProvider Clock
 
 @* De Leverlijst: een printvriendelijke pagina (A4 staand), zonder het menu van het back office. Statisch, geen pdf. *@
 <PageTitle>Leverlijst @Title.ToLowerInvariant() @Day.ToString("d/MM/yyyy")</PageTitle>
@@ -14,7 +16,7 @@
             <div>
                 <h1>Leverlijst @Title.ToLowerInvariant()</h1>
                 <p class="leverlijst-day">
-                    @Day.ToString("dddd d MMMM yyyy", Dutch)
+                    @Day.ToString("dddd d MMMM yyyy", Belgium.Dutch)
                     @if (sheet.Round is { } round)
                     {
                         <span> · Vertrek @ExpectedWindow.Time(round.Departure), terug om @ExpectedWindow.Time(round.Return)</span>
@@ -107,9 +109,7 @@
 }
 
 @code {
-    private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
-
-    /// <summary>De dag als yyyy-MM-dd; zonder of ongeldig: vandaag.</summary>
+    /// <summary>De dag als yyyy-MM-dd; zonder of ongeldig: vandaag in België.</summary>
     [SupplyParameterFromQuery(Name = "dag")] private string? Dag { get; set; }
 
     /// <summary>levering (standaard) of ophaling.</summary>
@@ -117,11 +117,11 @@
 
     private DeliverySheet? _sheet;
 
-    private DateOnly Day => DateOnly.TryParseExact(Dag, "yyyy-MM-dd", out var day) ? day : DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly Day => DateOnly.TryParseExact(Dag, "yyyy-MM-dd", out var day) ? day : Belgium.Today(Clock);
 
-    private RoundKind Kind => Ronde == "ophaling" ? RoundKind.Collection : RoundKind.Delivery;
+    private RoundKind Kind => RoundKinds.FromSlug(Ronde);
 
-    private string Title => Kind == RoundKind.Delivery ? "Leverronde" : "Ophaalronde";
+    private string Title => Kind.Name();
 
     /// <summary>Wat er bij elke stop moet gebeuren.</summary>
     private string Action => Kind == RoundKind.Delivery ? "Leveren" : "Ophalen";

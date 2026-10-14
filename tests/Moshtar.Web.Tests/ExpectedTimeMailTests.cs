@@ -253,6 +253,63 @@ public sealed class ExpectedTimeMailTests(MoshtarApp app) : IClassFixture<Moshta
             scope.ServiceProvider.GetRequiredService<IRoundMessages>().RecordWhatsAppAsync(day, RoundKind.Delivery, gent.Id));
     }
 
+    [Fact]
+    public async Task Only_stops_that_still_belong_to_the_round_are_mailed()
+    {
+        var day = TestReservations.FutureDay(243);
+        var (gent, antwerpen, namen) = await SquareAsync(day, "mail-leden");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        await MoveAsync(gent.Id, TestReservations.FutureDay(330));
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+            await scope.ServiceProvider.GetRequiredService<IReservationService>().CorrectDeliveryAddressAsync(
+                antwerpen.Id, new Address { Street = "Meir 99", PostalCode = "2000", City = "Antwerpen" }, ReservationActor.Website);
+
+        var sent = await MailAsync(day, RoundKind.Delivery);
+
+        Assert.Equal([namen.Customer!.Email], sent.Select(m => m.To));
+    }
+
+    [Fact]
+    public async Task No_whatsapp_click_is_recorded_for_a_stop_that_left_the_round()
+    {
+        var day = TestReservations.FutureDay(244);
+        var (gent, _, _) = await SquareAsync(day, "whatsapp-weg");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        await MoveAsync(gent.Id, TestReservations.FutureDay(330));
+
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            scope.ServiceProvider.GetRequiredService<IRoundMessages>().RecordWhatsAppAsync(day, RoundKind.Delivery, gent.Id));
+    }
+
+    [Fact]
+    public async Task A_changed_round_has_no_mail_button_until_it_is_updated()
+    {
+        var day = TestReservations.FutureDay(246);
+        await SquareAsync(day, "mail-gewijzigd");
+        await PlanAsync(p => p.ProposeAsync(day, RoundKind.Delivery));
+        await ReserveAsync("Bert", "brussel-mail-gewijzigd", day, "Wetstraat 10", "1000", "Brussel", "nl");
+        var client = await app.LoggedInClientAsync("uren-gewijzigd@hopsakee.test", UserRole.Staff);
+
+        var round = Section(await PlanningAsync(client, day), "leverronde");
+        Assert.Contains("Ronde gewijzigd", round);
+        Assert.DoesNotContain("data-action=\"uren-mailen\"", round);
+        Assert.Contains("Werk eerst de ronde bij", round);
+
+        await PlanAsync(p => p.UpdateAsync(day, RoundKind.Delivery));
+        Assert.Contains("data-action=\"uren-mailen\"", Section(await PlanningAsync(client, day), "leverronde"));
+    }
+
+    /// <summary>Verzet een reservatie naar een andere dag, zoals een latere datumwijziging zou doen.</summary>
+    private async Task MoveAsync(Guid reservationId, DateOnly start)
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var reservation = await db.Reservations.SingleAsync(r => r.Id == reservationId);
+        (reservation.StartDate, reservation.EndDate) = (start, start.AddDays(1));
+        await db.SaveChangesAsync();
+    }
+
     private async Task<ScheduleDay> ScheduleAsync(DateOnly day)
     {
         await using var scope = await app.TenantScopeAsync("hopsakee");

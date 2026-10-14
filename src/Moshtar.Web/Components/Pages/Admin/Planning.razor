@@ -12,7 +12,7 @@
 @inject TimeProvider Clock
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
-@inject Microsoft.Extensions.Options.IOptions<Moshtar.Infrastructure.Maps.MapOptions> MapOptions
+@inject Moshtar.Application.Maps.BrowserMap BrowserMap
 
 <PageTitle>Planning</PageTitle>
 
@@ -80,7 +80,7 @@
                             OnUpdate="() => UpdateRoundAsync(RoundKind.Delivery)"
                             OnDeparture="t => DepartureAsync(RoundKind.Delivery, t)"
                             OnMail="() => MailAsync(RoundKind.Delivery)"
-                            SheetUrl="@($"admin/planning/leverlijst?dag={Day:yyyy-MM-dd}&ronde=levering")" />
+                            SheetUrl="@SheetUrl(RoundKind.Delivery)" />
             }
             <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Opbouwtijd"
@@ -96,7 +96,7 @@
                             OnUpdate="() => UpdateRoundAsync(RoundKind.Collection)"
                             OnDeparture="t => DepartureAsync(RoundKind.Collection, t)"
                             OnMail="() => MailAsync(RoundKind.Collection)"
-                            SheetUrl="@($"admin/planning/leverlijst?dag={Day:yyyy-MM-dd}&ronde=ophaling")" />
+                            SheetUrl="@SheetUrl(RoundKind.Collection)" />
             }
             <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync"
                       OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Afbouwtijd"
@@ -123,9 +123,6 @@
 </AdminShell>
 
 @code {
-    private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
-    private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
-
     /// <summary>De gekozen dag als yyyy-MM-dd; zonder of ongeldig opent de planning op vandaag.</summary>
     [SupplyParameterFromQuery(Name = "dag")] private string? Dag { get; set; }
 
@@ -139,7 +136,7 @@
     /// <summary>De dagen van de week of maand.</summary>
     private IReadOnlyList<ScheduleDay>? _days;
 
-    private DateOnly Today => DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(Clock.GetUtcNow(), BelgianTime).DateTime);
+    private DateOnly Today => Belgium.Today(Clock);
 
     private DateOnly Day => DateOnly.TryParseExact(Dag, "yyyy-MM-dd", out var day) ? day : Today;
 
@@ -151,9 +148,9 @@
 
     private string Heading => View switch
     {
-        PlanningView.Week => $"Week van {Monday.ToString("d MMMM", Dutch)} tot {Monday.AddDays(6).ToString("d MMMM yyyy", Dutch)}",
-        PlanningView.Month => Day.ToString("MMMM yyyy", Dutch),
-        _ => Day.ToString("dddd d MMMM yyyy", Dutch),
+        PlanningView.Week => $"Week van {Monday.ToString("d MMMM", Belgium.Dutch)} tot {Monday.AddDays(6).ToString("d MMMM yyyy", Belgium.Dutch)}",
+        PlanningView.Month => Day.ToString("MMMM yyyy", Belgium.Dutch),
+        _ => Day.ToString("dddd d MMMM yyyy", Belgium.Dutch),
     };
 
     /// <summary>De gekozen datum, een dag, week of maand verder of terug.</summary>
@@ -164,11 +161,10 @@
         _ => Day.AddDays(direction),
     };
 
-    /// <summary>
-    /// De sleutel voor de kaart in de browser, die enkel kaarttegels mag tonen; zonder geen kaart. Nooit de sleutel
-    /// van de server: wat de browser krijgt, kan iedereen lezen.
-    /// </summary>
-    private string? MapKey => string.IsNullOrWhiteSpace(MapOptions.Value.AzureMapsBrowserKey) ? null : MapOptions.Value.AzureMapsBrowserKey;
+    /// <summary>De sleutel voor de kaart in de browser, die enkel kaarttegels mag tonen; zonder geen kaart.</summary>
+    private string? MapKey => BrowserMap.Key;
+
+    private string SheetUrl(RoundKind kind) => $"admin/planning/leverlijst?dag={Day:yyyy-MM-dd}&ronde={kind.Slug()}";
 
     /// <summary>De stop waarvoor nu een speld gezet wordt, en de coördinaten van die speld.</summary>
     private ScheduleStop? _pinFor;
@@ -211,21 +207,30 @@
         _day = await Schedule.GetDayAsync(Day);
     }
 
-    /// <summary>Een wijziging aan een ronde: de uren worden herrekend en bewaard, en de dag opnieuw getoond.</summary>
+    /// <summary>
+    /// Een wijziging aan een ronde: de uren worden herrekend en bewaard, en de dag opnieuw getoond. Lukt het bewaren
+    /// niet, dan een melding in plaats van een vastgelopen pagina.
+    /// </summary>
     private async Task PlanAsync(RoundKind kind, Func<IRoundPlanner, Task> change, string? done = null)
     {
         try
         {
             await change(Rounds);
             if (done is not null)
-                Snackbar.Add($"{(kind == RoundKind.Delivery ? "Leverronde" : "Ophaalronde")}: {done}", Severity.Info);
+                Snackbar.Add($"{kind.Name()}: {done}", Severity.Info);
         }
         catch (InvalidOperationException e)
         {
             Snackbar.Add(e.Message, Severity.Error);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            Snackbar.Add(NotSaved(kind), Severity.Error);
+        }
         _day = await Schedule.GetDayAsync(Day);
     }
+
+    private static string NotSaved(RoundKind kind) => $"{kind.Name()}: niet bewaard, de ronde werd net ook ergens anders aangepast. Probeer opnieuw.";
 
     private Task ProposeAsync(RoundKind kind) => PlanAsync(kind, p => p.ProposeAsync(Day, kind), "route voorgesteld.");
 
@@ -235,7 +240,7 @@
 
     private async Task MailAsync(RoundKind kind)
     {
-        var round = kind == RoundKind.Delivery ? "Leverronde" : "Ophaalronde";
+        var round = kind.Name();
         try
         {
             var actor = (await AuthenticationState).User.AsReservationActor();
@@ -251,6 +256,10 @@
         {
             Snackbar.Add(e.Message, Severity.Error);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            Snackbar.Add(NotSaved(kind), Severity.Error);
+        }
         _day = await Schedule.GetDayAsync(Day);
     }
 
@@ -264,6 +273,10 @@
         catch (InvalidOperationException e)
         {
             Snackbar.Add(e.Message, Severity.Error);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            Snackbar.Add(NotSaved(kind), Severity.Error);
         }
         _day = await Schedule.GetDayAsync(Day);
     }

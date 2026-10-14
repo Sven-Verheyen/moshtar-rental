@@ -79,8 +79,9 @@ public record ScheduleLine(string Name, int Quantity, IReadOnlyList<ScheduleLine
 /// Een bewaarde ronde (een route) zoals de Planning ze toont. <see cref="Changed"/>: er kwam sinds de route een
 /// reservatie bij of er viel er een weg (of een leverpunt veranderde); "Ronde bijwerken" brengt de ronde weer in orde.
 /// <see cref="DefaultHandlingMinutes"/> is de opbouw- (leverronde) of afbouwtijd (ophaalronde) uit de instellingen.
+/// <see cref="PastMidnight"/>: de ronde loopt over middernacht, de uren erna zijn van de volgende dag.
 /// </summary>
-public record ScheduleRound(TimeOnly Departure, TimeOnly Return, bool Changed, int DefaultHandlingMinutes);
+public record ScheduleRound(TimeOnly Departure, TimeOnly Return, bool Changed, int DefaultHandlingMinutes, bool PastMidnight = false);
 
 /// <summary>
 /// Een stop in een bewaarde ronde: de plaats (vanaf 1), de berekende aankomst en het verwacht tijdsvenster, het vaste

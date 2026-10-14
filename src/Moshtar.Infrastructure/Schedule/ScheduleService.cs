@@ -96,7 +96,7 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
             .ToList();
         var rest = stops.Where(s => inRound.All(r => r.ReservationId != s.ReservationId)).ToList();
         var changed = rest.Any(s => s.Point is not null) || inRound.Count != round.Stops.Count;
-        return (new ScheduleRound(round.Departure, round.Return, changed, settings.HandlingMinutes(round.Kind)), [.. inRound, .. rest]);
+        return (new ScheduleRound(round.Departure, round.Return, changed, settings.HandlingMinutes(round.Kind), round.PastMidnight), [.. inRound, .. rest]);
     }
 
     private static ScheduleRoundStop ToRoundStop(RoundStop s, string? whatsAppLink) =>
@@ -149,11 +149,9 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     {
         var id = tenantContext.TenantId;
         var tenant = await db.Tenants.SingleOrDefaultAsync(t => t.Id == id, ct);
-        if (tenant is null || tenant.AddressPoint is not null || string.IsNullOrWhiteSpace(tenant.Street) || string.IsNullOrWhiteSpace(tenant.PostalCode))
+        if (tenant is null || tenant.AddressPoint is not null)
             return tenant?.AddressPoint;
-        var address = new Address { Street = tenant.Street, PostalCode = tenant.PostalCode, City = tenant.City ?? "" };
-        tenant.AddressPoint = await maps.TryFindAsync(address, logger, ct);
-        if (tenant.AddressPoint is not null)
+        if (await maps.FindBusinessPointAsync(tenant, logger, ct) is not null)
             await db.SaveChangesAsync(ct);
         db.ChangeTracker.Clear();
         return tenant.AddressPoint;
