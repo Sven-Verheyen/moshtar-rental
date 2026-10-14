@@ -12,14 +12,26 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
     /// <summary>Het back office is Nederlandstalig.</summary>
     private const string Culture = "nl";
 
-    public async Task<ScheduleDay> GetDayAsync(DateOnly day, CancellationToken ct = default)
+    public async Task<ScheduleDay> GetDayAsync(DateOnly day, CancellationToken ct = default) =>
+        (await GetDaysAsync(day, day, ct))[0];
+
+    public async Task<IReadOnlyList<ScheduleDay>> GetDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default)
     {
+        if (to < from) throw new ArgumentException("Het einde ligt voor het begin.", nameof(to));
         var reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
-            .Where(r => r.Status != ReservationStatus.Cancelled && (r.StartDate == day || r.EndDate == day))
+            .Where(r => r.Status != ReservationStatus.Cancelled
+                && ((r.StartDate >= from && r.StartDate <= to) || (r.EndDate >= from && r.EndDate <= to)))
             .ToListAsync(ct);
         var names = await NamesAsync(reservations, ct);
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
+        return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
+            .Select(i => Day(from.AddDays(i), stops))
+            .ToList();
+    }
+
+    private static ScheduleDay Day(DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops)
+    {
         IReadOnlyList<ScheduleStop> Select(DeliveryMethod method, Func<Reservation, bool> onDay) => stops
             .Where(s => s.Reservation.DeliveryMethod == method && onDay(s.Reservation))
             .Select(s => s.Stop)

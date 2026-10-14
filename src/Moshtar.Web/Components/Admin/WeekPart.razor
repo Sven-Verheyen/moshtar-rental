@@ -1,0 +1,28 @@
+@using Moshtar.Application.Schedule
+
+@* Eén soort stops binnen een dag van de weekweergave, kort: klant, gemeente en artikelen. Leeg toont niets. *@
+@if (Stops.Count > 0)
+{
+    <div class="planning-part" data-part="@Part">
+        <div class="planning-part-title">@Title</div>
+        @foreach (var stop in Stops)
+        {
+            <div class="@($"planning-brief{(stop.IsCompleted ? " planning-stop-done" : "")}")">
+                <b>@stop.CustomerName</b>@if (stop.Address is { } address)
+                {
+                    <span> · @address.City</span>
+                }
+                <div class="planning-brief-lines">@string.Join(", ", stop.Lines.Select(l => $"{l.Quantity} × {l.Name}"))</div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>De naam voor data-part: leveringen, ophalingen, afhalen of terugbrengen.</summary>
+    [Parameter, EditorRequired] public string Part { get; set; } = "";
+
+    [Parameter, EditorRequired] public string Title { get; set; } = "";
+
+    [Parameter, EditorRequired] public IReadOnlyList<ScheduleStop> Stops { get; set; } = [];
+}

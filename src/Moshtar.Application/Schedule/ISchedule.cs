@@ -11,6 +11,12 @@ public interface ISchedule
 {
     /// <summary>Wat er op deze dag vertrekt en terugkomt.</summary>
     Task<ScheduleDay> GetDayAsync(DateOnly day, CancellationToken ct = default);
+
+    /// <summary>
+    /// Elke dag van <paramref name="from"/> tot en met <paramref name="to"/>, in volgorde en ook de lege, met dezelfde
+    /// regels als <see cref="GetDayAsync"/>. Voor de week- en maandweergave.
+    /// </summary>
+    Task<IReadOnlyList<ScheduleDay>> GetDaysAsync(DateOnly from, DateOnly to, CancellationToken ct = default);
 }
 
 /// <summary>

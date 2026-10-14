@@ -1,0 +1,29 @@
+@using Moshtar.Application.Schedule
+
+@* De weekweergave van de Planning: maandag tot zondag naast elkaar (op een gsm onder elkaar), per dag de leveringen
+   en ophalingen kort. Een klik op een dag opent die dag. *@
+<div class="planning-week">
+    @foreach (var day in Days)
+    {
+        <a data-day="@day.Day.ToString("yyyy-MM-dd")" href="@PlanningViews.Url(PlanningView.Day, day.Day)" class="@($"planning-cell{(day.Day == Today ? " planning-today" : "")}")">
+            <div class="planning-cell-title">@day.Day.ToString("dddd d MMM", Dutch)</div>
+            @if (day.IsEmpty)
+            {
+                <div class="planning-cell-empty">Niets gepland</div>
+            }
+            <WeekPart Part="leveringen" Title="Leveringen" Stops="day.Deliveries" />
+            <WeekPart Part="ophalingen" Title="Ophalingen" Stops="day.Collections" />
+            <WeekPart Part="afhalen" Title="Komt afhalen" Stops="day.Pickups" />
+            <WeekPart Part="terugbrengen" Title="Brengt terug" Stops="day.Returns" />
+        </a>
+    }
+</div>
+
+@code {
+    private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
+
+    /// <summary>De zeven dagen, maandag eerst.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<ScheduleDay> Days { get; set; } = [];
+
+    [Parameter] public DateOnly Today { get; set; }
+}
