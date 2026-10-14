@@ -119,8 +119,12 @@ public class Reservation : TenantEntity
             Note = note is { Length: > ReservationEvent.MaxNoteLength } ? note[..(ReservationEvent.MaxNoteLength - 1)] + "…" : note,
         });
 
+    /// <summary>De statussen waarin een reservatie voorraad bezet: niet geannuleerd en niet afgerond.</summary>
+    public static readonly IReadOnlyCollection<ReservationStatus> StockOccupyingStatuses =
+        [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned];
+
     /// <summary>Telt deze reservatie mee voor de bezetting van de voorraad?</summary>
-    public bool OccupiesStock => Status is not ReservationStatus.Cancelled and not ReservationStatus.Completed;
+    public bool OccupiesStock => StockOccupyingStatuses.Contains(Status);
 }
 
 /// <summary>Een lijn is ofwel een los artikel, ofwel een pakket.</summary>

@@ -11,7 +11,7 @@ public sealed record BlockoutInput(Guid RentalItemId, int Quantity, DateOnly Sta
 /// <summary>Een blokkering in het back office, met de naam van het artikel in de standaardtaal.</summary>
 public sealed record BlockoutSummary(Guid Id, string RentalItemName, BlockoutInput Input);
 
-/// <summary>Een bewaarde blokkering en de tekorten van haar artikel vanaf vandaag, na het bewaren.</summary>
+/// <summary>Een bewaarde blokkering en de tekorten van haar artikel vanaf vandaag die het bewaren veroorzaakte of erger maakte.</summary>
 public sealed record BlockoutSaved(Guid Id, IReadOnlyList<Shortage> Shortages);
 
 /// <summary>Een blokkering kan zo niet bewaard worden; de boodschappen zijn voor de beheerder bedoeld.</summary>

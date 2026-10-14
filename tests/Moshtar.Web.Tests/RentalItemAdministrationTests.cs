@@ -254,7 +254,7 @@ public sealed class RentalItemAdministrationTests(MoshtarApp app) : IClassFixtur
     }
 
     [Fact]
-    public async Task An_item_that_was_reserved_or_is_in_a_bundle_cannot_be_deleted_and_switching_off_is_proposed()
+    public async Task A_reserved_item_cannot_be_deleted_and_switching_off_is_proposed_an_item_in_a_bundle_must_first_leave_the_bundle()
     {
         var (scope, castles, _) = await NewTenantAsync("artikel-niet-verwijderen");
         await using (scope)
@@ -268,9 +268,10 @@ public sealed class RentalItemAdministrationTests(MoshtarApp app) : IClassFixtur
             Assert.True(refused.CanSwitchOff);
             Assert.Equal(["Het artikel \"Jungle\" werd al gereserveerd en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite en blijven de reservaties ongewijzigd."], refused.Problems);
 
+            // Nooit gereserveerd, maar wel in een pakket: eerst uit het pakket halen, niet uitzetten.
             refused = await Assert.ThrowsAsync<RentalItemException>(() => Items(scope).DeleteAsync(inBundle));
-            Assert.True(refused.CanSwitchOff);
-            Assert.Contains("zit in het pakket \"Feestpakket\"", Assert.Single(refused.Problems));
+            Assert.False(refused.CanSwitchOff);
+            Assert.Equal(["Het artikel \"Piraat\" zit in pakket \"Feestpakket\" en kan niet verwijderd worden. Haal het eerst uit pakket \"Feestpakket\"."], refused.Problems);
             Assert.Equal(2, (await Items(scope).GetAllAsync()).Count);
         }
     }

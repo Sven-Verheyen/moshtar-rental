@@ -82,7 +82,6 @@
     private async Task LoadAsync()
     {
         var items = await ShortageOverview.GetAsync();
-        // Na elkaar: de services delen de databankcontext van het scherm.
         var alternatives = new Dictionary<(Guid, Guid), IReadOnlyList<Alternative>>();
         foreach (var item in items)
             foreach (var reservation in item.Reservations)

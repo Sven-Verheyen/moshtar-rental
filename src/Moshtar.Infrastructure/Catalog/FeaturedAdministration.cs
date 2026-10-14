@@ -57,8 +57,7 @@ internal sealed class FeaturedAdministration(AppDbContext db, ITenantContext ten
         // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen.
         db.ChangeTracker.Clear();
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
-        var key = $"uitgelicht-{Tenant.Id}";
-        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
+        await db.Database.AcquireAdvisoryLockAsync($"uitgelicht-{Tenant.Id}", ct);
         change(await db.RentalItems.ToListAsync(ct), await db.Bundles.ToListAsync(ct));
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);

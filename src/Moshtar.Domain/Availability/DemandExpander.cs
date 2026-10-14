@@ -21,6 +21,13 @@ public static class DemandExpander
         ExpandLines(reservation.Lines, reservation.Period, bundles)
             .Select(d => new ReservedDemand(reservation.Id, d.Demand, d.BundleId));
 
+    /// <summary>
+    /// Hoeveel exemplaren van een artikel een reservatie nodig heeft: los en in haar gereserveerde pakketten samen. Zoveel
+    /// moet een alternatief vrij hebben om het te vervangen.
+    /// </summary>
+    public static int QuantityOf(Reservation reservation, Guid rentalItemId, IReadOnlyDictionary<Guid, Bundle> bundles) =>
+        ExpandLines(reservation.Lines, reservation.Period, bundles).Where(d => d.Demand.RentalItemId == rentalItemId).Sum(d => d.Demand.Quantity);
+
     private static IEnumerable<(StockDemand Demand, Guid? BundleId)> ExpandLines(
         IEnumerable<ReservationLine> lines,
         DateRange period,

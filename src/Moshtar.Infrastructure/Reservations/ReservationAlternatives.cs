@@ -1,4 +1,3 @@
-using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Catalog;
 using Moshtar.Application.Images;
@@ -15,19 +14,22 @@ using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Reservations;
 
+/// <summary>
+/// De alternatieven voor een artikel in een getroffen reservatie. Elke bewerking heeft haar eigen databankcontext, zodat
+/// de alternatieven van verschillende reservaties op één scherm tegelijk gemaild of vervangen kunnen worden.
+/// </summary>
 internal sealed class ReservationAlternatives(
-    AppDbContext db, ITenantContext tenantContext, IReservationService reservations, IMailer mailer, IImageStore images, TimeProvider clock)
+    IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, IReservationService reservations, IMailer mailer, IImageStore images, TimeProvider clock)
     : IReservationAlternatives
 {
     /// <summary>De breedte van een foto in het back office en in de mail.</summary>
     private const int PhotoWidth = 400;
 
-    private static readonly CultureInfo Dutch = CultureInfo.GetCultureInfo("nl-BE");
-
     public async Task<IReadOnlyList<Alternative>> GetAsync(Guid reservationId, Guid rentalItemId, CancellationToken ct = default)
     {
         var tenant = Tenant;
-        var found = await FindAsync(reservationId, rentalItemId, ct);
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var found = await FindAsync(db, reservationId, rentalItemId, ct);
         var previous = await db.AlternativeProposals.AsNoTracking()
             .Where(p => p.ReservationId == reservationId && p.RentalItemId == rentalItemId)
             .ToDictionaryAsync(p => p.AlternativeRentalItemId, p => p.Surcharge, ct);
@@ -51,9 +53,8 @@ internal sealed class ReservationAlternatives(
             throw new ArgumentException("Elk alternatief kan maar één keer in de mail.");
 
         var tenant = Tenant;
-        // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen.
-        db.ChangeTracker.Clear();
-        var found = await FindAsync(reservationId, rentalItemId, ct);
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var found = await FindAsync(db, reservationId, rentalItemId, ct);
         var free = found.Alternatives.ToDictionary(a => a.Id);
         if (chosen.FirstOrDefault(c => !free.ContainsKey(c.RentalItemId)) is not null)
             throw new ArgumentException("Een gekozen artikel is geen vrij alternatief meer. Laad de tekorten opnieuw.");
@@ -89,26 +90,31 @@ internal sealed class ReservationAlternatives(
             AlternativeRentalItemId = c.RentalItemId,
             Surcharge = surcharges[c.RentalItemId],
             MailedAtUtc = now,
+            MailedByUserId = actor.UserId,
         }));
         var tracked = await db.Reservations.FirstAsync(r => r.Id == reservationId, CancellationToken.None);
         var note = $"{NameIn(found.Item.Translations, found.Item.Slug, tenant.DefaultCulture, tenant)}: " + string.Join(", ", chosen.Select(c =>
             $"{NameIn(free[c.RentalItemId].Translations, free[c.RentalItemId].Slug, tenant.DefaultCulture, tenant)} " +
-            (surcharges[c.RentalItemId] is { } s ? $"(meerprijs {s.ToString("C", Dutch)})" : "(zonder meerprijs)")));
+            SurchargeNote.For(surcharges[c.RentalItemId])));
         tracked.RecordAlternativesMailed(actor, now, note);
         await db.SaveChangesAsync(CancellationToken.None);
         await tx.CommitAsync(CancellationToken.None);
     }
 
-    public async Task<IReadOnlyList<ProposedAlternative>> GetProposedAsync(Guid reservationId, CancellationToken ct = default) =>
-        await db.AlternativeProposals.AsNoTracking()
+    public async Task<IReadOnlyList<ProposedAlternative>> GetProposedAsync(Guid reservationId, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        return await db.AlternativeProposals.AsNoTracking()
             .Where(p => p.ReservationId == reservationId)
             .OrderBy(p => p.MailedAtUtc).ThenBy(p => p.SortOrder)
             .Select(p => new ProposedAlternative(p.RentalItemId, p.AlternativeRentalItemId, p.Surcharge, p.MailedAtUtc))
             .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlyList<ReservedItem>> GetReservedItemsAsync(Guid reservationId, CancellationToken ct = default)
     {
         var tenant = Tenant;
+        await using var db = await contexts.CreateDbContextAsync(ct);
         var reservation = await db.Reservations.AsNoTracking().FirstOrDefaultAsync(r => r.Id == reservationId, ct)
             ?? throw new ArgumentException("Reservatie niet gevonden.");
         var bundleIds = reservation.Lines.Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
@@ -136,14 +142,13 @@ internal sealed class ReservationAlternatives(
     /// De reservatie, het artikel, hoeveel ze ervan nodig heeft (ook via een pakket) en de alternatieven: de artikelen uit
     /// dezelfde categorie die aan staan en in de volledige huurperiode (met bufferdagen) vrij zijn voor dat aantal.
     /// </summary>
-    private async Task<Found> FindAsync(Guid reservationId, Guid rentalItemId, CancellationToken ct)
+    private async Task<Found> FindAsync(AppDbContext db, Guid reservationId, Guid rentalItemId, CancellationToken ct)
     {
         var reservation = await db.Reservations.AsNoTracking().Include(r => r.Customer).FirstOrDefaultAsync(r => r.Id == reservationId, ct)
             ?? throw new ArgumentException("Reservatie niet gevonden.");
         var bundleIds = reservation.Lines.Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
         var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
-        var quantity = DemandExpander.Expand(reservation.Lines, reservation.Period, bundles)
-            .Where(d => d.RentalItemId == rentalItemId).Sum(d => d.Quantity);
+        var quantity = DemandExpander.QuantityOf(reservation, rentalItemId, bundles);
         if (quantity == 0)
             throw new ArgumentException("Dit artikel zit niet in de reservatie.");
         var item = await db.RentalItems.AsNoTracking().FirstAsync(i => i.Id == rentalItemId, ct);

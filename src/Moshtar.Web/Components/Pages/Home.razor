@@ -30,6 +30,11 @@
     }
     else if (_chosen.Period is { } period)
     {
+        @if (Featured.Count > 0)
+        {
+            <h2>@L["Featured"]</h2>
+            <CatalogList Entries="Featured" Chosen="_chosen" Unavailable="_unavailable" />
+        }
         <h2>@L["OfferFor", SiteText.Period(period)]</h2>
         <p class="muted">@L["AvailableCount", _entries.Count(e => !_unavailable.Contains(e.Id)), _entries.Count]</p>
         <CatalogList Entries="_entries" Chosen="_chosen" Unavailable="_unavailable" />
@@ -56,14 +61,14 @@
                 }
             </div>
         }
-        @if (_entries.Any(e => e.IsFeatured))
+        @if (Featured.Count > 0)
         {
-            <h2>@L["Highlighted"]</h2>
-            <CatalogList Entries="Highlighted" />
+            <h2>@L["Featured"]</h2>
+            <CatalogList Entries="Featured" />
         }
         else
         {
-            <h2>@L["Featured"]</h2>
+            <h2>@L["Popular"]</h2>
             <CatalogList Entries="Popular" />
         }
     }
@@ -88,10 +93,11 @@
     private string? HeroImage => Images.HeroImageUrl(Tenant);
 
     /// <summary>
-    /// De uitgelichte artikelen en pakketten, in de volgorde van de beheerder. Uitgezette artikelen en verborgen pakketten
+    /// De uitgelichte artikelen en pakketten, in de volgorde van de beheerder; met een huurperiode bovenaan, met hun
+    /// beschikbaarheid. Uitgezette artikelen en verborgen pakketten
     /// staan niet in de catalogus, dus ook hier niet.
     /// </summary>
-    private IReadOnlyList<CatalogEntry> Highlighted =>
+    private IReadOnlyList<CatalogEntry> Featured =>
         _entries!.Where(e => e.IsFeatured).OrderBy(e => e.FeaturedOrder).ToList();
 
     /// <summary>

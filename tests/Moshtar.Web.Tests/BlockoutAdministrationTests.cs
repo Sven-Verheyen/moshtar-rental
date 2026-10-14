@@ -125,6 +125,33 @@ public sealed class BlockoutAdministrationTests(MoshtarApp app) : IClassFixture<
     }
 
     [Fact]
+    public async Task The_warning_after_saving_lists_only_the_shortages_the_save_caused_or_worsened()
+    {
+        var day = TestReservations.FutureDay(40);
+        await using var scope = await NewTenantAsync("blokkering-veroorzaakt");
+        var jungle = await Items(scope).CreateAsync(Input("Jungle", stock: 2));
+        await ReserveAsync(scope, jungle, day, day);
+        await ReserveAsync(scope, jungle, day.AddDays(5), day.AddDays(5));
+        await ReserveAsync(scope, jungle, day.AddDays(10), day.AddDays(10));
+        await ReserveAsync(scope, jungle, day.AddDays(10), day.AddDays(10));
+        // Er is al een tekort op de tiende dag.
+        Assert.Equal([day.AddDays(10)], (await Blockouts(scope).CreateAsync(new(jungle, 1, day.AddDays(10), day.AddDays(10), "Lek"))).Shortages.Select(s => s.Day));
+
+        // Een nieuwe blokkering op de eerste dag: alleen dat nieuwe tekort, niet het bestaande.
+        var saved = await Blockouts(scope).CreateAsync(new(jungle, 2, day, day, "Allebei weg"));
+        Assert.Equal([day], saved.Shortages.Select(s => s.Day));
+
+        // Ze verschuiven: de eerste dag is opgelost, de tiende dag wordt erger (nog 0 verhuurbaar in plaats van 1).
+        saved = await Blockouts(scope).SaveAsync(saved.Id, new(jungle, 1, day.AddDays(1), day.AddDays(10), "Eén weg"));
+        Assert.Equal([(day.AddDays(10), 0)], saved.Shortages.Select(s => (s.Day, s.Rentable)));
+
+        // Een lagere voorraad: een nieuw tekort op de vijfde dag, de tiende dag blijft even erg.
+        var lowered = await Items(scope).SaveAsync(jungle, Input("Jungle", stock: 1));
+        Assert.Equal([day.AddDays(5)], lowered.Select(s => s.Day));
+        Assert.Empty(await Items(scope).SaveAsync(jungle, Input("Jungle", stock: 1)));
+    }
+
+    [Fact]
     public async Task Administrator_manages_blockouts_on_their_own_page_and_on_the_item_page()
     {
         var client = await app.LoggedInClientAsync("blokkeringen-beheerder@hopsakee.test", UserRole.Administrator);

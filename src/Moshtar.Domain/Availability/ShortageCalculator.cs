@@ -56,6 +56,16 @@ public static class ShortageCalculator
             reservations.Where(r => r.OccupiesStock).SelectMany(r => DemandExpander.Expand(r, bundles)),
             blocked, from, bufferDaysBefore, bufferDaysAfter);
 
+    /// <summary>
+    /// De tekorten die een wijziging veroorzaakte: die van <paramref name="after"/> die er in <paramref name="before"/> nog
+    /// niet waren, of waar nu meer exemplaren te weinig zijn.
+    /// </summary>
+    public static IReadOnlyList<Shortage> NewOrWorse(IEnumerable<Shortage> before, IEnumerable<Shortage> after)
+    {
+        var missingBefore = before.ToDictionary(s => (s.RentalItemId, s.Day), s => s.Missing);
+        return after.Where(s => !missingBefore.TryGetValue((s.RentalItemId, s.Day), out var missing) || s.Missing > missing).ToList();
+    }
+
     /// <param name="stockPerItem">De voorraad per artikel; een artikel dat ontbreekt, heeft er geen.</param>
     /// <param name="reserved">Wat bevestigde reservaties bezetten, met pakketten al opengeklapt naar hun artikelen.</param>
     /// <param name="blocked">De blokkeringen.</param>

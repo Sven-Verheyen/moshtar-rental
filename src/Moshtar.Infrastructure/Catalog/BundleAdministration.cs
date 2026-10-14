@@ -141,13 +141,13 @@ internal sealed class BundleAdministration(AppDbContext db, ITenantContext tenan
 
     /// <summary>
     /// Voert een wijziging uit als enige wijziging aan de slugs van de artikelen en pakketten van deze verhuurder
-    /// (<see cref="CatalogSlugLock"/>). Een slug die daardoor anders werd, stuurt voortaan door naar het nieuwe adres.
+    /// (<see cref="CatalogLock"/>). Een slug die daardoor anders werd, stuurt voortaan door naar het nieuwe adres.
     /// </summary>
     private async Task ChangeAsync(Func<Task> change, CancellationToken ct)
     {
         // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen.
         db.ChangeTracker.Clear();
-        await using var transaction = await CatalogSlugLock.AcquireAsync(db, Tenant.Id, ct);
+        await using var transaction = await CatalogLock.AcquireAsync(db, Tenant.Id, ct);
         var before = await SlugsAsync(ct);
         await change();
         await db.SaveChangesAsync(ct);

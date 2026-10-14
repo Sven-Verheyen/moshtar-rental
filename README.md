@@ -34,7 +34,9 @@ aan andere verhuurbedrijven aangeboden te worden.
   (`/admin/artikelen`): naam en beschrijving per taal (alleen de standaardtaal verplicht; het overzicht toont welke
   vertalingen ontbreken), categorie, kenmerken, voorraad, prijzen en slug, met een volgorde binnen de categorie die de
   beheerder versleept. Een artikel kan uitgezet worden, en verwijderd zolang geen reservatie, pakket of winkelkar ernaar
-  verwijst. Een voorraad onder wat al gereserveerd is, mag, met een waarschuwing per dag (`ShortageCalculator`).
+  verwijst; zit het (nooit gereserveerd) in een pakket, dan zegt het back office uit welk pakket het eerst moet. Een
+  voorraad onder wat al gereserveerd is, mag, met een waarschuwing per dag die het bewaren een tekort gaf of het tekort
+  groter maakte (`ShortageCalculator.NewOrWorse`); hetzelfde na het bewaren van een blokkering.
   Pakketten aanmaken en wijzigen (`/admin/pakketten`): naam en beschrijving per taal, artikelen met aantallen, eigen
   prijs, slug (gedeeld met de artikelen) en optioneel tot 10 eigen foto's; zonder eigen foto's toont de
   reservatiewebsite die van de artikelen. Een pakket staat niet op de reservatiewebsite zolang een artikel erin
@@ -43,13 +45,14 @@ aan andere verhuurbedrijven aangeboden te worden.
   Artikelen en pakketten uitlichten met de ster in hun overzicht; de lijst Uitgelicht (`/admin/uitgelicht`) toont ze
   samen in een volgorde die de beheerder versleept. Zonder gekozen huurperiode toont de home ze in die volgorde in
   plaats van "Populair" (uitgezette artikelen en verborgen pakketten niet); is niets uitgelicht, dan de pakketten en het
-  eerste artikel van elke categorie.
+  eerste artikel van elke categorie. Met een huurperiode staan de uitgelichte bovenaan, met hun beschikbaarheid, en
+  daaronder het hele aanbod.
   De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
   dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
   Per getroffen reservatie staan er de alternatieven (artikelen uit dezelfde categorie, aan en vrij in de volledige
   huurperiode) met het prijsverschil als hulp; de aangevinkte gaan met één klik en een optionele meerprijs naar de klant,
-  in zijn taal (mailsjabloon "Alternatieven bij een tekort"). Het tijdstip komt op de reservatie en in de historiek, de
-  meerprijzen worden bewaard voor het vervangen (`IReservationAlternatives`).
+  in zijn taal (mailsjabloon "Alternatieven bij een tekort"). Wanneer en door wie komt per artikel bij de reservatie en in
+  de historiek, de meerprijzen worden bewaard voor het vervangen (`IReservationAlternatives`).
   Heeft de klant gekozen, dan vervangt "Vervangen" (in Tekorten, of "Artikel vervangen" bij de reservatie) het artikel
   door het alternatief, met de meerprijs uit de mail voorgevuld. Een losse lijn krijgt het andere artikel aan dezelfde
   prijs; in een pakket wordt enkel het artikel binnen het pakket vervangen, als notitie op de pakketlijn ("Jungle

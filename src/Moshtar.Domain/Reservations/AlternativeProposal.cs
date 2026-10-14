@@ -18,4 +18,6 @@ public class AlternativeProposal : TenantEntity
     /// <summary>De plaats in de mail.</summary>
     public int SortOrder { get; set; }
     public DateTime MailedAtUtc { get; set; }
+    /// <summary>De gebruiker die de alternatieven mailde.</summary>
+    public Guid? MailedByUserId { get; set; }
 }

@@ -68,7 +68,8 @@ public interface IRentalItemAdministration
 
     /// <summary>
     /// Bewaart een artikel. Een andere categorie zet het achteraan in die categorie. Een voorraad onder wat al
-    /// gereserveerd is, mag: het resultaat zijn dan de tekorten van dit artikel vanaf vandaag.
+    /// gereserveerd is, mag: het resultaat zijn dan de tekorten van dit artikel vanaf vandaag die het bewaren veroorzaakte
+    /// of erger maakte.
     /// </summary>
     Task<IReadOnlyList<Shortage>> SaveAsync(Guid itemId, RentalItemInput input, CancellationToken ct = default);
 

@@ -55,6 +55,7 @@ internal sealed class RentalItemAdministration(
     public async Task<IReadOnlyList<Shortage>> SaveAsync(Guid itemId, RentalItemInput input, CancellationToken ct = default)
     {
         var (translations, slug) = Validate(input);
+        var before = await shortages.FindAsync(itemId, ct);
         await ChangeAsync(async () =>
         {
             var item = await FindAsync(itemId, ct);
@@ -63,7 +64,7 @@ internal sealed class RentalItemAdministration(
             if (item.CategoryId != input.CategoryId) item.SortOrder = await NextSortOrderAsync(input.CategoryId, ct);
             Apply(item, input, translations);
         }, ct);
-        return await shortages.FindAsync(itemId, ct);
+        return ShortageCalculator.NewOrWorse(before, await shortages.FindAsync(itemId, ct));
     }
 
     public Task ReorderAsync(Guid? categoryId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default) =>
@@ -135,18 +136,20 @@ internal sealed class RentalItemAdministration(
             var item = await FindAsync(itemId, ct);
             var name = Name(item);
             var bundles = await db.Bundles.AsNoTracking().Where(b => b.Items.Any(x => x.RentalItemId == itemId)).ToListAsync(ct);
-            if (bundles.Count > 0)
-            {
-                var names = string.Join(", ", bundles.Select(b => $"\"{b.Translations.For(Tenant.DefaultCulture, Tenant.DefaultCulture)?.Name ?? b.Slug}\""));
-                throw new RentalItemException(
-                    [$"Het artikel \"{name}\" zit in {(bundles.Count == 1 ? "het pakket" : "de pakketten")} {names} en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite."],
-                    canSwitchOff: true);
-            }
-            // Ook als vervangend artikel binnen een gereserveerd pakket.
-            if (await db.Reservations.AnyAsync(r => r.Lines.Any(l => l.RentalItemId == itemId || l.Replacements.Any(x => x.ReplacementRentalItemId == itemId || x.RentalItemId == itemId)), ct))
+            var bundleIds = bundles.Select(b => b.Id).ToList();
+            // Los, in een gereserveerd pakket of als vervangend artikel binnen een gereserveerd pakket.
+            if (await db.Reservations.AnyAsync(r => r.Lines.Any(l => l.RentalItemId == itemId
+                    || (l.BundleId != null && bundleIds.Contains(l.BundleId.Value))
+                    || l.Replacements.Any(x => x.ReplacementRentalItemId == itemId || x.RentalItemId == itemId)), ct))
                 throw new RentalItemException(
                     [$"Het artikel \"{name}\" werd al gereserveerd en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite en blijven de reservaties ongewijzigd."],
                     canSwitchOff: true);
+            if (bundles.Count > 0)
+            {
+                var names = string.Join(", ", bundles.Select(b => $"\"{b.Translations.For(Tenant.DefaultCulture, Tenant.DefaultCulture)?.Name ?? b.Slug}\""));
+                var inBundles = $"{(bundles.Count == 1 ? "pakket" : "de pakketten")} {names}";
+                throw new RentalItemException([$"Het artikel \"{name}\" zit in {inBundles} en kan niet verwijderd worden. Haal het eerst uit {inBundles}."]);
+            }
             if (await db.Carts.AnyAsync(c => c.Lines.Any(l => l.RentalItemId == itemId), ct))
                 throw new RentalItemException(
                     [$"Het artikel \"{name}\" ligt in de winkelkar van een klant en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite."],
@@ -166,7 +169,7 @@ internal sealed class RentalItemAdministration(
     {
         // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen.
         db.ChangeTracker.Clear();
-        await using var transaction = await CatalogSlugLock.AcquireAsync(db, Tenant.Id, ct);
+        await using var transaction = await CatalogLock.AcquireAsync(db, Tenant.Id, ct);
         var before = await SlugsAsync(ct);
         await change();
         await db.SaveChangesAsync(ct);

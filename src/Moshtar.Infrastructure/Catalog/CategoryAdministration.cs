@@ -170,8 +170,7 @@ internal sealed class CategoryAdministration(AppDbContext db, ITenantContext ten
     private async Task<IDbContextTransaction> LockSlugsAsync(CancellationToken ct)
     {
         var transaction = await db.Database.BeginTransactionAsync(ct);
-        var key = $"categorie-slugs-{Tenant.Id}";
-        await db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({key}, 0))", ct);
+        await db.Database.AcquireAdvisoryLockAsync($"categorie-slugs-{Tenant.Id}", ct);
         return transaction;
     }
 

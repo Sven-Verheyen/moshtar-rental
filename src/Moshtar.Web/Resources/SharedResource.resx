@@ -59,8 +59,8 @@
   <data name="OfferFor" xml:space="preserve"><value>Ons aanbod voor {0}</value></data>
   <data name="AvailableCount" xml:space="preserve"><value>{0} van de {1} vrij</value></data>
   <data name="Categories" xml:space="preserve"><value>Onze categorieën</value></data>
-  <data name="Highlighted" xml:space="preserve"><value>Uitgelicht</value></data>
-  <data name="Featured" xml:space="preserve"><value>Populair</value></data>
+  <data name="Featured" xml:space="preserve"><value>Uitgelicht</value></data>
+  <data name="Popular" xml:space="preserve"><value>Populair</value></data>
   <data name="ForOneDay" xml:space="preserve"><value>voor 1 dag</value></data>
   <data name="ForDays" xml:space="preserve"><value>voor {0} dagen</value></data>
   <data name="AvailableOn" xml:space="preserve"><value>Vrij op {0}</value></data>

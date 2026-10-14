@@ -90,7 +90,7 @@
     [Parameter, EditorRequired] public Guid RentalItemId { get; set; }
     [Parameter] public AlternativesMailed? Mailed { get; set; }
 
-    /// <summary>De alternatieven; de lijst Tekorten leest ze na elkaar in, want de services delen één databankcontext.</summary>
+    /// <summary>De alternatieven, ingelezen door het scherm. Mailen en vervangen hebben elk hun eigen databankcontext, dus meerdere panelen mogen tegelijk bezig zijn.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<Alternative> Alternatives { get; set; } = [];
 
     /// <summary>Na het mailen, zodat de lijst Tekorten het tijdstip opnieuw inleest.</summary>

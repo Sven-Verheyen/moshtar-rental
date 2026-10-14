@@ -166,6 +166,8 @@ internal class AlternativeProposalConfiguration : IEntityTypeConfiguration<Alter
         // Een artikel dat ooit gereserveerd werd, wordt niet verwijderd; een voorgesteld alternatief mag wel weg.
         b.HasOne<RentalItem>().WithMany().HasForeignKey(p => p.RentalItemId).OnDelete(DeleteBehavior.Cascade);
         b.HasOne<RentalItem>().WithMany().HasForeignKey(p => p.AlternativeRentalItemId).OnDelete(DeleteBehavior.Cascade);
+        // Gebruikers worden uitgeschakeld, nooit verwijderd.
+        b.HasOne<User>().WithMany().HasForeignKey(p => p.MailedByUserId).OnDelete(DeleteBehavior.Restrict);
         b.HasIndex(p => new { p.ReservationId, p.RentalItemId, p.AlternativeRentalItemId }).IsUnique();
     }
 }

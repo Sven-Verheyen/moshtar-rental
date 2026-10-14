@@ -131,6 +131,52 @@ public sealed class ReservationAlternativesTests(MoshtarApp app) : IClassFixture
     }
 
     [Fact]
+    public async Task The_shortages_show_per_unavailable_item_when_and_by_whom_its_alternatives_were_mailed_and_how_many_it_needs()
+    {
+        var day = TestReservations.FutureDay(5);
+        await using var scope = await NewTenantAsync("alternatieven-per-artikel");
+        var anna = await app.CreateUserAsync("alternatieven-per-artikel", "anna@alternatieven-per-artikel.test");
+        var bob = await app.CreateUserAsync("alternatieven-per-artikel", "bob@alternatieven-per-artikel.test");
+        var castles = await CategoryAsync(scope, "Springkastelen");
+        var jungle = await Items(scope).CreateAsync(Input("Jungle", castles, dayPrice: 100, stock: 2));
+        var pirate = await Items(scope).CreateAsync(Input("Piraat", castles, dayPrice: 100));
+        var princess = await Items(scope).CreateAsync(Input("Prinses", castles, dayPrice: 100));
+        var dragon = await Items(scope).CreateAsync(Input("Draak", castles, dayPrice: 100, stock: 2));
+        var party = await BundleAsync(scope, "Kinderfeest", jungle);
+        // De jungle los en in het pakket: de reservatie heeft er twee nodig.
+        var result = await Reservations(scope).ReserveAsync(new ReservationRequest(
+            new DateRange(day, day),
+            [new ReservationLineRequest(jungle, null, 1), new ReservationLineRequest(null, party, 1), new ReservationLineRequest(pirate, null, 1)],
+            new ReservationCustomer("Gert", "Klant", "gert@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+            DeliveryMethod.Pickup, null, null, "nl"), ReservationActor.Website);
+        var gert = result.Reservation!;
+        await Items(scope).SaveAsync(jungle, Input("Jungle", castles, dayPrice: 100, stock: 0));
+        await Items(scope).SaveAsync(pirate, Input("Piraat", castles, dayPrice: 100, stock: 0));
+
+        // Het aantal in Tekorten is wat een alternatief vrij moet hebben: de prinses (1) is te weinig, de draak (2) niet.
+        Assert.Equal(2, Single(await Shortages(scope).GetAsync(), "Jungle").Quantity);
+        Assert.Equal([dragon], (await Alternatives(scope).GetAsync(gert.Id, jungle)).Select(a => a.RentalItemId));
+
+        await Alternatives(scope).MailAsync(gert.Id, jungle, [new ChosenAlternative(dragon, null)], ReservationActor.User(anna.Id));
+
+        var shortages = await Shortages(scope).GetAsync();
+        Assert.Equal("anna@alternatieven-per-artikel.test", Single(shortages, "Jungle").AlternativesMailed?.UserEmail);
+        Assert.Null(Single(shortages, "Piraat").AlternativesMailed);
+
+        await Alternatives(scope).MailAsync(gert.Id, pirate, [new ChosenAlternative(princess, null)], ReservationActor.User(bob.Id));
+
+        shortages = await Shortages(scope).GetAsync();
+        var jungleMailed = Single(shortages, "Jungle").AlternativesMailed;
+        var pirateMailed = Single(shortages, "Piraat").AlternativesMailed;
+        Assert.Equal("anna@alternatieven-per-artikel.test", jungleMailed?.UserEmail);
+        Assert.Equal("bob@alternatieven-per-artikel.test", pirateMailed?.UserEmail);
+        Assert.True(jungleMailed!.AtUtc < pirateMailed!.AtUtc);
+
+        static ShortageReservation Single(IReadOnlyList<ItemShortages> shortages, string item) =>
+            Assert.Single(Assert.Single(shortages, s => s.RentalItemName == item).Reservations);
+    }
+
+    [Fact]
     public async Task Nothing_is_mailed_without_a_checked_alternative_with_a_negative_surcharge_or_with_an_item_that_is_not_free()
     {
         var day = TestReservations.FutureDay(3);

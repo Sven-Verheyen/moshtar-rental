@@ -15,17 +15,19 @@ using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Reservations;
 
+/// <summary>
+/// Reserveren, de status wijzigen, artikelen vervangen en de beschikbaarheid nagaan. Elke bewerking heeft haar eigen
+/// databankcontext: in het back office leeft deze service zo lang als het scherm open staat, en meerdere onderdelen van
+/// één scherm (zoals de alternatieven per reservatie in Tekorten) mogen ze tegelijk gebruiken.
+/// </summary>
 internal sealed class ReservationService(
-    AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images, ILogger<ReservationService> logger) : IReservationService
+    IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images, ILogger<ReservationService> logger) : IReservationService
 {
-    /// <summary>De reservaties die voorraad bezetten.</summary>
-    internal static readonly ReservationStatus[] OccupyingStatuses =
-        [ReservationStatus.Confirmed, ReservationStatus.Delivered, ReservationStatus.Returned];
-
     public async Task<IReadOnlyList<StockShortage>> CheckAvailabilityAsync(
         DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct = default)
     {
-        var (shortages, _, _) = await EvaluateAsync(period, lines, ct);
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var (shortages, _, _) = await EvaluateAsync(db, period, lines, ct);
         return shortages;
     }
 
@@ -34,18 +36,19 @@ internal sealed class ReservationService(
         Validate(request);
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
 
+        await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await LockTenantAsync(tenant, ct);
+        await LockTenantAsync(db, tenant, ct);
 
-        var (shortages, items, bundles) = await EvaluateAsync(request.Period, request.Lines, ct);
+        var (shortages, items, bundles) = await EvaluateAsync(db, request.Period, request.Lines, ct);
         if (shortages.Count > 0)
             return new ReservationResult(null, shortages);
 
-        var customer = await UpsertCustomerAsync(request, ct);
+        var customer = await UpsertCustomerAsync(db, request, ct);
         var days = request.Period.Days;
         var reservation = new Reservation
         {
-            Number = await NextNumberAsync(ct),
+            Number = await NextNumberAsync(db, ct),
             Customer = customer,
             StartDate = request.Period.Start,
             EndDate = request.Period.End,
@@ -64,7 +67,7 @@ internal sealed class ReservationService(
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        await SendConfirmationAsync(reservation, tenant);
+        await SendConfirmationAsync(db, reservation, tenant);
         return new ReservationResult(reservation, []);
     }
 
@@ -74,7 +77,7 @@ internal sealed class ReservationService(
     /// Daarom ook geen CancellationToken: een afgebroken request mag de mail niet tegenhouden,
     /// en ReserveAsync mag niet mislukken voor een reservatie die al bewaard is.
     /// </summary>
-    private async Task SendConfirmationAsync(Reservation reservation, Tenant tenant)
+    private async Task SendConfirmationAsync(AppDbContext db, Reservation reservation, Tenant tenant)
     {
         try
         {
@@ -92,9 +95,7 @@ internal sealed class ReservationService(
 
     public async Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, ReservationActor actor, CancellationToken ct = default)
     {
-        // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen,
-        // zodat een wijziging door een collega intussen niet over het hoofd gezien wordt.
-        db.ChangeTracker.Clear();
+        await using var db = await contexts.CreateDbContextAsync(ct);
         var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId, ct)
             ?? throw new InvalidOperationException("Reservatie niet gevonden.");
         reservation.ChangeStatus(status, actor, clock.GetUtcNow().UtcDateTime);
@@ -110,17 +111,17 @@ internal sealed class ReservationService(
             throw new ArgumentException("Een meerprijs kan niet negatief zijn.");
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
 
-        // In het back office leeft deze service zo lang als het scherm open staat: altijd vers inlezen, binnen de lock.
-        db.ChangeTracker.Clear();
+        await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await LockTenantAsync(tenant, ct);
+        await LockTenantAsync(db, tenant, ct);
 
         var reservation = await db.Reservations.Include(r => r.Customer).FirstOrDefaultAsync(r => r.Id == reservationId, ct)
             ?? throw new ArgumentException("Reservatie niet gevonden.");
         var bundleIds = reservation.Lines.Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
         var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
         var used = DemandExpander.Expand(reservation, bundles).Where(d => d.Demand.RentalItemId == rentalItemId).ToList();
-        if (used.Count == 0)
+        var quantity = DemandExpander.QuantityOf(reservation, rentalItemId, bundles);
+        if (quantity == 0)
             throw new ArgumentException("Dit artikel zit niet in de reservatie.");
 
         var item = await db.RentalItems.AsNoTracking().FirstAsync(i => i.Id == rentalItemId, ct);
@@ -129,8 +130,8 @@ internal sealed class ReservationService(
             throw new ArgumentException("Vervang enkel door een ander artikel uit dezelfde categorie dat aan staat.");
 
         // Vrij in de volledige huurperiode, voor alles wat de reservatie van het artikel gebruikt (los en in pakketten).
-        var (shortages, _, _) = await EvaluateAsync(reservation.Period,
-            [new ReservationLineRequest(replacement.Id, null, used.Sum(d => d.Demand.Quantity))], ct);
+        var (shortages, _, _) = await EvaluateAsync(db, reservation.Period,
+            [new ReservationLineRequest(replacement.Id, null, quantity)], ct);
         string DefaultName(RentalItem i) => i.Translations.For(tenant.DefaultCulture, tenant.DefaultCulture)?.Name ?? i.Slug;
         if (shortages.Count > 0)
             throw new ArgumentException($"{DefaultName(replacement)} is niet vrij in de volledige huurperiode van reservatie {reservation.Number}.");
@@ -142,7 +143,7 @@ internal sealed class ReservationService(
             .Select(id => bundles[id].Translations.For(tenant.DefaultCulture, tenant.DefaultCulture)?.Name ?? bundles[id].Slug).ToList();
         var note = $"{DefaultName(item)} vervangen door {DefaultName(replacement)}"
                    + (inBundles.Count > 0 ? $" in {string.Join(", ", inBundles)}" : "")
-                   + (amount is { } s ? $" (meerprijs {s.ToString("C", Dutch)})" : " (zonder meerprijs)");
+                   + " " + SurchargeNote.For(amount);
         reservation.ReplaceItem(
             new ItemReplacement(item.Id, Name(item), replacement.Id, Name(replacement), amount,
                 ReservationConfirmation.SurchargeDescription(reservation, tenant, Name(replacement), Name(item))),
@@ -153,18 +154,18 @@ internal sealed class ReservationService(
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
 
-        await SendConfirmationAsync(reservation, tenant);
+        await SendConfirmationAsync(db, reservation, tenant);
         return reservation;
     }
 
-    private static readonly System.Globalization.CultureInfo Dutch = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
-
     /// <summary>Reservaties per tenant na elkaar afhandelen, tot het einde van de transactie.</summary>
-    private Task LockTenantAsync(Tenant tenant, CancellationToken ct) =>
-        db.Database.ExecuteSqlAsync($"SELECT pg_advisory_xact_lock(hashtextextended({tenant.Id.ToString()}, 0))", ct);
+    private static Task LockTenantAsync(AppDbContext db, Tenant tenant, CancellationToken ct) =>
+        db.Database.AcquireAdvisoryLockAsync(tenant.Id.ToString(), ct);
 
-    public async Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default) =>
-        await (from e in db.ReservationEvents.AsNoTracking()
+    public async Task<IReadOnlyList<ReservationHistoryEntry>> GetHistoryAsync(Guid reservationId, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        return await (from e in db.ReservationEvents.AsNoTracking()
                where e.ReservationId == reservationId
                // Ook uitgeschakelde gebruikers blijven met hun e-mailadres zichtbaar.
                join u in db.Users on e.UserId equals u.Id into users
@@ -172,11 +173,13 @@ internal sealed class ReservationService(
                orderby e.OccurredAtUtc descending, e.Kind descending
                select new ReservationHistoryEntry(e.OccurredAtUtc, e.Kind, e.Status, u.Email, e.Note))
             .ToListAsync(ct);
+    }
 
     public async Task<IReadOnlySet<Guid>> FindUnavailableAsync(DateRange period, CancellationToken ct = default)
     {
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
-        var (reserved, blocked) = await OccupationAsync(period, tenant, ct);
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var (reserved, blocked) = await OccupationAsync(db, period, tenant, ct);
         var items = await db.RentalItems.AsNoTracking().Where(i => i.IsActive).ToListAsync(ct);
         var bundles = await db.Bundles.AsNoTracking().Where(b => b.IsActive).ToListAsync(ct);
         var stock = items.ToDictionary(i => i.Id, i => i.Stock);
@@ -193,10 +196,10 @@ internal sealed class ReservationService(
     }
 
     private async Task<(IReadOnlyList<StockShortage> Shortages, Dictionary<Guid, RentalItem> Items, Dictionary<Guid, Bundle> Bundles)> EvaluateAsync(
-        DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct)
+        AppDbContext db, DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct)
     {
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
-        var (reserved, blocked) = await OccupationAsync(period, tenant, ct);
+        var (reserved, blocked) = await OccupationAsync(db, period, tenant, ct);
 
         var bundleIds = lines.Select(l => l.BundleId).OfType<Guid>().Distinct().ToList();
         var bundles = await db.Bundles.AsNoTracking().Where(b => bundleIds.Contains(b.Id)).ToDictionaryAsync(b => b.Id, ct);
@@ -218,7 +221,7 @@ internal sealed class ReservationService(
     }
 
     /// <summary>De bestaande bezetting (reservaties en blokkeringen) die een vraag in deze periode kan raken.</summary>
-    private async Task<(List<StockDemand> Reserved, List<StockDemand> Blocked)> OccupationAsync(DateRange period, Tenant tenant, CancellationToken ct)
+    private async Task<(List<StockDemand> Reserved, List<StockDemand> Blocked)> OccupationAsync(AppDbContext db, DateRange period, Tenant tenant, CancellationToken ct)
     {
         var before = tenant.BufferDaysBefore;
         var after = tenant.BufferDaysAfter;
@@ -227,7 +230,7 @@ internal sealed class ReservationService(
         var windowStart = period.Start.AddDays(-(before + after));
         var windowEnd = period.End.AddDays(before + after);
         var existing = await db.Reservations.AsNoTracking()
-            .Where(r => OccupyingStatuses.Contains(r.Status) && r.StartDate <= windowEnd && r.EndDate >= windowStart)
+            .Where(r => Reservation.StockOccupyingStatuses.Contains(r.Status) && r.StartDate <= windowEnd && r.EndDate >= windowStart)
             .ToListAsync(ct);
         var blockouts = await db.Blockouts.AsNoTracking()
             .Where(b => b.StartDate <= period.End.AddDays(after) && (b.EndDate == null || b.EndDate >= period.Start.AddDays(-before)))
@@ -265,7 +268,7 @@ internal sealed class ReservationService(
         };
     }
 
-    private async Task<Customer> UpsertCustomerAsync(ReservationRequest request, CancellationToken ct)
+    private static async Task<Customer> UpsertCustomerAsync(AppDbContext db, ReservationRequest request, CancellationToken ct)
     {
         var email = request.Customer.Email.Trim().ToLowerInvariant();
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Email == email, ct);
@@ -283,7 +286,7 @@ internal sealed class ReservationService(
     }
 
     /// <summary>Volgnummer per jaar, bv. 2026-0042. Veilig omdat we binnen de tenant-lock zitten.</summary>
-    private async Task<string> NextNumberAsync(CancellationToken ct)
+    private async Task<string> NextNumberAsync(AppDbContext db, CancellationToken ct)
     {
         var year = clock.GetUtcNow().Year;
         var prefix = $"{year}-";

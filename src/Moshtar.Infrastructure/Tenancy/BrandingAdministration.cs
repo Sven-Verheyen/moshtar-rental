@@ -36,7 +36,16 @@ internal sealed class BrandingAdministration(
     public async Task UploadAsync(BrandingImage image, Stream content, CancellationToken ct = default)
     {
         var key = await images.UploadAsync(content, ct);
-        await ReplaceAsync(image, key, ct);
+        try
+        {
+            await ReplaceAsync(image, key, ct);
+        }
+        catch
+        {
+            // Niet bewaard: niets verwijst naar de nieuwe afbeelding, dus weg ermee (zoals in PhotoAlbum).
+            await images.DeleteAsync(key, CancellationToken.None);
+            throw;
+        }
     }
 
     public Task RemoveAsync(BrandingImage image, CancellationToken ct = default) => ReplaceAsync(image, null, ct);

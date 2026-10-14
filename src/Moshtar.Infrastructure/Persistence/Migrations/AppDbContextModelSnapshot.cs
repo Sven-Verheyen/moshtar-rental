@@ -458,6 +458,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("MailedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("MailedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("RentalItemId")
                         .HasColumnType("uuid");
 
@@ -477,6 +480,8 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AlternativeRentalItemId");
+
+                    b.HasIndex("MailedByUserId");
 
                     b.HasIndex("RentalItemId");
 
@@ -1238,6 +1243,11 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasForeignKey("AlternativeRentalItemId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Moshtar.Infrastructure.Identity.User", null)
+                        .WithMany()
+                        .HasForeignKey("MailedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Moshtar.Domain.Catalog.RentalItem", null)
                         .WithMany()

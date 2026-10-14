@@ -1,8 +1,10 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Catalog;
+using Moshtar.Application.Reservations;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Persistence;
 
@@ -43,18 +45,40 @@ public sealed class FeaturedTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
-    public async Task With_a_rental_period_the_home_still_shows_the_whole_offer_with_availability()
+    public async Task With_a_rental_period_the_home_shows_the_featured_first_with_their_availability_and_then_the_whole_offer()
     {
         var tenant = await NewTenantAsync("uitgelicht-periode");
-        await using (var scope = await app.TenantScopeAsync("uitgelicht-periode"))
-            await Featured(scope).SetFeaturedAsync(tenant.Mill, true);
         var day = TestReservations.FutureDay(10);
+        await using (var scope = await app.TenantScopeAsync("uitgelicht-periode"))
+        {
+            await Featured(scope).SetFeaturedAsync(tenant.Mill, true);
+            await Featured(scope).SetFeaturedAsync(tenant.Pirate, true);
+            // De enige molen is die dag al gereserveerd.
+            var reserved = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
+                new DateRange(day, day), [new ReservationLineRequest(tenant.Mill, null, 1)],
+                new ReservationCustomer("Test", "Klant", "klant@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+                DeliveryMethod.Pickup, null, null, "nl"), ReservationActor.Website);
+            Assert.NotNull(reserved.Reservation);
+        }
 
         var html = await HomeAsync("uitgelicht-periode", $"/?van={day:yyyy-MM-dd}");
 
-        Assert.Contains("<p class=\"muted\">4 van de 4 vrij</p>", html);
-        Assert.Contains(">Prinsessenkasteel</a></h3>", html);
-        Assert.DoesNotContain("<h2>Uitgelicht</h2>", html);
+        var featuredStart = html.IndexOf("<h2>Uitgelicht</h2>");
+        var offerStart = html.IndexOf("<h2>Ons aanbod voor");
+        Assert.True(featuredStart > 0 && offerStart > featuredStart, "Eerst de uitgelichte, dan het hele aanbod.");
+        var featured = html[featuredStart..offerStart];
+        Assert.Contains(">Piratenkasteel</a></h3>", featured);
+        Assert.Contains(">Molen</a></h3>", featured);
+        Assert.DoesNotContain(">Prinsessenkasteel</a></h3>", featured);
+        Assert.Contains("Niet vrij op deze datum", featured[featured.IndexOf(">Molen</a></h3>")..]);
+        Assert.DoesNotContain("Niet vrij op deze datum", featured[..featured.IndexOf(">Molen</a></h3>")]);
+        Assert.Contains($"?van={day:yyyy-MM-dd}", featured);
+
+        var offer = html[offerStart..];
+        // Het feestpakket bevat de molen, dus ook dat is niet vrij.
+        Assert.Contains("<p class=\"muted\">2 van de 4 vrij</p>", offer);
+        Assert.Contains(">Prinsessenkasteel</a></h3>", offer);
+        Assert.Contains(">Molen</a></h3>", offer);
     }
 
     [Fact]
