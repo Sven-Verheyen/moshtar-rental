@@ -5,6 +5,7 @@ using Moshtar.Application.Schedule;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Rounds;
 using Moshtar.Infrastructure.Maps;
 using Moshtar.Infrastructure.Persistence;
 
@@ -39,14 +40,18 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
             businessPoint = await BusinessPointAsync(ct);
         }
         var names = await NamesAsync(reservations, ct);
+        var rounds = await db.Rounds.AsNoTracking().Where(r => r.Day >= from && r.Day <= to).ToListAsync(ct);
+        var settings = (await db.Tenants.AsNoTracking().SingleOrDefaultAsync(t => t.Id == tenantContext.TenantId, ct))?.RoundSettings ?? RoundSettings.Default;
 
         var stops = reservations.Select(r => (Reservation: r, Stop: ToStop(r, names))).ToList();
         return Enumerable.Range(0, to.DayNumber - from.DayNumber + 1)
-            .Select(i => Day(from.AddDays(i), stops, businessPoint))
+            .Select(i => Day(from.AddDays(i), stops, rounds, settings, businessPoint))
             .ToList();
     }
 
-    private static ScheduleDay Day(DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops, GeoPoint? businessPoint)
+    private static ScheduleDay Day(
+        DateOnly day, IReadOnlyList<(Reservation Reservation, ScheduleStop Stop)> stops, IReadOnlyList<Round> rounds,
+        RoundSettings settings, GeoPoint? businessPoint)
     {
         IReadOnlyList<ScheduleStop> Select(DeliveryMethod method, Func<Reservation, bool> onDay) => stops
             .Where(s => s.Reservation.DeliveryMethod == method && onDay(s.Reservation))
@@ -54,14 +59,41 @@ internal sealed class ScheduleService(AppDbContext db, ITenantContext tenantCont
             .OrderBy(s => s.Address?.PostalCode).ThenBy(s => s.Address?.Street).ThenBy(s => s.Number)
             .ToList();
 
+        var deliveries = Select(DeliveryMethod.Delivery, r => r.StartDate == day);
+        var collections = Select(DeliveryMethod.Delivery, r => r.EndDate == day);
+        var (deliveryRound, orderedDeliveries) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Delivery), deliveries, settings);
+        var (collectionRound, orderedCollections) = InRound(rounds.SingleOrDefault(r => r.Day == day && r.Kind == RoundKind.Collection), collections, settings);
         return new ScheduleDay(
             day,
-            Deliveries: Select(DeliveryMethod.Delivery, r => r.StartDate == day),
-            Collections: Select(DeliveryMethod.Delivery, r => r.EndDate == day),
+            Deliveries: orderedDeliveries,
+            Collections: orderedCollections,
             Pickups: Select(DeliveryMethod.Pickup, r => r.StartDate == day),
             Returns: Select(DeliveryMethod.Pickup, r => r.EndDate == day),
-            BusinessPoint: businessPoint);
+            BusinessPoint: businessPoint,
+            DeliveryRound: deliveryRound,
+            CollectionRound: collectionRound);
     }
+
+    /// <summary>
+    /// De stops van een ronde in de volgorde van de bewaarde ronde, met hun uren; wat er niet in zit (nieuw, of zonder
+    /// punt) erachter op postcode. Zonder bewaarde ronde: de stops zoals ze zijn, op postcode.
+    /// </summary>
+    private static (ScheduleRound? Round, IReadOnlyList<ScheduleStop> Stops) InRound(Round? round, IReadOnlyList<ScheduleStop> stops, RoundSettings settings)
+    {
+        if (round is null) return (null, stops);
+        var saved = round.Stops.ToDictionary(s => s.ReservationId);
+        var inRound = stops
+            .Where(s => saved.TryGetValue(s.ReservationId, out var stop) && stop.Point == s.Point)
+            .Select(s => s with { InRound = ToRoundStop(saved[s.ReservationId]) })
+            .OrderBy(s => s.InRound!.Position)
+            .ToList();
+        var rest = stops.Where(s => inRound.All(r => r.ReservationId != s.ReservationId)).ToList();
+        var changed = rest.Any(s => s.Point is not null) || inRound.Count != round.Stops.Count;
+        return (new ScheduleRound(round.Departure, round.Return, changed, settings.HandlingMinutes(round.Kind)), [.. inRound, .. rest]);
+    }
+
+    private static ScheduleRoundStop ToRoundStop(RoundStop s) =>
+        new(s.Position, s.Arrival, s.Window, s.FixedTime, s.HandlingMinutes, s.Late);
 
     /// <summary>
     /// Zoekt de punten op van leveradressen die er nog geen hebben: reservaties van voor er punten waren, of waarvan

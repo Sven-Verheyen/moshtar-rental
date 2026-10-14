@@ -1,5 +1,6 @@
 @using Moshtar.Application.Schedule
 @using Moshtar.Domain.Common
+@using Moshtar.Domain.Rounds
 
 @* De reservaties van één ronde in de Planning, als kaartjes onder elkaar zodat ze ook op een gsm leesbaar zijn. *@
 @if (Stops.Count == 0)
@@ -8,13 +9,63 @@
 }
 @foreach (var stop in Stops)
 {
-    <MudPaper Class="@($"planning-stop pa-3 mb-2{(stop.IsCompleted ? " planning-stop-done" : "")}")" Outlined="true" data-reservation="@stop.Number">
+    <MudPaper Class="@($"planning-stop pa-3 mb-2{(stop.IsCompleted ? " planning-stop-done" : "")}")" Outlined="true" data-reservation="@stop.Number"
+              data-order="@stop.InRound?.Position">
         <div class="d-flex flex-wrap align-center gap-2">
+            @if (stop.InRound is { } numbered)
+            {
+                <span class="planning-order" aria-label="@($"Stop {numbered.Position}")">@numbered.Position</span>
+            }
             <MudText Typo="Typo.subtitle1"><b>@stop.CustomerName</b></MudText>
             <MudText Typo="Typo.body2" Class="mud-text-secondary">@stop.Number</MudText>
             <MudSpacer />
             <MudChip T="string" Size="Size.Small" Color="@(stop.IsCompleted ? Color.Default : Color.Primary)">@StatusLabel(stop.Status)</MudChip>
         </div>
+        @if (stop.InRound is { } times)
+        {
+            <div class="planning-times d-flex flex-wrap align-center gap-2" data-arrival="@times.Arrival.ToString("HH:mm")"
+                 data-window="@times.Window" data-fixed="@times.FixedTime?.ToString("HH:mm")">
+                <span>Aankomst <b>@ExpectedWindow.Time(times.Arrival)</b></span>
+                <span>Venster <b>@times.Window</b></span>
+                @if (times.FixedTime is { } fixedTime)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Schedule">Vast uur @ExpectedWindow.Time(fixedTime)</MudChip>
+                }
+                @if (times.HandlingMinutes is { } own)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@HandlingLabel @own min</MudChip>
+                }
+                @if (times.Late)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Te laat voor het vaste uur</MudChip>
+                }
+                @if (OnMove.HasDelegate)
+                {
+                    <MudSpacer />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" aria-label="Stop naar boven" Disabled="@(times.Position == 1)"
+                                   data-action="omhoog" OnClick="() => OnMove.InvokeAsync((stop, times.Position - 1))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" aria-label="Stop naar beneden" Disabled="@(times.Position == LastPosition)"
+                                   data-action="omlaag" OnClick="() => OnMove.InvokeAsync((stop, times.Position + 1))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Tune" Size="Size.Small" aria-label="Uur en opbouwtijd aanpassen"
+                                   data-action="stop-aanpassen" OnClick="() => Tune(stop)" />
+                }
+            </div>
+            @if (_tuning == stop.ReservationId)
+            {
+                <MudPaper Elevation="0" Class="planning-edit pa-2 my-2">
+                    <div class="d-flex flex-wrap gap-2">
+                        <MudTextField @bind-Value="_fixedTime" Label="Vast uur" InputType="InputType.Time" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      HelperText="Leeg: geen vast uur" Class="planning-field" />
+                        <MudNumericField @bind-Value="_handling" Label="@($"{HandlingLabel} (min)")" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                         Min="0" Max="480" HelperText="@($"Leeg: standaard {DefaultHandlingMinutes} min")" Class="planning-field" />
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="() => SaveTuningAsync(stop)">Bewaren</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _tuning = null">Annuleren</MudButton>
+                    </div>
+                </MudPaper>
+            }
+        }
         @if (stop.Phone is { } phone)
         {
             <div><MudLink Href="@($"tel:{TelephoneHref(phone)}")">@phone</MudLink></div>
@@ -106,6 +157,39 @@
 
     /// <summary>Een speld zetten voor een stop waarvan het adres niet gevonden wordt. Zonder: geen knop "Speld zetten".</summary>
     [Parameter] public EventCallback<ScheduleStop> OnPin { get; set; }
+
+    /// <summary>Een stop in de ronde naar een andere plaats zetten (vanaf 1). Zonder: geen knoppen om de ronde aan te passen.</summary>
+    [Parameter] public EventCallback<(ScheduleStop Stop, int Position)> OnMove { get; set; }
+
+    /// <summary>Het vaste uur (null: geen) en de eigen opbouw- of afbouwtijd (null: de standaard) van een stop bewaren.</summary>
+    [Parameter] public EventCallback<(ScheduleStop Stop, TimeOnly? FixedTime, int? HandlingMinutes)> OnTune { get; set; }
+
+    /// <summary>"Opbouwtijd" in de leverronde, "Afbouwtijd" in de ophaalronde.</summary>
+    [Parameter] public string HandlingLabel { get; set; } = "Opbouwtijd";
+
+    /// <summary>De opbouw- of afbouwtijd uit de instellingen, voor een stop zonder eigen tijd.</summary>
+    [Parameter] public int DefaultHandlingMinutes { get; set; }
+
+    private int LastPosition => Stops.Max(s => s.InRound?.Position ?? 0);
+
+    /// <summary>De stop waarvan nu het vaste uur of de eigen tijd aangepast wordt, en de velden van dat formulier.</summary>
+    private Guid? _tuning;
+    private string? _fixedTime;
+    private int? _handling;
+
+    private void Tune(ScheduleStop stop)
+    {
+        _tuning = _tuning == stop.ReservationId ? null : stop.ReservationId;
+        _fixedTime = stop.InRound?.FixedTime?.ToString("HH:mm");
+        _handling = stop.InRound?.HandlingMinutes;
+    }
+
+    private async Task SaveTuningAsync(ScheduleStop stop)
+    {
+        TimeOnly? fixedTime = TimeOnly.TryParse(_fixedTime, System.Globalization.CultureInfo.InvariantCulture, out var time) ? time : null;
+        await OnTune.InvokeAsync((stop, fixedTime, _handling));
+        _tuning = null;
+    }
 
     /// <summary>De reservatie waarvan het adres nu verbeterd wordt, en de velden van dat formulier.</summary>
     private Guid? _editing;

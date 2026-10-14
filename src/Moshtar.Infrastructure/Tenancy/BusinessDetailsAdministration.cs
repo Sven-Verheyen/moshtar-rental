@@ -19,6 +19,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
             GoogleAnalyticsId = t.GoogleAnalyticsId,
             ServiceArea = t.ServiceArea,
             OffersPickup = t.OffersPickup,
+            Rounds = t.RoundSettings,
         };
     }
 
@@ -27,6 +28,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
         var problems = BusinessDetails.Problems(s.Email, s.Phone, s.WhatsAppPhone, s.FacebookUrl, s.InstagramUrl, s.TikTokUrl, s.GoogleBusinessUrl)
             .Concat(TooLong(s))
             .Concat(BusinessDetails.GoogleAnalyticsProblem(s.GoogleAnalyticsId) is { } analytics ? [analytics] : [])
+            .Concat(s.Rounds.Problems())
             .ToList();
         if (problems.Count > 0)
             throw new BusinessDetailsException(problems);
@@ -59,6 +61,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
         tenant.GoogleAnalyticsId = BusinessDetails.GoogleAnalyticsId(s.GoogleAnalyticsId);
         tenant.ServiceArea = BusinessDetails.ServiceArea(string.Join('\n', s.ServiceArea)).ToList();
         tenant.OffersPickup = s.OffersPickup;
+        tenant.RoundSettings = s.Rounds;
     }
 
     /// <summary>Velden die langer zijn dan de database toelaat (zie TenantConfiguration).</summary>

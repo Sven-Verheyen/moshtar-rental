@@ -1,5 +1,7 @@
 // De kaart van de Planning met de Azure Maps Web SDK (ADR 0006). De punten staan in de data-attributen van het element:
-// data-bedrijf="breedte,lengte" en data-stops='[{"nummer","klant","ronde":"levering"|"ophaling","punt":"breedte,lengte"}]'.
+// data-bedrijf="breedte,lengte" en data-stops='[{"nummer","klant","ronde":"levering"|"ophaling","punt":"breedte,lengte","volgorde":1|null}]'.
+// Stops met een volgorde horen bij een ronde met een route: die wordt getekend vanaf en terug naar het bedrijf, in
+// rechte lijnen tussen de stops (de weg zelf toont de navigatie).
 
 const sdkVersion = "3";
 const colors = { levering: "#1565c0", ophaling: "#ef6c00", bedrijf: "#424242", speld: "#c62828" };
@@ -57,6 +59,13 @@ export async function show(id, key, dotnet) {
     }
     state.dotnet = dotnet;
     await state.ready;
+    if (!state.routes) {
+        state.routes = new atlas.source.DataSource();
+        state.map.sources.add(state.routes);
+        state.map.layers.add(new atlas.layer.LineLayer(state.routes, null, {
+            strokeColor: ["get", "color"], strokeWidth: 3, strokeOpacity: 0.8,
+        }));
+    }
     draw(state);
 }
 
@@ -77,13 +86,27 @@ function draw(state) {
 
     const business = position(element.dataset.bedrijf);
     if (business) marker(business, colors.bedrijf, "", "Vertrek en aankomst");
+    const stops = JSON.parse(element.dataset.stops || "[]");
     const counters = { levering: 0, ophaling: 0 };
-    for (const stop of JSON.parse(element.dataset.stops || "[]")) {
+    for (const stop of stops) {
         const at = position(stop.punt);
         if (!at) continue;
         counters[stop.ronde] = (counters[stop.ronde] ?? 0) + 1;
         const round = stop.ronde === "levering" ? "Levering" : "Ophaling";
-        marker(at, colors[stop.ronde] ?? colors.levering, String(counters[stop.ronde]), `${round}: ${stop.klant} (${stop.nummer})`);
+        const text = stop.volgorde ? String(stop.volgorde) : "";
+        marker(at, colors[stop.ronde] ?? colors.levering, text || String(counters[stop.ronde]),
+            `${round}${text ? " " + text : ""}: ${stop.klant} (${stop.nummer})`);
+    }
+
+    state.routes.clear();
+    if (business) {
+        for (const round of ["levering", "ophaling"]) {
+            const route = stops.filter(s => s.ronde === round && s.volgorde && position(s.punt))
+                .sort((a, b) => a.volgorde - b.volgorde)
+                .map(s => position(s.punt));
+            if (route.length === 0) continue;
+            state.routes.add(new atlas.data.Feature(new atlas.data.LineString([business, ...route, business]), { color: colors[round] }));
+        }
     }
 
     if (positions.length > 1)

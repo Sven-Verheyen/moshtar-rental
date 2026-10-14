@@ -6,6 +6,7 @@ using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Rounds;
 using Moshtar.Domain.Tenants;
 using Moshtar.Domain.Website;
 using Moshtar.Infrastructure.Identity;
@@ -33,6 +34,9 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(t => t.GoogleBusinessUrl).HasMaxLength(500);
         b.Property(t => t.GoogleAnalyticsId).HasMaxLength(30);
         b.Ignore(t => t.Cultures);
+        b.Ignore(t => t.RoundSettings);
+        // De standaarden voor de rondes krijgen bestaande verhuurders in de migratie Rondes (geen HasDefaultValue:
+        // dan zou EF een bewust gekozen 0 minuten niet bewaren).
         b.HasMany(t => t.Hosts).WithOne().HasForeignKey(h => h.TenantId);
     }
 }
@@ -128,6 +132,28 @@ internal class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
             l.Ignore(x => x.LineTotal);
             l.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Restrict);
             l.HasOne<Bundle>().WithMany().HasForeignKey(x => x.BundleId).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+}
+
+internal class RoundConfiguration : IEntityTypeConfiguration<Round>
+{
+    public void Configure(EntityTypeBuilder<Round> b)
+    {
+        b.ToTable("Rounds");
+        b.HasIndex(r => new { r.TenantId, r.Day, r.Kind }).IsUnique();
+        b.Ignore(r => r.Ordered);
+        b.OwnsMany(r => r.Stops, s =>
+        {
+            s.ToTable("RoundStops");
+            s.WithOwner().HasForeignKey("RoundId");
+            s.HasKey(x => x.Id);
+            s.Property(x => x.Id).ValueGeneratedNever();
+            s.OwnsOne(x => x.Point);
+            s.Navigation(x => x.Point).IsRequired();
+            s.Ignore(x => x.Window);
+            s.Ignore(x => x.Late);
+            s.HasOne<Reservation>().WithMany().HasForeignKey(x => x.ReservationId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

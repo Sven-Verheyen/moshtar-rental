@@ -63,6 +63,9 @@ h1:focus {
 .planning-map-popup { padding: .5rem .75rem; }
 .planning-edit { background: var(--mud-palette-background-gray); }
 .planning-postal-code { max-width: 7rem; }
+.planning-order { display: inline-flex; align-items: center; justify-content: center; min-width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--mud-palette-primary); color: var(--mud-palette-primary-text); font-weight: 600; font-size: .85rem; }
+.planning-times { font-size: .9rem; margin: .25rem 0; }
+.planning-field { max-width: 11rem; }
 @media (max-width: 600px) { .planning-map { height: 16rem; } }
 .planning-week, .planning-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .5rem; margin-bottom: 1.5rem; }
 .planning-cell { display: block; padding: .5rem; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px; color: inherit; text-decoration: none; min-width: 0; overflow-wrap: anywhere; }

@@ -4,7 +4,9 @@
 @rendermode InteractiveServer
 @using Moshtar.Application.Schedule
 @using Moshtar.Domain.Common
+@using Moshtar.Domain.Rounds
 @inject ISchedule Schedule
+@inject IRoundPlanner Rounds
 @inject IReservationService ReservationService
 @inject TimeProvider Clock
 @inject NavigationManager Navigation
@@ -71,13 +73,29 @@
         <PlanningMap Day="_day" MapKey="@MapKey" Pinning="_pinFor is not null" OnPinPlaced="PinPlaced" />
         <section id="leverronde" class="planning-round">
             <MudText Typo="Typo.h6">Leverronde</MudText>
+            @if (_day.Deliveries.Count > 0)
+            {
+                <RoundTools Round="_day.DeliveryRound" OnPropose="() => ProposeAsync(RoundKind.Delivery)"
+                            OnUpdate="() => UpdateRoundAsync(RoundKind.Delivery)"
+                            OnDeparture="t => DepartureAsync(RoundKind.Delivery, t)" />
+            }
             <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync"
-                      OnCorrect="CorrectAsync" OnPin="StartPin" />
+                      OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Opbouwtijd"
+                      DefaultHandlingMinutes="@(_day.DeliveryRound?.DefaultHandlingMinutes ?? 0)"
+                      OnMove="m => MoveAsync(RoundKind.Delivery, m)" OnTune="t => TuneAsync(RoundKind.Delivery, t)" />
         </section>
         <section id="ophaalronde" class="planning-round">
             <MudText Typo="Typo.h6">Ophaalronde</MudText>
+            @if (_day.Collections.Count > 0)
+            {
+                <RoundTools Round="_day.CollectionRound" OnPropose="() => ProposeAsync(RoundKind.Collection)"
+                            OnUpdate="() => UpdateRoundAsync(RoundKind.Collection)"
+                            OnDeparture="t => DepartureAsync(RoundKind.Collection, t)" />
+            }
             <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync"
-                      OnCorrect="CorrectAsync" OnPin="StartPin" />
+                      OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Afbouwtijd"
+                      DefaultHandlingMinutes="@(_day.CollectionRound?.DefaultHandlingMinutes ?? 0)"
+                      OnMove="m => MoveAsync(RoundKind.Collection, m)" OnTune="t => TuneAsync(RoundKind.Collection, t)" />
         </section>
         @if (_day.Pickups.Count > 0)
         {
@@ -139,8 +157,11 @@
         _ => Day.AddDays(direction),
     };
 
-    /// <summary>De sleutel voor de kaart in de browser; zonder sleutel geen kaart.</summary>
-    private string? MapKey => string.IsNullOrWhiteSpace(MapOptions.Value.AzureMapsKey) ? null : MapOptions.Value.AzureMapsKey;
+    /// <summary>
+    /// De sleutel voor de kaart in de browser, die enkel kaarttegels mag tonen; zonder geen kaart. Nooit de sleutel
+    /// van de server: wat de browser krijgt, kan iedereen lezen.
+    /// </summary>
+    private string? MapKey => string.IsNullOrWhiteSpace(MapOptions.Value.AzureMapsBrowserKey) ? null : MapOptions.Value.AzureMapsBrowserKey;
 
     /// <summary>De stop waarvoor nu een speld gezet wordt, en de coördinaten van die speld.</summary>
     private ScheduleStop? _pinFor;
@@ -182,6 +203,38 @@
         }
         _day = await Schedule.GetDayAsync(Day);
     }
+
+    /// <summary>Een wijziging aan een ronde: de uren worden herrekend en bewaard, en de dag opnieuw getoond.</summary>
+    private async Task PlanAsync(RoundKind kind, Func<IRoundPlanner, Task> change, string? done = null)
+    {
+        try
+        {
+            await change(Rounds);
+            if (done is not null)
+                Snackbar.Add($"{(kind == RoundKind.Delivery ? "Leverronde" : "Ophaalronde")}: {done}", Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private Task ProposeAsync(RoundKind kind) => PlanAsync(kind, p => p.ProposeAsync(Day, kind), "route voorgesteld.");
+
+    private Task UpdateRoundAsync(RoundKind kind) => PlanAsync(kind, p => p.UpdateAsync(Day, kind), "ronde bijgewerkt.");
+
+    private Task DepartureAsync(RoundKind kind, TimeOnly departure) => PlanAsync(kind, p => p.SetDepartureAsync(Day, kind, departure));
+
+    private Task MoveAsync(RoundKind kind, (ScheduleStop Stop, int Position) move) =>
+        PlanAsync(kind, p => p.MoveAsync(Day, kind, move.Stop.ReservationId, move.Position));
+
+    private Task TuneAsync(RoundKind kind, (ScheduleStop Stop, TimeOnly? FixedTime, int? HandlingMinutes) tune) =>
+        PlanAsync(kind, async p =>
+        {
+            await p.SetFixedTimeAsync(Day, kind, tune.Stop.ReservationId, tune.FixedTime);
+            await p.SetHandlingMinutesAsync(Day, kind, tune.Stop.ReservationId, tune.HandlingMinutes);
+        });
 
     private async Task CorrectAsync((ScheduleStop Stop, Address Address) correction)
     {

@@ -4,7 +4,8 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JS
 
-@* De kaart van één dag (Azure Maps, ADR 0006): de stops van de leverronde en de ophaalronde, en het bedrijfsadres.
+@* De kaart van één dag (Azure Maps, ADR 0006): de stops van de leverronde en de ophaalronde, en het bedrijfsadres;
+   van een ronde met een route ook de route, met de stops genummerd in volgorde.
    De punten staan in data-attributen; het script tekent ze. Zonder sleutel geen kaart, de rest van de planning werkt gewoon. *@
 @if (MapKey is null)
 {
@@ -21,7 +22,7 @@ else
 @code {
     [Parameter, EditorRequired] public ScheduleDay Day { get; set; } = default!;
 
-    /// <summary>De sleutel van Azure Maps voor de kaart in de browser; null: geen kaart.</summary>
+    /// <summary>De browsersleutel van Azure Maps (enkel kaarttegels); null: geen kaart.</summary>
     [Parameter] public string? MapKey { get; set; }
 
     /// <summary>Wordt er een speld gezet? Dan zet een klik op de kaart de speld, en die kan nog versleept worden.</summary>
@@ -34,12 +35,15 @@ else
     private string? _drawn;
     private bool? _pinning;
 
-    /// <summary>Elke stop met een punt, in de volgorde van de ronde. Een stop zonder punt kan niet op de kaart.</summary>
+    /// <summary>
+    /// Elke stop met een punt, in de volgorde van de ronde, met zijn plaats in de route (volgorde) als de ronde een
+    /// route heeft. Een stop zonder punt kan niet op de kaart.
+    /// </summary>
     private string StopsJson => JsonSerializer.Serialize(
         Day.Deliveries.Select(s => (Stop: s, Round: "levering"))
             .Concat(Day.Collections.Select(s => (Stop: s, Round: "ophaling")))
             .Where(x => x.Stop.Point is not null)
-            .Select(x => new { nummer = x.Stop.Number, klant = x.Stop.CustomerName, ronde = x.Round, punt = x.Stop.Point!.ToString() }));
+            .Select(x => new { nummer = x.Stop.Number, klant = x.Stop.CustomerName, ronde = x.Round, punt = x.Stop.Point!.ToString(), volgorde = x.Stop.InRound?.Position }));
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

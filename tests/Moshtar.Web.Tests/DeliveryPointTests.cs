@@ -155,6 +155,20 @@ public sealed class DeliveryPointTests(MoshtarApp app) : IClassFixture<MoshtarAp
         Assert.DoesNotContain("atlas.microsoft.com", html);
     }
 
+    [Fact]
+    public async Task The_server_key_alone_shows_no_map_because_the_browser_gets_only_the_browser_key()
+    {
+        var day = TestReservations.FutureDay(341);
+        await ReserveAsync("Sven", "Serversleutel", day, day, "Markt 8", "2400", "Mol");
+        await using var serverOnly = app.WithWebHostBuilder(b => b.UseSetting("Maps:AzureMapsKey", "server-sleutel"));
+        var client = await LoggedInClientAsync(serverOnly, "kaart-serversleutel@hopsakee.test", UserRole.Staff);
+
+        var html = await PlanningAsync(client, day);
+
+        Assert.Contains("Geen kaart", html);
+        Assert.DoesNotContain("planning-kaart", html);
+    }
+
     [Theory]
     [InlineData(UserRole.Staff)]
     [InlineData(UserRole.Administrator)]
@@ -167,7 +181,7 @@ public sealed class DeliveryPointTests(MoshtarApp app) : IClassFixture<MoshtarAp
         var business = new Address { Street = "Industrieweg 10", PostalCode = "2440", City = "Geel" };
         await MoveBusinessAsync(business);
         var maps = app.Services.GetRequiredService<IMapService>();
-        await using var withMap = app.WithWebHostBuilder(b => b.UseSetting("Maps:AzureMapsKey", "test-sleutel"));
+        await using var withMap = app.WithWebHostBuilder(b => b.UseSetting("Maps:AzureMapsBrowserKey", "test-sleutel"));
         var client = await LoggedInClientAsync(withMap, $"kaart-{role}@hopsakee.test".ToLowerInvariant(), role);
 
         var html = await PlanningAsync(client, day);
@@ -186,7 +200,7 @@ public sealed class DeliveryPointTests(MoshtarApp app) : IClassFixture<MoshtarAp
     {
         var day = TestReservations.FutureDay(340);
         await ReserveAsync("Bram", "Bedrijf", day, day, "Markt 6", "2400", "Mol");
-        await using var withMap = app.WithWebHostBuilder(b => b.UseSetting("Maps:AzureMapsKey", "test-sleutel"));
+        await using var withMap = app.WithWebHostBuilder(b => b.UseSetting("Maps:AzureMapsBrowserKey", "test-sleutel"));
         var client = await LoggedInClientAsync(withMap, "kaart-verhuisd@hopsakee.test", UserRole.Administrator);
         var moved = new Address { Street = "Nieuwe Baan 3", PostalCode = "3000", City = "Leuven" };
         await MoveBusinessAsync(new Address { Street = "Oude Baan 1", PostalCode = "2400", City = "Mol" });
@@ -238,6 +252,12 @@ public sealed class DeliveryPointTests(MoshtarApp app) : IClassFixture<MoshtarAp
     private sealed class UnreachableMaps : IMapService
     {
         public Task<GeoPoint?> FindAsync(Address address, CancellationToken ct = default) =>
+            throw new HttpRequestException("Azure Maps antwoordt niet.");
+
+        public Task<Route> RouteAsync(GeoPoint start, IReadOnlyList<GeoPoint> stops, DateTimeOffset departure, bool bestOrder, CancellationToken ct = default) =>
+            throw new HttpRequestException("Azure Maps antwoordt niet.");
+
+        public Task<TimeSpan[][]> TravelTimesAsync(IReadOnlyList<GeoPoint> origins, IReadOnlyList<GeoPoint> destinations, DateTimeOffset departure, CancellationToken ct = default) =>
             throw new HttpRequestException("Azure Maps antwoordt niet.");
     }
 

@@ -50,6 +50,21 @@ public class Tenant
     /// <summary>Kunnen klanten zelf afhalen? Zo niet, dan levert de verhuurder altijd en is er geen keuze.</summary>
     public bool OffersPickup { get; set; }
 
+    // Standaarden voor de rondes in de Planning (zie RoundSettings).
+    public TimeOnly DeliveryDeparture { get; set; } = Rounds.RoundSettings.Default.DeliveryDeparture;
+    public TimeOnly CollectionDeparture { get; set; } = Rounds.RoundSettings.Default.CollectionDeparture;
+    public int SetupMinutes { get; set; } = Rounds.RoundSettings.Default.SetupMinutes;
+    public int TeardownMinutes { get; set; } = Rounds.RoundSettings.Default.TeardownMinutes;
+    public int WindowMinutes { get; set; } = Rounds.RoundSettings.Default.WindowMinutes;
+
+    /// <summary>De standaarden voor de rondes van deze verhuurder.</summary>
+    public Rounds.RoundSettings RoundSettings
+    {
+        get => new(DeliveryDeparture, CollectionDeparture, SetupMinutes, TeardownMinutes, WindowMinutes);
+        set => (DeliveryDeparture, CollectionDeparture, SetupMinutes, TeardownMinutes, WindowMinutes) =
+            (value.DeliveryDeparture, value.CollectionDeparture, value.SetupMinutes, value.TeardownMinutes, value.WindowMinutes);
+    }
+
     public string? LogoUrl { get; set; }
     public string? PrimaryColor { get; set; }
     /// <summary>Adres van de sfeerfoto, groot bovenaan de home van de reservatiewebsite.</summary>

@@ -69,9 +69,14 @@ tests/
   wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests. Lokaal vind je zo
   ook de link uit een uitnodiging of herstelmail terug in de console.
 - **Kaart**: adressen en de kaart in de planning komen van Azure Maps (`docs/adr/0006-azure-maps-voor-kaart-en-routes.md`), met de sleutel uit
-  `Maps:AzureMapsKey`. Zonder sleutel toont de planning geen kaart en zoekt een lokale vervanger de adressen op:
-  die vindt elk adres met een Belgische postcode en een huisnummer (zonder huisnummer: "Adres niet gevonden").
-  In de tests is het altijd de vervanger. De browser krijgt voorlopig dezelfde sleutel als de server.
+  `Maps:AzureMapsKey` (adressen en routes, enkel op de server). Zonder sleutel zoekt een lokale vervanger de adressen
+  op en berekent hij routes: die vindt elk adres met een Belgische postcode en een huisnummer (zonder huisnummer:
+  "Adres niet gevonden") en rijdt in vogelvlucht aan 50 km/u. In de tests is het altijd de vervanger. De kaart in de
+  browser gebruikt een aparte sleutel, `Maps:AzureMapsBrowserKey`, die in Azure beperkt is tot kaarttegels; zonder die
+  sleutel toont de planning geen kaart.
+- **Rondes**: "Route voorstellen" bewaart een ronde (`Round`) met de snelste volgorde; de uren en verwachte
+  tijdsvensters rekent `RoundTimes` uit, een nieuwe stop komt via `RoundInsertion` op de goedkoopste plek. Zie
+  `IRoundPlanner`.
 - **Vertalingen**: UI-teksten in `Resources/SharedResource.*.resx`, inhoud (namen, beschrijvingen) als JSON in de database.
 
 ## Lokaal draaien
