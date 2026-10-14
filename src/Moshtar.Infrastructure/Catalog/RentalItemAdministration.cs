@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Catalog;
+using Moshtar.Application.Images;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Availability;
 using Moshtar.Domain.Catalog;
@@ -13,7 +14,8 @@ namespace Moshtar.Infrastructure.Catalog;
 /// De artikelen beheren. Een artikel heeft één slug in alle talen; de oude slugs worden per taal bewaard
 /// (<see cref="OldSlugs"/>), zodat het oude adres in elke taal doorstuurt.
 /// </summary>
-internal sealed class RentalItemAdministration(AppDbContext db, ITenantContext tenantContext, OldSlugs oldSlugs, ShortageQuery shortages)
+internal sealed class RentalItemAdministration(
+    AppDbContext db, ITenantContext tenantContext, OldSlugs oldSlugs, ShortageQuery shortages, PhotoAlbum album)
     : IRentalItemAdministration
 {
     private const int MaxNameLength = 100;
@@ -39,7 +41,7 @@ internal sealed class RentalItemAdministration(AppDbContext db, ITenantContext t
         return new RentalItemDetails(item.Id, item.IsActive, new RentalItemInput(
             texts, item.CategoryId, item.Stock, item.Pricing.DayPrice, item.Pricing.ExtraDayPrice,
             new ItemSpecs(item.LengthCm, item.WidthCm, item.HeightCm, item.MinAge, item.MaxAge, item.MaxPersons, item.RequiresPower),
-            item.Slug));
+            item.Slug), PhotoAlbum.Keys(item.Photos));
     }
 
     public async Task<Guid> CreateAsync(RentalItemInput input, CancellationToken ct = default)
@@ -84,8 +86,58 @@ internal sealed class RentalItemAdministration(AppDbContext db, ITenantContext t
     public Task SetActiveAsync(Guid itemId, bool isActive, CancellationToken ct = default) =>
         ChangeAsync(async () => (await FindAsync(itemId, ct)).IsActive = isActive, ct);
 
-    public Task DeleteAsync(Guid itemId, CancellationToken ct = default) =>
+    public async Task AddPhotosAsync(Guid itemId, IReadOnlyList<PhotoUpload> photos, CancellationToken ct = default)
+    {
+        if (photos.Count == 0) return;
+        var present = (await db.RentalItems.AsNoTracking().FirstOrDefaultAsync(i => i.Id == itemId, ct))?.Photos.Count
+            ?? throw new RentalItemException(["Dit artikel bestaat niet (meer)."]);
+        IReadOnlyList<string> keys;
+        try
+        {
+            keys = await album.UploadAsync(present, photos, ct);
+        }
+        catch (ImageRejectedException e)
+        {
+            throw new RentalItemException([e.Message]);
+        }
+        try
+        {
+            await ChangeAsync(async () =>
+            {
+                var item = await FindAsync(itemId, ct);
+                PhotoAlbum.CheckRoom(item.Photos.Count, keys.Count);
+                PhotoAlbum.Append(item.Photos, keys);
+            }, ct);
+        }
+        catch (Exception e)
+        {
+            await album.ForgetAsync(keys, CancellationToken.None);
+            if (e is ImageRejectedException) throw new RentalItemException([e.Message]);
+            throw;
+        }
+    }
+
+    public Task ReorderPhotosAsync(Guid itemId, IReadOnlyList<string> keys, CancellationToken ct = default) =>
         ChangeAsync(async () =>
+        {
+            if (!PhotoAlbum.Reorder((await FindAsync(itemId, ct)).Photos, keys))
+                throw new RentalItemException(["De foto's zijn intussen gewijzigd; laad de pagina opnieuw."]);
+        }, ct);
+
+    public async Task DeletePhotoAsync(Guid itemId, string key, CancellationToken ct = default)
+    {
+        await ChangeAsync(async () =>
+        {
+            if (!PhotoAlbum.Remove((await FindAsync(itemId, ct)).Photos, key))
+                throw new RentalItemException(["Deze foto is al verwijderd; laad de pagina opnieuw."]);
+        }, ct);
+        await album.ForgetAsync([key], ct);
+    }
+
+    public async Task DeleteAsync(Guid itemId, CancellationToken ct = default)
+    {
+        IReadOnlyList<string> photos = [];
+        await ChangeAsync(async () =>
         {
             var item = await FindAsync(itemId, ct);
             var name = Name(item);
@@ -106,8 +158,11 @@ internal sealed class RentalItemAdministration(AppDbContext db, ITenantContext t
                     [$"Het artikel \"{name}\" ligt in de winkelkar van een klant en kan niet verwijderd worden. Zet het uit, dan verdwijnt het van je reservatiewebsite."],
                     canSwitchOff: true);
             await oldSlugs.ForgetAsync(SlugKind.RentalItem, itemId, ct);
+            photos = PhotoAlbum.Keys(item.Photos);
             db.RentalItems.Remove(item);
         }, ct);
+        await album.ForgetAsync(photos, ct);
+    }
 
     /// <summary>
     /// Voert een wijziging uit als enige wijziging aan de slugs van de artikelen en pakketten van deze verhuurder. Een

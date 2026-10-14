@@ -69,7 +69,7 @@ internal class RentalItemConfiguration : IEntityTypeConfiguration<RentalItem>
             p.Property(x => x.ExtraDayPrice).HasColumnName("ExtraDayPrice").HasPrecision(10, 2);
         });
         b.OwnsMany(i => i.Translations, t => t.ToJson());
-        b.OwnsMany(i => i.Images, t => t.ToJson());
+        b.OwnsMany(i => i.Photos, t => t.ToJson());
         b.HasOne(i => i.Category).WithMany().HasForeignKey(i => i.CategoryId).OnDelete(DeleteBehavior.SetNull);
     }
 }

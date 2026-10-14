@@ -9,6 +9,7 @@
 @inject NavigationManager Navigation
 @inject TimeProvider Clock
 @inject ITenantContext TenantContext
+@inject IImageStore Images
 
 @if (_category is null || _entries is null)
 {
@@ -18,7 +19,7 @@
 }
 
 <SiteHead Title="@_category.Name" Description="@(_category.Intro.Length > 0 ? _category.Intro : _category.Name)"
-          Image="@_entries.FirstOrDefault(e => e.ImageUrl is not null)?.ImageUrl" NoIndex="@(_chosen.InUrl || _entries.Count == 0)"
+          Image="@(_entries.FirstOrDefault(e => e.MainPhoto is not null)?.MainPhoto is { } photo ? Images.ShareUrl(photo) : null)" NoIndex="@(_chosen.InUrl || _entries.Count == 0)"
           JsonLd="@([Breadcrumbs])" />
 
 <div class="page">

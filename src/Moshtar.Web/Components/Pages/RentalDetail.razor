@@ -10,6 +10,7 @@
 @inject NavigationManager Navigation
 @inject TimeProvider Clock
 @inject ITenantContext TenantContext
+@inject IImageStore Images
 
 @if (_entry is null)
 {
@@ -18,8 +19,8 @@
     return;
 }
 
-<SiteHead Title="@_entry.Name" Description="@(_entry.Description ?? _entry.Name)" Image="@_entry.ImageUrl" OgType="product"
-          NoIndex="_chosen.InUrl" JsonLd="@([StructuredData.Product(_entry, Links), Breadcrumbs])" />
+<SiteHead Title="@_entry.Name" Description="@(_entry.Description ?? _entry.Name)" Image="@(_entry.MainPhoto is { } photo ? Images.ShareUrl(photo) : null)"
+          OgType="product" NoIndex="_chosen.InUrl" JsonLd="@([StructuredData.Product(_entry, Links, Images), Breadcrumbs])" />
 
 <div class="page">
 <p class="back"><a href="@BackHref">← @BackText</a></p>
@@ -27,17 +28,17 @@
 
 <div class="detail">
     <section class="detail-info">
-        @if (_entry.Images.Count == 0)
+        @if (_entry.Photos.Count == 0)
         {
             <div class="image-placeholder" aria-hidden="true">@SiteText.Initial(_entry.Name)</div>
         }
         else
         {
             <div class="gallery">
-                @foreach (var (url, index) in _entry.Images.Select((u, i) => (u, i)))
+                @foreach (var (key, index) in _entry.Photos.Select((k, i) => (k, i)))
                 {
-                    <img src="@url" alt="@(index == 0 ? _entry.Name : $"{_entry.Name} · {L["Photo", index + 1, _entry.Images.Count]}")"
-                         width="960" height="720" loading="@(index == 0 ? "eager" : "lazy")" />
+                    <SitePhoto Key="@key" Alt="@(index == 0 ? _entry.Name : $"{_entry.Name} · {L["Photo", index + 1, _entry.Photos.Count]}")"
+                               Sizes="@(index == 0 ? SitePhotos.MainSizes : SitePhotos.ThumbnailSizes)" Eager="index == 0" />
                 }
             </div>
         }

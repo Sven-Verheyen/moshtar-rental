@@ -1,0 +1,135 @@
+@using Moshtar.Domain.Catalog
+@inject IImageStore Images
+@inject IDialogService Dialogs
+@inject ISnackbar Snackbar
+
+@* De foto's van een artikel of pakket: uploaden (een of meer tegelijk), volgorde verslepen en verwijderen. De eerste
+   is de hoofdfoto. Het scherm eromheen bewaart via Upload, Reorder en Delete en geeft daarna de nieuwe Photos door. *@
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.h6" Class="mb-2">Foto's</MudText>
+    <MudText Typo="Typo.body2" Class="mb-3">
+        Tot @Photo.Max foto's in JPG, PNG, WebP of GIF, elk tot 10 MB. De eerste is de hoofdfoto in het aanbod; versleep ze
+        om de volgorde te kiezen. Je reservatiewebsite toont ze verkleind, met de naam als beschrijving voor schermlezers.
+    </MudText>
+
+    @if (Photos.Count > 0)
+    {
+        <MudDropContainer T="string" @ref="_order" Items="Photos" ItemsSelector="@((_, _) => true)" ItemDropped="DroppedAsync">
+            <ChildContent>
+                <MudDropZone T="string" Identifier="fotos" AllowReorder="true" Class="d-flex flex-wrap gap-3 mb-3" />
+            </ChildContent>
+            <ItemRenderer>
+                @{ var index = Photos.ToList().IndexOf(context); }
+                <MudPaper Outlined="true" Class="pa-2" Style="cursor: grab; width: 12rem">
+                    <img src="@Images.PublicUrl(context, 400)" alt="Foto @(index + 1) van @Name"
+                         style="display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: .25rem" />
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="0" Class="mt-1">
+                        <MudText Typo="Typo.caption" Class="flex-grow-1">@(index == 0 ? "Hoofdfoto" : $"Foto {index + 1}")</MudText>
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Size="Size.Small" aria-label="Naar voren" Disabled="_busy || index == 0" OnClick="() => MoveAsync(index, -1)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.ArrowForward" Size="Size.Small" aria-label="Naar achteren" Disabled="_busy || index == Photos.Count - 1" OnClick="() => MoveAsync(index, 1)" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" Color="Color.Error" aria-label="Verwijderen" Disabled="_busy" OnClick="() => DeleteAsync(context, index)" />
+                    </MudStack>
+                </MudPaper>
+            </ItemRenderer>
+        </MudDropContainer>
+    }
+
+    <MudStack Row="true" AlignItems="AlignItems.Center">
+        <InputFile id="@_inputId" accept="@ImageUpload.Accept" multiple style="display: none" OnChange="UploadAsync" />
+        <MudButton HtmlTag="label" for="@_inputId" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload"
+                   Disabled="_busy || Photos.Count >= Photo.Max">
+            Foto's uploaden
+        </MudButton>
+        <MudText Typo="Typo.body2">@Photos.Count van @Photo.Max</MudText>
+        @if (_busy)
+        {
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+        }
+    </MudStack>
+    <Problems Items="_problems" />
+</MudPaper>
+
+@code {
+    /// <summary>De sleutels van de foto's, de hoofdfoto eerst.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<string> Photos { get; set; } = [];
+
+    /// <summary>De naam van het artikel of pakket, voor de beschrijving van de foto's.</summary>
+    [Parameter, EditorRequired] public string Name { get; set; } = "";
+
+    /// <summary>Bewaart nieuwe foto's; geeft terug wat er mis is (leeg: gelukt).</summary>
+    [Parameter, EditorRequired] public Func<IReadOnlyList<PhotoUpload>, Task<IReadOnlyList<string>>> Upload { get; set; } = null!;
+
+    /// <summary>Bewaart deze volgorde van de sleutels; geeft terug wat er mis is (leeg: gelukt).</summary>
+    [Parameter, EditorRequired] public Func<IReadOnlyList<string>, Task<IReadOnlyList<string>>> Reorder { get; set; } = null!;
+
+    /// <summary>Verwijdert de foto met deze sleutel; geeft terug wat er mis is (leeg: gelukt).</summary>
+    [Parameter, EditorRequired] public Func<string, Task<IReadOnlyList<string>>> Delete { get; set; } = null!;
+
+    private readonly string _inputId = $"fotos-{Guid.NewGuid():N}";
+    private IReadOnlyList<string>? _problems;
+    private bool _busy;
+    private MudDropContainer<string>? _order;
+
+    /// <summary>Het scherm geeft na elke wijziging de nieuwe foto's door; de sleepzone toont dan die volgorde.</summary>
+    protected override void OnParametersSet() => _order?.Refresh();
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        var files = e.GetMultipleFiles(int.MaxValue);
+        if (files.FirstOrDefault(f => f.Size > ImageUpload.MaxBytes) is { } tooLarge)
+        {
+            _problems = [$"{tooLarge.Name}: {ImageUpload.TooLarge} Er werd geen enkele foto toegevoegd."];
+            return;
+        }
+        // De bestanden worden pas gelezen als er plaats is voor allemaal, één na één.
+        var uploads = files.Select(f => new PhotoUpload(f.Name, f.OpenReadStream(ImageUpload.MaxBytes))).ToList();
+        try
+        {
+            await RunAsync(() => Upload(uploads), files.Count == 1 ? "Foto toegevoegd." : $"{files.Count} foto's toegevoegd.");
+        }
+        finally
+        {
+            foreach (var upload in uploads) await upload.Content.DisposeAsync();
+        }
+    }
+
+    private Task DroppedAsync(MudItemDropInfo<string> dropped)
+    {
+        if (dropped.Item is not { } key) return Task.CompletedTask;
+        var order = Photos.Where(k => k != key).ToList();
+        order.Insert(Math.Clamp(dropped.IndexInZone, 0, order.Count), key);
+        return RunAsync(() => Reorder(order), "Volgorde bewaard.");
+    }
+
+    private Task MoveAsync(int index, int offset)
+    {
+        var order = Photos.ToList();
+        (order[index], order[index + offset]) = (order[index + offset], order[index]);
+        return RunAsync(() => Reorder(order), "Volgorde bewaard.");
+    }
+
+    private async Task DeleteAsync(string key, int index)
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Foto verwijderen",
+            $"Wil je {(index == 0 ? "de hoofdfoto" : $"foto {index + 1}")} verwijderen? Ze verdwijnt van je reservatiewebsite.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        await RunAsync(() => Delete(key), "Foto verwijderd.");
+    }
+
+    private async Task RunAsync(Func<Task<IReadOnlyList<string>>> action, string done)
+    {
+        _busy = true;
+        _problems = null;
+        try
+        {
+            var problems = await action();
+            if (problems.Count > 0) _problems = problems;
+            else Snackbar.Add(done, Severity.Success);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

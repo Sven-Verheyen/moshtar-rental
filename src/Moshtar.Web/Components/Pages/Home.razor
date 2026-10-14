@@ -40,12 +40,12 @@
         {
             <h2>@L["Categories"]</h2>
             <div class="category-grid">
-                @foreach (var (category, image) in _categories)
+                @foreach (var (category, photo) in _categories)
                 {
                     <a class="category-tile" href="@Links.Href(category.Route)">
-                        @if (image is not null)
+                        @if (photo is not null)
                         {
-                            <img src="@image" alt="" loading="lazy" width="640" height="480" />
+                            <SitePhoto Key="@photo" Alt="" Sizes="@SitePhotos.TileSizes" />
                         }
                         else
                         {
@@ -73,7 +73,8 @@
     private ChosenPeriod _chosen = ChosenPeriod.None;
     private DateOnly _today;
     private IReadOnlySet<Guid> _unavailable = new HashSet<Guid>();
-    private IReadOnlyList<(CategoryLink Category, string? Image)> _categories = [];
+    /// <summary>De categorieën met artikelen, elk met de hoofdfoto van haar eerste artikel met een foto.</summary>
+    private IReadOnlyList<(CategoryLink Category, string? Photo)> _categories = [];
 
     private Moshtar.Domain.Tenants.Tenant? Tenant => TenantContext.Tenant;
     private string? HeroImage => Images.HeroImageUrl(Tenant);
@@ -101,7 +102,7 @@
         else
             _categories = (await CategoryLink.AllAsync(Texts, Links))
                 .Where(c => _entries.Any(e => e.CategoryId == c.Id))
-                .Select(c => (c, _entries.FirstOrDefault(e => e.CategoryId == c.Id && e.ImageUrl is not null)?.ImageUrl))
+                .Select(c => (c, _entries.FirstOrDefault(e => e.CategoryId == c.Id && e.MainPhoto is not null)?.MainPhoto))
                 .ToList();
     }
 }

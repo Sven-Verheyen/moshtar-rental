@@ -61,14 +61,14 @@ public static class StructuredData
     /// Een artikel of pakket met zijn dagprijs, inclusief btw. Het is een verhuring (LeaseOut), geen verkoop; de prijs
     /// geldt per dag (UN/CEFACT-code DAY).
     /// </summary>
-    public static JsonObject Product(CatalogEntry entry, SiteLinks links)
+    public static JsonObject Product(CatalogEntry entry, SiteLinks links, IImageStore images)
     {
         var url = links.Absolute(new RentalRoute(entry.Slug), links.Culture);
         var data = Node("Product");
         data["name"] = entry.Name;
         Add(data, "description", entry.Description);
-        if (entry.Images.Count > 0)
-            data["image"] = new JsonArray(entry.Images.Select(i => (JsonNode)JsonValue.Create(i)!).ToArray());
+        if (entry.Photos.Count > 0)
+            data["image"] = new JsonArray(entry.Photos.Select(key => (JsonNode)JsonValue.Create(images.ShareUrl(key))!).ToArray());
         Add(data, "category", entry.Category);
         data["url"] = url;
         data["sku"] = entry.Slug;

@@ -1015,24 +1015,24 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.OwnsMany("Moshtar.Domain.Catalog.ItemImage", "Images", b1 =>
+                    b.OwnsMany("Moshtar.Domain.Catalog.Photo", "Photos", b1 =>
                         {
                             b1.Property<Guid>("RentalItemId");
 
                             b1.Property<int>("__synthesizedOrdinal")
                                 .ValueGeneratedOnAdd();
 
-                            b1.Property<int>("SortOrder");
-
-                            b1.Property<string>("Url")
+                            b1.Property<string>("Key")
                                 .IsRequired();
+
+                            b1.Property<int>("SortOrder");
 
                             b1.HasKey("RentalItemId", "__synthesizedOrdinal");
 
                             b1.ToTable("RentalItems");
 
                             b1
-                                .ToJson("Images")
+                                .ToJson("Photos")
                                 .HasColumnType("jsonb");
 
                             b1.WithOwner()
@@ -1091,7 +1091,7 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Navigation("Category");
 
-                    b.Navigation("Images");
+                    b.Navigation("Photos");
 
                     b.Navigation("Pricing")
                         .IsRequired();

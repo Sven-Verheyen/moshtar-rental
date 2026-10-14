@@ -73,7 +73,7 @@ tests/
   `docs/adr/0002-verhuurder-mailt-vanaf-eigen-domein.md`). Zonder `Mail:AzureCommunicationServicesConnectionString`
   wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests. Lokaal vind je zo
   ook de link uit een uitnodiging of herstelmail terug in de console.
-- **Afbeeldingen**: logo, sfeerfoto en (later) foto's uploadt de beheerder; Moshtar bewaart ze zelf, per verhuurder
+- **Afbeeldingen**: logo, sfeerfoto en foto's (tot 10 per artikel, de eerste is de hoofdfoto) uploadt de beheerder; Moshtar bewaart ze zelf, per verhuurder
   gescheiden, verkleind naar vaste breedtes (400, 800 en 1600 px) als WebP, en bewaart enkel de sleutel; het publieke
   adres wordt eruit afgeleid (zie `docs/adr/0005-verhuurder-uploadt-afbeeldingen-naar-moshtar.md` en `IImageStore`).
   Aanvaard: JPG, PNG, WebP of GIF tot 10 MB. In productie in Azure Blob Storage
