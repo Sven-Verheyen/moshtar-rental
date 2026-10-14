@@ -128,6 +128,8 @@
   <data name="CartReserveShortage" xml:space="preserve"><value>Just taken on this date: {0}. Remove it from your cart or choose another date; your details stay filled in.</value></data>
   <data name="CartGone" xml:space="preserve"><value>Your cart is empty or has expired. Choose again what you'd like to rent.</value></data>
   <data name="CartNoEmail" xml:space="preserve"><value>Enter your email address first.</value></data>
+  <data name="CartPhoneRequired" xml:space="preserve"><value>Please enter your phone number, so we can reach you about your reservation.</value></data>
+  <data name="CartPhoneInvalid" xml:space="preserve"><value>This is not a valid phone number. Enter it like 0470 12 34 56 or +32 470 12 34 56.</value></data>
   <data name="CartHasGoneItems" xml:space="preserve"><value>Something in your cart can no longer be rented. Remove it, then reserve.</value></data>
   <data name="CartCannotReserve" xml:space="preserve"><value>This reservation isn't possible. Check the rental period or contact us.</value></data>
   <data name="ReservationThanks" xml:space="preserve"><value>Thank you for your reservation</value></data>

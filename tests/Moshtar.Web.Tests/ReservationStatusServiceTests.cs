@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Reservations;
 using Moshtar.Domain.Catalog;
@@ -21,6 +22,24 @@ public sealed class ReservationStatusServiceTests(MoshtarApp app) : IClassFixtur
         var cancelled = await reservations.ChangeStatusAsync(id, ReservationStatus.Cancelled, ReservationActor.Website);
 
         Assert.Equal(ReservationStatus.Cancelled, cancelled.Status);
+    }
+
+    [Fact]
+    public async Task A_reservation_from_before_the_phone_number_was_required_can_still_be_followed_up()
+    {
+        var id = await ReserveAsync("zonder-telefoon", TestReservations.FutureDay(126));
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        // Zoals een reservatie van voor het telefoonnummer verplicht werd.
+        var customerId = db.Reservations.Single(r => r.Id == id).CustomerId;
+        await db.Customers.Where(c => c.Id == customerId).ExecuteUpdateAsync(c => c.SetProperty(x => x.Phone, (string?)null));
+        var reservations = scope.ServiceProvider.GetRequiredService<IReservationService>();
+
+        var delivered = await reservations.ChangeStatusAsync(id, ReservationStatus.Delivered, ReservationActor.Website);
+        var returned = await reservations.ChangeStatusAsync(id, ReservationStatus.Returned, ReservationActor.Website);
+
+        Assert.Equal((ReservationStatus.Delivered, ReservationStatus.Returned), (delivered.Status, returned.Status));
+        Assert.Equal(3, (await reservations.GetHistoryAsync(id)).Count);
     }
 
     [Fact]

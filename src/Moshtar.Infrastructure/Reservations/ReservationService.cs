@@ -214,7 +214,7 @@ internal sealed class ReservationService(
         }
         customer.FirstName = request.Customer.FirstName;
         customer.LastName = request.Customer.LastName;
-        customer.Phone = request.Customer.Phone;
+        customer.Phone = PhoneNumber.International(request.Customer.Phone);
         customer.Address = request.Customer.Address;
         customer.PreferredCulture = request.Culture;
         return customer;
@@ -245,5 +245,11 @@ internal sealed class ReservationService(
             throw new ArgumentException($"Je kan hoogstens {RentalPeriodLimits.MaxYearsAhead} jaar vooruit reserveren.");
         if (string.IsNullOrWhiteSpace(request.Customer.Email))
             throw new ArgumentException("E-mailadres is verplicht.");
+        // Verplicht voor elke nieuwe reservatie, zodat de verhuurder de klant kan bellen of WhatsAppen. Bestaande
+        // reservaties en klanten zonder nummer blijven geldig.
+        if (string.IsNullOrWhiteSpace(request.Customer.Phone))
+            throw new ArgumentException("Het telefoonnummer is verplicht.");
+        if (PhoneNumber.International(request.Customer.Phone) is null)
+            throw new ArgumentException("Dit is geen geldig telefoonnummer, bv. 0470 12 34 56 of +32 470 12 34 56.");
     }
 }
