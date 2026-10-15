@@ -41,7 +41,7 @@
                 {
                     <tr style="@(periodPrice.IsExpired ? "color: var(--mud-palette-text-disabled)" : null)">
                         <td>@periodPrice.Input.Name</td>
-                        <td>@TargetText(periodPrice.Input.Target)</td>
+                        <td>@_targets.Text(periodPrice.Input.Target)</td>
                         <td>@WhenText(periodPrice.Input)</td>
                         <td>@PercentageText(periodPrice.Input.Percentage)</td>
                         <td>@(periodPrice.Input.EndDate is { } end ? (periodPrice.IsExpired ? $"verlopen op {end:dd/MM/yyyy}" : $"t.e.m. {end:dd/MM/yyyy}") : "geen")</td>
@@ -97,10 +97,10 @@
         {
             <MudItem xs="12" md="6">
                 <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.CategoryIds" Label="Categorieën" Variant="Variant.Outlined"
-                           ToStringFunc="@(id => CategoryName(id))">
-                    @foreach (var category in _categories)
+                           ToStringFunc="@(id => _targets.CategoryName(id))">
+                    @foreach (var category in _targets.Categories)
                     {
-                        <MudSelectItem T="Guid" Value="category.Id">@category.Texts[DefaultCulture].Name.Value</MudSelectItem>
+                        <MudSelectItem T="Guid" Value="category.Id">@_targets.Name(category)</MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
@@ -109,8 +109,8 @@
         {
             <MudItem xs="12" md="6">
                 <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.RentalItemIds" Label="Artikelen" Variant="Variant.Outlined"
-                           ToStringFunc="@(id => ItemName(id))">
-                    @foreach (var item in _items)
+                           ToStringFunc="@(id => _targets.ItemName(id))">
+                    @foreach (var item in _targets.Items)
                     {
                         <MudSelectItem T="Guid" Value="item.Id">@item.Name</MudSelectItem>
                     }
@@ -118,8 +118,8 @@
             </MudItem>
             <MudItem xs="12" md="6">
                 <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.BundleIds" Label="Pakketten" Variant="Variant.Outlined"
-                           ToStringFunc="@(id => BundleName(id))">
-                    @foreach (var bundle in _bundles)
+                           ToStringFunc="@(id => _targets.BundleName(id))">
+                    @foreach (var bundle in _targets.Bundles)
                     {
                         <MudSelectItem T="Guid" Value="bundle.Id">@bundle.Name</MudSelectItem>
                     }
@@ -167,9 +167,7 @@
         [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday];
 
     private IReadOnlyList<PeriodPriceSummary>? _periodPrices;
-    private IReadOnlyList<CategoryDetails> _categories = [];
-    private IReadOnlyList<RentalItemSummary> _items = [];
-    private IReadOnlyList<BundleSummary> _bundles = [];
+    private PricingTargetNames _targets = PricingTargetNames.None;
     private Draft _draft = new();
     private Guid? _editing;
     private IReadOnlyList<string>? _problems;
@@ -178,9 +176,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _categories = await CategoryAdmin.GetAllAsync();
-        _items = await ItemAdmin.GetAllAsync();
-        _bundles = await BundleAdmin.GetAllAsync();
+        _targets = await PricingTargetNames.LoadAsync(CategoryAdmin, ItemAdmin, BundleAdmin, DefaultCulture);
         await LoadAsync();
     }
 
@@ -297,19 +293,4 @@
         DayOfWeek.Saturday => "za",
         _ => "zo",
     };
-
-    /// <summary>Waarop de regel werkt, met de namen in de standaardtaal; wat intussen verwijderd is, valt weg.</summary>
-    private string TargetText(PricingTarget target)
-    {
-        if (target.All) return "Alles";
-        var categories = target.CategoryIds.Select(CategoryName).Where(n => n.Length > 0);
-        var chosen = target.RentalItemIds.Select(ItemName).Concat(target.BundleIds.Select(BundleName)).Where(n => n.Length > 0);
-        return string.Join(", ", categories.Select(c => $"Categorie {c}").Concat(chosen));
-    }
-
-    private string CategoryName(Guid id) => _categories.FirstOrDefault(c => c.Id == id)?.Texts[DefaultCulture].Name.Value ?? "";
-
-    private string ItemName(Guid id) => _items.FirstOrDefault(i => i.Id == id)?.Name ?? "";
-
-    private string BundleName(Guid id) => _bundles.FirstOrDefault(b => b.Id == id)?.Name ?? "";
 }

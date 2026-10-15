@@ -3,6 +3,7 @@ using Moshtar.Application.Prices;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Prices;
+using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Prices;
@@ -14,11 +15,7 @@ internal sealed partial class PricingRuleAdministration(AppDbContext db, ITenant
     public async Task<IReadOnlyList<ComboDiscountSummary>> GetCombosAsync(CancellationToken ct = default)
     {
         var today = Today;
-        var rules = await db.PricingRules.AsNoTracking().Where(r => r.Kind == PricingRuleKind.Combo).ToListAsync(ct);
-        return rules
-            .OrderBy(r => r.IsExpiredOn(today))
-            .ThenBy(r => r.NameIn(Tenant.DefaultCulture, Tenant.DefaultCulture), StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(r => r.Id)
+        return (await ListAsync(PricingRuleKind.Combo, today, ct))
             .Select(r => new ComboDiscountSummary(r.Id, new ComboDiscountInput(
                     r.Names.Select(n => new PricingRuleName(n.Culture, n.Name)).ToList(),
                     new PricingTarget(r.AppliesToAll, r.CategoryIds, r.RentalItemIds, r.BundleIds),
@@ -49,11 +46,7 @@ internal sealed partial class PricingRuleAdministration(AppDbContext db, ITenant
     public async Task<IReadOnlyList<PromotionSummary>> GetPromotionsAsync(CancellationToken ct = default)
     {
         var today = Today;
-        var rules = await db.PricingRules.AsNoTracking().Where(r => r.Kind == PricingRuleKind.Promotion).ToListAsync(ct);
-        return rules
-            .OrderBy(r => r.IsExpiredOn(today))
-            .ThenBy(r => r.NameIn(Tenant.DefaultCulture, Tenant.DefaultCulture), StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(r => r.Id)
+        return (await ListAsync(PricingRuleKind.Promotion, today, ct))
             .Select(r => new PromotionSummary(r.Id, new PromotionInput(
                     r.Names.Select(n => new PricingRuleName(n.Culture, n.Name)).ToList(),
                     new PricingTarget(r.AppliesToAll, r.CategoryIds, r.RentalItemIds, r.BundleIds),
@@ -150,8 +143,8 @@ internal sealed partial class PricingRuleAdministration(AppDbContext db, ITenant
             .ToList();
         foreach (var name in names)
         {
-            if (name.Culture == Tenant.DefaultCulture && name.Name.Length == 0) problems.Add($"De naam in het {LanguageName(name.Culture)} is leeg.");
-            if (name.Name.Length > MaxNameLength) problems.Add($"De naam in het {LanguageName(name.Culture)} is langer dan {MaxNameLength} tekens.");
+            if (name.Culture == Tenant.DefaultCulture && name.Name.Length == 0) problems.Add($"De naam in het {CatalogTexts.LanguageName(name.Culture)} is leeg.");
+            if (name.Name.Length > MaxNameLength) problems.Add($"De naam in het {CatalogTexts.LanguageName(name.Culture)} is langer dan {MaxNameLength} tekens.");
         }
         return names.Where(n => n.Name.Length > 0).ToList();
     }
@@ -168,15 +161,14 @@ internal sealed partial class PricingRuleAdministration(AppDbContext db, ITenant
         await db.PricingRules.FirstOrDefaultAsync(r => r.Id == ruleId, ct)
             ?? throw new PricingRuleException(["Deze prijsregel bestaat niet (meer)."]);
 
-    private DateOnly Today => Belgium.Today(clock);
+    /// <summary>De regels van deze soort: eerst die niet verlopen zijn, dan op naam in de standaardtaal.</summary>
+    private async Task<IEnumerable<PricingRule>> ListAsync(PricingRuleKind kind, DateOnly today, CancellationToken ct) =>
+        (await db.PricingRules.AsNoTracking().Where(r => r.Kind == kind).ToListAsync(ct))
+            .OrderBy(r => r.IsExpiredOn(today))
+            .ThenBy(r => r.NameIn(Tenant.DefaultCulture, Tenant.DefaultCulture), StringComparer.CurrentCultureIgnoreCase)
+            .ThenBy(r => r.Id);
 
-    private static string LanguageName(string culture) => culture switch
-    {
-        "nl" => "Nederlands",
-        "fr" => "Frans",
-        "en" => "Engels",
-        _ => culture,
-    };
+    private DateOnly Today => Belgium.Today(clock);
 
     private Domain.Tenants.Tenant Tenant => tenantContext.Tenant ?? throw new InvalidOperationException("Geen verhuurder gekend.");
 }

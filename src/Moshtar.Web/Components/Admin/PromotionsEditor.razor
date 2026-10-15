@@ -41,7 +41,7 @@
                 {
                     <tr style="@(promotion.IsExpired ? "color: var(--mud-palette-text-disabled)" : null)">
                         <td>@NameOf(promotion.Input)</td>
-                        <td>@TargetText(promotion.Input.Target)</td>
+                        <td>@_targets.Text(promotion.Input.Target)</td>
                         <td>@promotion.Input.Percentage.ToString("0.##")%</td>
                         <td>@(promotion.IsExpired ? "verlopen: " : "")@Dates(promotion.Input.ReservedFrom, promotion.Input.ReservedUntil)</td>
                         <td>@(promotion.Input.RentalFrom is null && promotion.Input.RentalUntil is null ? "alle" : Dates(promotion.Input.RentalFrom, promotion.Input.RentalUntil))</td>
@@ -60,14 +60,14 @@
     <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editing is null ? "Nieuwe actie" : "Actie wijzigen")</MudText>
     <MudText Typo="Typo.body2" Class="mb-2">
         De naam staat op de kortingslijn in de winkelkar, de reservatie en de mail. Alleen de naam in het
-        @LanguageName(DefaultCulture) is verplicht; een taal zonder naam toont die van het @LanguageName(DefaultCulture).
+        @PricingTargetNames.LanguageName(DefaultCulture) is verplicht; een taal zonder naam toont die van het @PricingTargetNames.LanguageName(DefaultCulture).
     </MudText>
     <MudGrid>
         @foreach (var culture in Cultures)
         {
             var c = culture;
             <MudItem xs="12" md="4">
-                <MudTextField T="string" Value="_draft.Names.GetValueOrDefault(c)" ValueChanged="v => _draft.Names[c] = v" Label="@($"Naam ({LanguageName(c)})")"
+                <MudTextField T="string" Value="_draft.Names.GetValueOrDefault(c)" ValueChanged="v => _draft.Names[c] = v" Label="@($"Naam ({PricingTargetNames.LanguageName(c)})")"
                               Variant="Variant.Outlined" MaxLength="100" Required="@(c == DefaultCulture)" />
             </MudItem>
         }
@@ -82,10 +82,10 @@
         {
             <MudItem xs="12" md="6">
                 <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.CategoryIds" Label="Categorieën" Variant="Variant.Outlined"
-                           ToStringFunc="@(id => CategoryName(id))">
-                    @foreach (var category in _categories)
+                           ToStringFunc="@(id => _targets.CategoryName(id))">
+                    @foreach (var category in _targets.Categories)
                     {
-                        <MudSelectItem T="Guid" Value="category.Id">@category.Texts[DefaultCulture].Name.Value</MudSelectItem>
+                        <MudSelectItem T="Guid" Value="category.Id">@_targets.Name(category)</MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
@@ -94,8 +94,8 @@
         {
             <MudItem xs="12" md="6">
                 <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.RentalItemIds" Label="Artikelen" Variant="Variant.Outlined"
-                           ToStringFunc="@(id => ItemName(id))">
-                    @foreach (var item in _items)
+                           ToStringFunc="@(id => _targets.ItemName(id))">
+                    @foreach (var item in _targets.Items)
                     {
                         <MudSelectItem T="Guid" Value="item.Id">@item.Name</MudSelectItem>
                     }
@@ -103,8 +103,8 @@
             </MudItem>
             <MudItem xs="12" md="6">
                 <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.BundleIds" Label="Pakketten" Variant="Variant.Outlined"
-                           ToStringFunc="@(id => BundleName(id))">
-                    @foreach (var bundle in _bundles)
+                           ToStringFunc="@(id => _targets.BundleName(id))">
+                    @foreach (var bundle in _targets.Bundles)
                     {
                         <MudSelectItem T="Guid" Value="bundle.Id">@bundle.Name</MudSelectItem>
                     }
@@ -163,9 +163,7 @@
     }
 
     private IReadOnlyList<PromotionSummary>? _promotions;
-    private IReadOnlyList<CategoryDetails> _categories = [];
-    private IReadOnlyList<RentalItemSummary> _items = [];
-    private IReadOnlyList<BundleSummary> _bundles = [];
+    private PricingTargetNames _targets = PricingTargetNames.None;
     private Draft _draft = new();
     private Guid? _editing;
     private IReadOnlyList<string>? _problems;
@@ -175,9 +173,7 @@
 
     protected override async Task OnInitializedAsync()
     {
-        _categories = await CategoryAdmin.GetAllAsync();
-        _items = await ItemAdmin.GetAllAsync();
-        _bundles = await BundleAdmin.GetAllAsync();
+        _targets = await PricingTargetNames.LoadAsync(CategoryAdmin, ItemAdmin, BundleAdmin, DefaultCulture);
         await LoadAsync();
     }
 
@@ -265,15 +261,6 @@
     private string NameOf(PromotionInput input) =>
         input.Names.FirstOrDefault(n => n.Culture == DefaultCulture)?.Name ?? input.Names.FirstOrDefault()?.Name ?? "";
 
-    /// <summary>Waarop de actie werkt, met de namen in de standaardtaal; wat intussen verwijderd is, valt weg.</summary>
-    private string TargetText(PricingTarget target)
-    {
-        if (target.All) return "Alles";
-        var categories = target.CategoryIds.Select(CategoryName).Where(n => n.Length > 0);
-        var chosen = target.RentalItemIds.Select(ItemName).Concat(target.BundleIds.Select(BundleName)).Where(n => n.Length > 0);
-        return string.Join(", ", categories.Select(c => $"Categorie {c}").Concat(chosen));
-    }
-
     private static string Dates(DateOnly? from, DateOnly? until) => (from, until) switch
     {
         ({ } f, { } u) => $"{f:dd/MM/yyyy} – {u:dd/MM/yyyy}",
@@ -285,18 +272,4 @@
     private static DateTime? ToDateTime(DateOnly? date) => date?.ToDateTime(TimeOnly.MinValue);
 
     private static DateOnly? ToDate(DateTime? date) => date is { } d ? DateOnly.FromDateTime(d) : null;
-
-    private string CategoryName(Guid id) => _categories.FirstOrDefault(c => c.Id == id)?.Texts[DefaultCulture].Name.Value ?? "";
-
-    private string ItemName(Guid id) => _items.FirstOrDefault(i => i.Id == id)?.Name ?? "";
-
-    private string BundleName(Guid id) => _bundles.FirstOrDefault(b => b.Id == id)?.Name ?? "";
-
-    private static string LanguageName(string culture) => culture switch
-    {
-        "nl" => "Nederlands",
-        "fr" => "Frans",
-        "en" => "Engels",
-        _ => culture,
-    };
 }

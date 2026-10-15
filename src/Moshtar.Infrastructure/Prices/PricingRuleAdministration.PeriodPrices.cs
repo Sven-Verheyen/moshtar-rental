@@ -14,11 +14,7 @@ internal sealed partial class PricingRuleAdministration
     public async Task<IReadOnlyList<PeriodPriceSummary>> GetPeriodPricesAsync(CancellationToken ct = default)
     {
         var today = Today;
-        var rules = await db.PricingRules.AsNoTracking().Where(r => r.Kind == PricingRuleKind.Period).ToListAsync(ct);
-        return rules
-            .OrderBy(r => r.IsExpiredOn(today))
-            .ThenBy(r => r.NameIn(Tenant.DefaultCulture, Tenant.DefaultCulture), StringComparer.CurrentCultureIgnoreCase)
-            .ThenBy(r => r.Id)
+        return (await ListAsync(PricingRuleKind.Period, today, ct))
             .Select(r => new PeriodPriceSummary(r.Id, new PeriodPriceInput(
                     r.NameIn(Tenant.DefaultCulture, Tenant.DefaultCulture),
                     new PricingTarget(r.AppliesToAll, r.CategoryIds, r.RentalItemIds, r.BundleIds),
