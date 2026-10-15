@@ -168,7 +168,7 @@ internal sealed partial class PricingRuleAdministration(AppDbContext db, ITenant
         await db.PricingRules.FirstOrDefaultAsync(r => r.Id == ruleId, ct)
             ?? throw new PricingRuleException(["Deze prijsregel bestaat niet (meer)."]);
 
-    private DateOnly Today => DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+    private DateOnly Today => Belgium.Today(clock);
 
     private static string LanguageName(string culture) => culture switch
     {

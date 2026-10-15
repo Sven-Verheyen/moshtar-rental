@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Prices;
+using Moshtar.Domain.Common;
 using Moshtar.Domain.Prices;
 using Moshtar.Infrastructure.Persistence;
 
@@ -17,7 +18,7 @@ internal sealed class PriceQuotes(IDbContextFactory<AppDbContext> contexts, Time
     /// <summary>De prijsregels die aan staan, met vandaag (klok van de verhuurder) als reservatiedatum.</summary>
     internal static async Task<PriceQuoter> CurrentAsync(AppDbContext db, TimeProvider clock, CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(clock.GetLocalNow().DateTime);
+        var today = Belgium.Today(clock);
         var rules = await db.PricingRules.AsNoTracking().Where(r => r.IsActive).OrderBy(r => r.Id).ToListAsync(ct);
         return new PriceQuoter(today, rules);
     }

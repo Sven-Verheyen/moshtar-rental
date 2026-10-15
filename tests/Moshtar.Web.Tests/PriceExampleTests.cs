@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Prices;
@@ -8,6 +9,7 @@ using Moshtar.Domain.Common;
 using Moshtar.Domain.Prices;
 using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Persistence;
+using Moshtar.Web.Tenancy;
 using static Moshtar.Web.Tests.WebsiteCart;
 
 namespace Moshtar.Web.Tests;
@@ -89,6 +91,28 @@ public sealed class PriceExampleTests(MoshtarApp app) : IClassFixture<MoshtarApp
         Assert.Contains("Reservatiedatum", html);
         Assert.True(html.IndexOf("Rekentool", StringComparison.Ordinal) < html.IndexOf("Combinatiekortingen", StringComparison.Ordinal));
         Assert.Contains("Nieuwe actie", html);
+    }
+
+    [Fact]
+    public async Task The_reservation_date_starts_at_today_in_belgium()
+    {
+        await NewTenantAsync("rekentool-vandaag", TestReservations.FutureDay(10));
+        // 23u30 UTC is al de volgende dag in België.
+        var now = new DateTimeOffset(2026, 11, 10, 23, 30, 0, TimeSpan.Zero);
+        await using var later = app.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<TimeProvider>(new FixedClock(now))));
+        await using var scope = later.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var tenant = await db.Tenants.AsNoTracking().Include(t => t.Hosts).SingleAsync(t => t.Slug == "rekentool-vandaag");
+        scope.ServiceProvider.GetRequiredService<HostTenantContext>().UseTenant(tenant);
+
+        var choices = await scope.ServiceProvider.GetRequiredService<IPriceExamples>().GetChoicesAsync();
+
+        Assert.Equal(new DateOnly(2026, 11, 11), choices.Today);
+    }
+
+    private sealed class FixedClock(DateTimeOffset now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => now;
     }
 
     private async Task<PriceExampleResult> CalculateAsync(string slug, PriceExample example)

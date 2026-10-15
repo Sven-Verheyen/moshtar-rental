@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Prices;
 using Moshtar.Application.Tenancy;
+using Moshtar.Domain.Common;
 using Moshtar.Domain.Prices;
 using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Persistence;
@@ -20,7 +21,7 @@ internal sealed class PriceExamples(IDbContextFactory<AppDbContext> contexts, IT
     public async Task<PriceExampleChoices> GetChoicesAsync(CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
-        return new PriceExampleChoices(DateOnly.FromDateTime(clock.GetLocalNow().DateTime), await Catalog(db).GetCatalogAsync(Culture, ct));
+        return new PriceExampleChoices(Belgium.Today(clock), await Catalog(db).GetCatalogAsync(Culture, ct));
     }
 
     public async Task<PriceExampleResult> CalculateAsync(PriceExample example, CancellationToken ct = default)
