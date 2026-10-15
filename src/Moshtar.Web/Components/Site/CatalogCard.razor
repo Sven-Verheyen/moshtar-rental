@@ -29,7 +29,7 @@
         }
         @if (Chosen.Period is { } period)
         {
-            <p class="price">@SiteText.Money(Entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days)</span></p>
+            <p class="price">@SiteText.Money(Quoter?.PriceFor(Entry, period) ?? Entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days)</span></p>
         }
         else
         {
@@ -43,6 +43,8 @@
     [Parameter, EditorRequired] public CatalogEntry Entry { get; set; } = null!;
     [Parameter] public ChosenPeriod Chosen { get; set; } = ChosenPeriod.None;
     [Parameter] public bool Unavailable { get; set; }
+    /// <summary>De prijsregels, voor de prijs met periodeprijzen in de gekozen huurperiode; zonder: de gewone prijs.</summary>
+    [Parameter] public PriceQuoter? Quoter { get; set; }
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
 }

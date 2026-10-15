@@ -56,6 +56,15 @@ public interface IPricingRuleAdministration
     /// <summary>Gooit een <see cref="PricingRuleException"/> als de invoer niet klopt, en bewaart dan niets.</summary>
     Task SaveComboAsync(Guid ruleId, ComboDiscountInput input, CancellationToken ct = default);
 
+    /// <summary>De periodeprijzen: eerst die nog lopen (ook uitgezette), op naam; daaronder de verlopen.</summary>
+    Task<IReadOnlyList<PeriodPriceSummary>> GetPeriodPricesAsync(CancellationToken ct = default);
+
+    /// <summary>Gooit een <see cref="PricingRuleException"/> als de invoer niet klopt, en bewaart dan niets.</summary>
+    Task<Guid> CreatePeriodPriceAsync(PeriodPriceInput input, CancellationToken ct = default);
+
+    /// <summary>Gooit een <see cref="PricingRuleException"/> als de invoer niet klopt, en bewaart dan niets.</summary>
+    Task SavePeriodPriceAsync(Guid ruleId, PeriodPriceInput input, CancellationToken ct = default);
+
     /// <summary>Zet een prijsregel van elke soort aan of uit.</summary>
     Task SetActiveAsync(Guid ruleId, bool isActive, CancellationToken ct = default);
 

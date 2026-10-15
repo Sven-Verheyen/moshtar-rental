@@ -1,10 +1,11 @@
 @inject IStringLocalizer<SharedResource> L
+@inject IPriceQuotes Prices
 
 @* Met een huurperiode: wat vrij is bovenaan, de rest met "niet vrij op deze datum". De volgorde blijft verder die van de catalogus. *@
 <div class="catalog-grid">
     @foreach (var entry in Entries.OrderBy(e => Unavailable.Contains(e.Id)))
     {
-        <CatalogCard Entry="entry" Chosen="Chosen" Unavailable="Unavailable.Contains(entry.Id)" />
+        <CatalogCard Entry="entry" Chosen="Chosen" Unavailable="Unavailable.Contains(entry.Id)" Quoter="_quoter" />
     }
 </div>
 
@@ -12,4 +13,12 @@
     [Parameter, EditorRequired] public IReadOnlyList<CatalogEntry> Entries { get; set; } = [];
     [Parameter] public ChosenPeriod Chosen { get; set; } = ChosenPeriod.None;
     [Parameter] public IReadOnlySet<Guid> Unavailable { get; set; } = new HashSet<Guid>();
+
+    private PriceQuoter? _quoter;
+
+    /// <summary>Met een huurperiode de prijsregels, één keer voor alle kaarten, voor de prijs met periodeprijzen.</summary>
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Chosen.Period is not null && _quoter is null) _quoter = await Prices.CurrentAsync();
+    }
 }

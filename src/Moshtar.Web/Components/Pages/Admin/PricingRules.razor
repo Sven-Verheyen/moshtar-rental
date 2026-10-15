@@ -5,15 +5,14 @@
 
 <PageTitle>Prijsregels</PageTitle>
 
-@* Alle prijsregels op één plaats, per soort een tabblad. *@
+@* Alle prijsregels op één plaats, per soort een tabblad; ?tab=periodeprijzen opent meteen dat tabblad. *@
 <AdminShell Title="Prijsregels">
-    <MudTabs Elevation="1" Rounded="true" TabPanelsClass="pt-4">
+    <MudTabs Elevation="1" Rounded="true" TabPanelsClass="pt-4" @bind-ActivePanelIndex="_activeTab">
         <MudTabPanel Text="Combinatiekortingen">
             <ComboDiscountsEditor />
         </MudTabPanel>
         <MudTabPanel Text="Periodeprijzen">
-            @* Het tabblad Periodeprijzen (#92). *@
-            <MudText Typo="Typo.body2">Periodeprijzen komen hier binnenkort.</MudText>
+            <PeriodPricesEditor />
         </MudTabPanel>
         <MudTabPanel Text="Acties">
             @* Het tabblad Acties (#93). *@
@@ -22,3 +21,14 @@
     </MudTabs>
     @* De rekentool komt hier, onder de tabbladen: dezelfde berekening als de website (PriceCalculator), zonder iets te bewaren. *@
 </AdminShell>
+
+@code {
+    /// <summary>De tabbladen in volgorde, zoals in ?tab=.</summary>
+    private static readonly string[] Tabs = ["combinatiekortingen", "periodeprijzen", "acties"];
+
+    [SupplyParameterFromQuery(Name = "tab")] private string? Tab { get; set; }
+
+    private int _activeTab;
+
+    protected override void OnInitialized() => _activeTab = Math.Max(0, Array.IndexOf(Tabs, Tab?.ToLowerInvariant()));
+}

@@ -87,9 +87,10 @@ public static class PriceCalculator
 
     /// <summary>
     /// Hoeveel procent duurder (of goedkoper) deze dag is voor deze lijn: de som van de periodeprijzen die op die dag
-    /// gelden. Periodeprijzen komen er nog bij (#92); tot dan geldt elke dag de gewone prijs.
+    /// gelden (zie <see cref="PeriodPrices"/>).
     /// </summary>
-    private static decimal DayPercentage(PriceLine line, DateOnly day, IReadOnlyList<PricingRule> rules) => 0;
+    private static decimal DayPercentage(PriceLine line, DateOnly day, IReadOnlyList<PricingRule> rules) =>
+        PeriodPrices.DayPercentage(line, day, rules);
 
     /// <summary>
     /// Een combinatiekorting: de stuks in het bereik van de regel van goedkoop naar duur; elke volledige groep van het

@@ -27,6 +27,12 @@ public sealed class PriceQuoter(DateOnly reservationDate, IReadOnlyList<PricingR
     public PriceResult Quote(DateRange period, IReadOnlyList<PriceLine> lines) =>
         PriceCalculator.Calculate(new PriceRequest(lines, period, ReservationDate, Rules));
 
+    /// <summary>
+    /// De prijs van één stuk van dit artikel of pakket voor de huurperiode, met de periodeprijzen van elke dag: wat de
+    /// reservatiewebsite toont met een gekozen datum (zonder datum blijft de gewone prijs, <see cref="CatalogEntry.PriceFor"/>).
+    /// </summary>
+    public decimal PriceFor(CatalogEntry entry, DateRange period) => Quote(period, [entry.ToPriceLine(1)]).Lines[0].UnitPrice;
+
     /// <summary>De combinatiekortingen die vandaag gelden voor dit artikel of pakket, voor de zin op de artikelpagina.</summary>
     public IReadOnlyList<PricingRule> CombosFor(CatalogEntry entry) =>
         Rules.Where(r => r.Kind == PricingRuleKind.Combo && r.IsInForceOn(ReservationDate) && r.Covers(entry.Ref(), entry.CategoryId)).ToList();

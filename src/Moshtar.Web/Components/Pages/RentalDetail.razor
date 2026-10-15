@@ -21,7 +21,7 @@
 }
 
 <SiteHead Title="@_entry.Name" Description="@(_entry.Description ?? _entry.Name)" Image="@(_entry.MainPhoto is { } photo ? Images.ShareUrl(photo) : null)"
-          OgType="product" NoIndex="_chosen.InUrl" JsonLd="@([StructuredData.Product(_entry, Links, Images), Breadcrumbs])" />
+          OgType="product" NoIndex="_chosen.InUrl" JsonLd="@([StructuredData.Product(_entry, Links, Images, ChosenPrice), Breadcrumbs])" />
 
 <div class="page">
 <p class="back"><a href="@BackHref">← @BackText</a></p>
@@ -116,7 +116,7 @@
             <AnalyticsEvent Name="check_availability" Data="@AvailabilityChecked(period)" />
             <div class="availability free" role="status">
                 <p><strong>@L["AvailableOn", SiteText.Period(period)]</strong></p>
-                <p class="price price-large">@L["Total"]: @SiteText.Money(_entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span></p>
+                <p class="price price-large">@L["Total"]: @SiteText.Money(PriceFor(period)) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span></p>
                 <p><a href="@(Here + "#reserveren")">@L["OtherDate"]</a></p>
             </div>
             @if (CartResult == CartEndpoints.Added)
@@ -160,6 +160,7 @@
     private DateOnly _today;
     private bool _available;
     private IReadOnlyList<string> _combos = [];
+    private PriceQuoter? _quoter;
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
@@ -193,7 +194,8 @@
             _category = (await CategoryLink.AllAsync(Texts, Links)).FirstOrDefault(c => c.Id == categoryId);
 
         var fallback = TenantContext.Tenant?.DefaultCulture ?? Culture;
-        _combos = (await Prices.CurrentAsync()).CombosFor(_entry).Select(r => r.NameIn(Culture, fallback)).Where(n => n.Length > 0).ToList();
+        _quoter = await Prices.CurrentAsync();
+        _combos = _quoter.CombosFor(_entry).Select(r => r.NameIn(Culture, fallback)).Where(n => n.Length > 0).ToList();
 
         _today = ChosenPeriod.Today(Clock);
         _chosen = ChosenPeriod.From(Start, End, _today);
@@ -220,9 +222,15 @@
     private System.Text.Json.Nodes.JsonObject AddedToCart(Moshtar.Domain.Common.DateRange period)
     {
         var quantity = Math.Clamp(AddedQuantity ?? 1, 1, Cart.MaxQuantity);
-        var price = _entry!.PriceFor(period.Days);
-        return AnalyticsItems.Event(price * quantity, [AnalyticsItems.Item(_entry.Slug, _entry.Name, quantity, price)]);
+        var price = PriceFor(period);
+        return AnalyticsItems.Event(price * quantity, [AnalyticsItems.Item(_entry!.Slug, _entry.Name, quantity, price)]);
     }
+
+    /// <summary>De prijs per stuk voor de huurperiode, met periodeprijzen: dezelfde berekening als de winkelkar.</summary>
+    private decimal PriceFor(Moshtar.Domain.Common.DateRange period) => _quoter?.PriceFor(_entry!, period) ?? _entry!.PriceFor(period.Days);
+
+    /// <summary>Met een gekozen huurperiode de prijs die de bezoeker ziet, ook voor de structured data; anders null (dagprijs).</summary>
+    private StructuredData.PeriodPrice? ChosenPrice => _chosen.Period is { } period ? new(period.Days, PriceFor(period)) : null;
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
 

@@ -56,6 +56,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   (`PriceCalculator`) voor de winkelkar, reserveren (website en back office), Open winkelkarren, de herinneringsmail en
   GA4; een reservatie bewaart elke korting als eigen lijn met de naam van de regel, en houdt die als de regel later
   wijzigt. De artikelpagina noemt de combinatiekorting waarin het artikel valt.
+  Periodeprijzen (tabblad op dezelfde pagina, `?tab=periodeprijzen`): elke dag van de huurperiode in bepaalde data en/of
+  op bepaalde weekdagen wordt −90% tot +200% duurder of goedkoper, voor alles of gekozen artikelen, pakketten en
+  categorieën; op één dag tellen de percentages op en kortingen rekenen daarna. Met een gekozen datum tonen kaarten,
+  artikelpagina, winkelkar, structured data en GA4 de prijs mét periodeprijs; zonder datum de gewone prijs.
   De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
   dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
   Per getroffen reservatie staan er de alternatieven (artikelen uit dezelfde categorie, aan en vrij in de volledige
