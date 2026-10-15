@@ -122,6 +122,34 @@ public class PriceCalculatorTests
     }
 
     [Fact]
+    public void A_piece_of_nothing_is_still_the_cheapest_of_a_combo_group()
+    {
+        // Twee periodeprijzen van samen −100% maken het spel gratis; het blijft het goedkoopste stuk van de groep, dus
+        // de korting gaat niet naar het springkasteel van 100.
+        var game = Item(100, Games);
+        var free = Period("Gratis spel", -100, categories: [Games]);
+        var combo = Combo("2e stuk 40% korting", minimum: 2, percentage: 40, categories: [Castles, Games]);
+
+        var result = Calculate([game, Item(100, Castles)], [free, combo]);
+
+        Assert.Equal([0m, 100m], result.Lines.Select(l => l.UnitPrice));
+        Assert.Empty(result.Discounts);
+        Assert.Equal(100m, result.Total);
+    }
+
+    [Fact]
+    public void A_discount_that_rounds_to_nothing_still_takes_the_place_of_the_cheapest()
+    {
+        var rule = Combo("2e springkasteel 40% korting", minimum: 2, percentage: 40, categories: [Castles]);
+
+        // 40% van 0,01 is 0,004: afgerond 0. Het stuk van 100 krijgt daarom geen korting.
+        var result = Calculate([Item(0.01m, Castles), Item(100, Castles)], [rule]);
+
+        Assert.Empty(result.Discounts);
+        Assert.Equal(100.01m, result.Total);
+    }
+
+    [Fact]
     public void A_rule_that_is_switched_off_or_expired_does_not_count()
     {
         var off = Combo("Uit", minimum: 2, percentage: 40, categories: [Castles]);

@@ -35,7 +35,9 @@ public sealed record PricedDay(DateOnly Date, decimal NormalPrice, decimal Perce
 
 /// <summary>
 /// Eén stuk van een lijn (<see cref="LineIndex"/> in de gevraagde lijnen) met zijn prijs en de korting die het kreeg,
-/// of geen (<see cref="Rule"/> null, <see cref="Discount"/> 0). Elk stuk krijgt hoogstens één korting. Voor de rekentool.
+/// of geen (<see cref="Rule"/> null, <see cref="Discount"/> 0). Elk stuk krijgt hoogstens één korting. Een stuk van 0 kan
+/// de plaats van goedkoopste in een combinatiekorting innemen met een korting van 0 (<see cref="Rule"/> gezet,
+/// <see cref="Discount"/> 0). Voor de rekentool.
 /// </summary>
 public sealed record PricedPiece(int LineIndex, decimal Price, PricingRule? Rule, decimal Discount);
 
@@ -138,7 +140,9 @@ public static class PriceCalculator
             .ToList();
         var receivers = inScope
             .Select(x => (x.Index, Discount: Percent(x.Piece.Price, rule.Percentage)))
-            .Where(x => (best[x.Index]?.Amount ?? 0) < x.Discount)
+            // Geen korting is iets anders dan een korting van 0: een stuk van 0 (of met een korting die op 0 afrondt)
+            // zonder korting blijft het goedkoopste stuk en neemt de plaats van de groep in.
+            .Where(x => best[x.Index] is not { } current || current.Amount < x.Discount)
             .Take(inScope.Count / minimum)
             .ToList();
         foreach (var (index, discount) in receivers)
