@@ -24,6 +24,8 @@ using Moshtar.Application.Maps;
 using Moshtar.Infrastructure.Maps;
 using Moshtar.Application.Images;
 using Moshtar.Infrastructure.Images;
+using Moshtar.Application.Prices;
+using Moshtar.Infrastructure.Prices;
 
 namespace Moshtar.Infrastructure;
 
@@ -72,6 +74,7 @@ public static class DependencyInjection
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
+        services.AddScoped<IPricingRuleAdministration, PricingRuleAdministration>();
 
         var mail = configuration.GetSection("Mail");
         services.Configure<MailOptions>(mail);

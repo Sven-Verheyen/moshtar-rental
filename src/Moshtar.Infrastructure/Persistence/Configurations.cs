@@ -5,6 +5,7 @@ using Moshtar.Domain.Marketing;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
+using Moshtar.Domain.Prices;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Rounds;
 using Moshtar.Domain.Tenants;
@@ -295,5 +296,21 @@ internal sealed class MarketingContactConfiguration : IEntityTypeConfiguration<M
         b.Property(c => c.Culture).HasMaxLength(10);
         b.Property(c => c.Source).HasConversion<string>().HasMaxLength(20);
         b.HasIndex(c => new { c.TenantId, c.Email }).IsUnique();
+    }
+}
+
+internal sealed class PricingRuleConfiguration : IEntityTypeConfiguration<PricingRule>
+{
+    public void Configure(EntityTypeBuilder<PricingRule> b)
+    {
+        b.Property(r => r.Kind).HasConversion<string>().HasMaxLength(20);
+        b.Property(r => r.Percentage).HasPrecision(7, 2);
+        b.OwnsMany(r => r.Names, t => t.ToJson());
+        // De doelen en weekdagen als PostgreSQL-arrays (uuid[] en integer[]).
+        b.Property(r => r.CategoryIds);
+        b.Property(r => r.RentalItemIds);
+        b.Property(r => r.BundleIds);
+        b.Property(r => r.Weekdays);
+        b.HasIndex(r => new { r.TenantId, r.Kind });
     }
 }
