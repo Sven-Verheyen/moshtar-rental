@@ -145,6 +145,9 @@
 </MudPaper>
 
 @code {
+    /// <summary>Na elke geslaagde wijziging (toevoegen, wijzigen, aan/uit, verwijderen): de rekentool rekent opnieuw.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
     private enum Scope { All, Categories, Chosen }
 
     private sealed class Draft
@@ -226,6 +229,7 @@
             Snackbar.Add(_editing is null ? "Actie toegevoegd." : "Actie gewijzigd.", Severity.Success);
             Reset();
             await LoadAsync();
+            await Changed.InvokeAsync();
         }
         catch (PricingRuleException e)
         {
@@ -237,6 +241,7 @@
     {
         await Admin.SetActiveAsync(promotion.Id, active);
         await LoadAsync();
+        await Changed.InvokeAsync();
     }
 
     private async Task DeleteAsync(PromotionSummary promotion)
@@ -250,6 +255,7 @@
             await Admin.DeleteAsync(promotion.Id);
             if (_editing == promotion.Id) Reset();
             await LoadAsync();
+            await Changed.InvokeAsync();
             Snackbar.Add("Actie verwijderd.", Severity.Success);
         }
         catch (PricingRuleException e)

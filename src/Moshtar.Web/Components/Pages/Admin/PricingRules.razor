@@ -7,19 +7,20 @@
 
 @*
     Alle prijsregels op één plaats, per soort een tabblad; ?tab=periodeprijzen of ?tab=acties opent meteen dat tabblad.
-    Bovenaan de rekentool: dezelfde berekening als de winkelkar (PriceCalculator), zonder iets te bewaren.
+    Bovenaan de rekentool: dezelfde berekening als de winkelkar (PriceCalculator), zonder iets te bewaren. Na elke
+    wijziging in een tabblad rekent hij opnieuw, met zijn eigen context (de tabbladen zijn dan klaar met de gedeelde).
 *@
 <AdminShell Title="Prijsregels">
-    <PriceExampleTool />
+    <PriceExampleTool @ref="_tool" />
     <MudTabs Elevation="1" Rounded="true" TabPanelsClass="pt-4" @bind-ActivePanelIndex="_activeTab">
         <MudTabPanel Text="Combinatiekortingen">
-            <ComboDiscountsEditor />
+            <ComboDiscountsEditor Changed="RecalculateAsync" />
         </MudTabPanel>
         <MudTabPanel Text="Periodeprijzen">
-            <PeriodPricesEditor />
+            <PeriodPricesEditor Changed="RecalculateAsync" />
         </MudTabPanel>
         <MudTabPanel Text="Acties">
-            <PromotionsEditor />
+            <PromotionsEditor Changed="RecalculateAsync" />
         </MudTabPanel>
     </MudTabs>
 </AdminShell>
@@ -31,6 +32,9 @@
     [SupplyParameterFromQuery(Name = "tab")] private string? Tab { get; set; }
 
     private int _activeTab;
+    private PriceExampleTool? _tool;
 
     protected override void OnInitialized() => _activeTab = Math.Max(0, Array.IndexOf(Tabs, Tab?.ToLowerInvariant()));
+
+    private Task RecalculateAsync() => _tool?.RecalculateAsync() ?? Task.CompletedTask;
 }

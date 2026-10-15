@@ -136,6 +136,9 @@
 </MudPaper>
 
 @code {
+    /// <summary>Na elke geslaagde wijziging (toevoegen, wijzigen, aan/uit, verwijderen): de rekentool rekent opnieuw.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
     private sealed class Draft
     {
         public Dictionary<string, string> Names { get; set; } = [];
@@ -208,6 +211,7 @@
             Snackbar.Add(_editing is null ? "Combinatiekorting toegevoegd." : "Combinatiekorting gewijzigd.", Severity.Success);
             Reset();
             await LoadAsync();
+            await Changed.InvokeAsync();
         }
         catch (PricingRuleException e)
         {
@@ -219,6 +223,7 @@
     {
         await Admin.SetActiveAsync(combo.Id, active);
         await LoadAsync();
+        await Changed.InvokeAsync();
     }
 
     private async Task DeleteAsync(ComboDiscountSummary combo)
@@ -232,6 +237,7 @@
             await Admin.DeleteAsync(combo.Id);
             if (_editing == combo.Id) Reset();
             await LoadAsync();
+            await Changed.InvokeAsync();
             Snackbar.Add("Combinatiekorting verwijderd.", Severity.Success);
         }
         catch (PricingRuleException e)

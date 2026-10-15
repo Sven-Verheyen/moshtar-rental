@@ -167,6 +167,13 @@
         await CalculateAsync();
     }
 
+    /// <summary>Rekent dezelfde keuze opnieuw, met de prijsregels zoals ze nu zijn: na een wijziging in een tabblad.</summary>
+    public async Task RecalculateAsync()
+    {
+        await CalculateAsync();
+        StateHasChanged();
+    }
+
     private async Task CalculateAsync()
     {
         var calculation = ++_calculation;
