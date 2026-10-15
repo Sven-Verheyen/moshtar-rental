@@ -145,7 +145,7 @@ _Avoid_: mengkorting, volumekorting, bundelkorting
 
 **Periodeprijs** (`PeriodPrice`):
 Een percentage waarmee de prijs stijgt of daalt voor elke dag van de huurperiode die in bepaalde data of op bepaalde weekdagen valt, zoals "zaterdag 20% duurder". Een periodeprijs is geen korting en geen meerprijs: hij hoort bij de gewone prijs van die dag.
-_Avoid_: seizoensprijs, toeslag, meerprijs, dagprijs
+_Avoid_: seizoensprijs, toeslag, meerprijs
 
 **Actie** (`Promotion`):
 Een tijdelijke korting in procent voor reservaties die gemaakt worden tussen een start- en einddatum, met een eigen naam per taal, zoals "Reserveer in november: 10% korting".
