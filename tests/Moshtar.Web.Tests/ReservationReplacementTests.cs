@@ -206,7 +206,7 @@ public sealed class ReservationReplacementTests(MoshtarApp app) : IClassFixture<
     {
         var result = await Reservations(scope).ReserveAsync(new ReservationRequest(
             new DateRange(start, end), [line],
-            new ReservationCustomer(firstName, "Klant", $"{firstName.ToLowerInvariant()}@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+            new ReservationCustomer(firstName, "Klant", $"{firstName.ToLowerInvariant()}@example.test", "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
             DeliveryMethod.Pickup, null, null, culture), ReservationActor.Website);
         return result.Reservation ?? throw new InvalidOperationException("Reserveren mislukt.");
     }

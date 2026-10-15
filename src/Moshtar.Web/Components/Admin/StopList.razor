@@ -1,0 +1,267 @@
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Common
+@using Moshtar.Domain.Rounds
+
+@* De reservaties van één ronde in de Planning, als kaartjes onder elkaar zodat ze ook op een gsm leesbaar zijn. *@
+@if (Stops.Count == 0)
+{
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">@Empty</MudText>
+}
+@foreach (var stop in Stops)
+{
+    <MudPaper Class="@($"planning-stop pa-3 mb-2{(stop.IsCompleted ? " planning-stop-done" : "")}")" Outlined="true" data-reservation="@stop.Number"
+              data-order="@stop.InRound?.Position">
+        <div class="d-flex flex-wrap align-center gap-2">
+            @if (stop.InRound is { } numbered)
+            {
+                <span class="planning-order" aria-label="@($"Stop {numbered.Position}")">@numbered.Position</span>
+            }
+            <MudText Typo="Typo.subtitle1"><b>@stop.CustomerName</b></MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">@stop.Number</MudText>
+            <MudSpacer />
+            <MudChip T="string" Size="Size.Small" Color="@(stop.IsCompleted ? Color.Default : Color.Primary)">@StatusLabel(stop.Status)</MudChip>
+        </div>
+        @if (stop.InRound is { } times)
+        {
+            <div class="planning-times d-flex flex-wrap align-center gap-2" data-arrival="@times.Arrival.ToString("HH:mm")"
+                 data-window="@times.Window" data-fixed="@times.FixedTime?.ToString("HH:mm")">
+                <span>Aankomst <b>@ExpectedWindow.Time(times.Arrival)</b></span>
+                <span>Venster <b>@times.Window</b></span>
+                @if (times.FixedTime is { } fixedTime)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.Schedule">Vast uur @ExpectedWindow.Time(fixedTime)</MudChip>
+                }
+                @if (times.HandlingMinutes is { } own)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined">@HandlingLabel @own min</MudChip>
+                }
+                @if (times.Late)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Te laat voor het vaste uur</MudChip>
+                }
+                @if (times.WindowPastMidnight)
+                {
+                    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Venster na middernacht: niet te mailen</MudChip>
+                }
+                @if (times.MailedAt is { } mailedAt)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.MarkEmailRead"
+                             data-mailed-window="@times.MailedWindow">Gemaild op @Local(mailedAt): @times.MailedWindow</MudChip>
+                    @if (times.WindowChangedSinceMail)
+                    {
+                        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Icon="@Icons.Material.Filled.Warning">Venster gewijzigd sinds de mail</MudChip>
+                    }
+                }
+                @if (times.WhatsAppLink is { } whatsAppLink)
+                {
+                    @* Opent WhatsApp met het ingevulde bericht; de gebruiker verstuurt het zelf. De klik wordt onthouden. *@
+                    <MudButton Href="@whatsAppLink" Target="_blank" Rel="noopener" Size="Size.Small" Variant="Variant.Text"
+                               StartIcon="@Icons.Custom.Brands.WhatsApp" data-action="whatsapp" OnClick="() => OnWhatsApp.InvokeAsync(stop)">WhatsApp</MudButton>
+                }
+                @if (times.WhatsAppAt is { } whatsAppAt)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Custom.Brands.WhatsApp">WhatsApp op @Local(whatsAppAt)</MudChip>
+                }
+                @if (OnMove.HasDelegate)
+                {
+                    <MudSpacer />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowUpward" Size="Size.Small" aria-label="Stop naar boven" Disabled="@(times.Position == 1)"
+                                   data-action="omhoog" OnClick="() => OnMove.InvokeAsync((stop, times.Position - 1))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowDownward" Size="Size.Small" aria-label="Stop naar beneden" Disabled="@(times.Position == LastPosition)"
+                                   data-action="omlaag" OnClick="() => OnMove.InvokeAsync((stop, times.Position + 1))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.Tune" Size="Size.Small" aria-label="Uur en opbouwtijd aanpassen"
+                                   data-action="stop-aanpassen" OnClick="() => Tune(stop)" />
+                }
+            </div>
+            @if (_tuning == stop.ReservationId)
+            {
+                <MudPaper Elevation="0" Class="planning-edit pa-2 my-2">
+                    <div class="d-flex flex-wrap gap-2">
+                        <MudTextField @bind-Value="_fixedTime" Label="Vast uur" InputType="InputType.Time" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                      HelperText="Leeg: geen vast uur" Class="planning-field" />
+                        <MudNumericField @bind-Value="_handling" Label="@($"{HandlingLabel} (min)")" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                         Min="0" Max="480" HelperText="@($"Leeg: standaard {DefaultHandlingMinutes} min")" Class="planning-field" />
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="() => SaveTuningAsync(stop)">Bewaren</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _tuning = null">Annuleren</MudButton>
+                    </div>
+                </MudPaper>
+            }
+        }
+        @if (stop.Phone is { } phone)
+        {
+            <div><MudLink Href="@($"tel:{TelephoneHref(phone)}")">@phone</MudLink></div>
+        }
+        @if (stop.Address is { } address)
+        {
+            <div class="d-flex flex-wrap align-center gap-2">
+                <span class="planning-address">@AddressLine(address)</span>
+                @if (stop.PointConfirmed)
+                {
+                    <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Material.Filled.PushPin">Speld bevestigd</MudChip>
+                }
+                <MudButton Href="@WazeUrl(address, stop.Point)" Target="_blank" Size="Size.Small" Variant="Variant.Text"
+                           StartIcon="@Icons.Material.Filled.Navigation">Navigeer</MudButton>
+                @if (OnCorrect.HasDelegate && _editing != stop.ReservationId)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Text" StartIcon="@Icons.Material.Filled.Edit"
+                               data-action="adres-verbeteren" OnClick="() => Edit(stop)">Adres verbeteren</MudButton>
+                }
+            </div>
+            @if (stop.AddressNotFound)
+            {
+                <MudAlert Severity="Severity.Warning" Dense="true" Class="my-1" data-warning="adres">
+                    Adres niet gevonden op de kaart. Verbeter het adres, of zet zelf een speld als het zeker juist is.
+                    @if (OnPin.HasDelegate)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning" StartIcon="@Icons.Material.Filled.PushPin"
+                                   data-action="speld-zetten" OnClick="() => OnPin.InvokeAsync(stop)">Speld zetten</MudButton>
+                    }
+                </MudAlert>
+            }
+            @if (_editing == stop.ReservationId)
+            {
+                <MudPaper Elevation="0" Class="planning-edit pa-2 my-2">
+                    <MudTextField @bind-Value="_street" Label="Straat en huisnummer" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    <div class="d-flex gap-2">
+                        <MudTextField @bind-Value="_postalCode" Label="Postcode" Variant="Variant.Outlined" Margin="Margin.Dense" Class="planning-postal-code" />
+                        <MudTextField @bind-Value="_city" Label="Gemeente" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                    </div>
+                    <div class="d-flex gap-2 mt-2">
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="() => SaveAsync(stop)">Bewaren en opzoeken</MudButton>
+                        <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _editing = null">Annuleren</MudButton>
+                    </div>
+                </MudPaper>
+            }
+        }
+        <ul class="planning-lines">
+            @foreach (var line in stop.Lines)
+            {
+                <li>
+                    @line.Quantity × @line.Name
+                    @if (line.Contents.Count > 0)
+                    {
+                        <ul>
+                            @foreach (var content in line.Contents)
+                            {
+                                <li>@content.Quantity × @content.Name</li>
+                            }
+                        </ul>
+                    }
+                </li>
+            }
+        </ul>
+        @if (stop.Notes is { } notes)
+        {
+            <MudText Typo="Typo.body2" Class="planning-notes"><i>@notes</i></MudText>
+        }
+        @if (CanMark(stop))
+        {
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-2" FullWidth="true"
+                       StartIcon="@Icons.Material.Filled.Check" data-mark="@StatusLabel(Action)" OnClick="() => OnDone.InvokeAsync((stop, Action))">@StatusLabel(Action)</MudButton>
+        }
+    </MudPaper>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<ScheduleStop> Stops { get; set; } = [];
+
+    /// <summary>De tekst als de ronde leeg is.</summary>
+    [Parameter] public string? Empty { get; set; }
+
+    /// <summary>De status waarop de knop een stop zet: Geleverd of Teruggebracht.</summary>
+    [Parameter, EditorRequired] public ReservationStatus Action { get; set; }
+
+    [Parameter] public EventCallback<(ScheduleStop Stop, ReservationStatus Status)> OnDone { get; set; }
+
+    /// <summary>Het verbeterde leveradres van een stop bewaren. Zonder: geen knop "Adres verbeteren".</summary>
+    [Parameter] public EventCallback<(ScheduleStop Stop, Address Address)> OnCorrect { get; set; }
+
+    /// <summary>Een speld zetten voor een stop waarvan het adres niet gevonden wordt. Zonder: geen knop "Speld zetten".</summary>
+    [Parameter] public EventCallback<ScheduleStop> OnPin { get; set; }
+
+    /// <summary>Een stop in de ronde naar een andere plaats zetten (vanaf 1). Zonder: geen knoppen om de ronde aan te passen.</summary>
+    [Parameter] public EventCallback<(ScheduleStop Stop, int Position)> OnMove { get; set; }
+
+    /// <summary>Het vaste uur (null: geen) en de eigen opbouw- of afbouwtijd (null: de standaard) van een stop bewaren.</summary>
+    [Parameter] public EventCallback<(ScheduleStop Stop, TimeOnly? FixedTime, int? HandlingMinutes)> OnTune { get; set; }
+
+    /// <summary>Onthouden dat op de WhatsApp-knop van een stop gedrukt werd.</summary>
+    [Parameter] public EventCallback<ScheduleStop> OnWhatsApp { get; set; }
+
+    /// <summary>"Opbouwtijd" in de leverronde, "Afbouwtijd" in de ophaalronde.</summary>
+    [Parameter] public string HandlingLabel { get; set; } = "Opbouwtijd";
+
+    /// <summary>De opbouw- of afbouwtijd uit de instellingen, voor een stop zonder eigen tijd.</summary>
+    [Parameter] public int DefaultHandlingMinutes { get; set; }
+
+    private int LastPosition => Stops.Max(s => s.InRound?.Position ?? 0);
+
+    /// <summary>De stop waarvan nu het vaste uur of de eigen tijd aangepast wordt, en de velden van dat formulier.</summary>
+    private Guid? _tuning;
+    private string? _fixedTime;
+    private int? _handling;
+
+    private void Tune(ScheduleStop stop)
+    {
+        _tuning = _tuning == stop.ReservationId ? null : stop.ReservationId;
+        _fixedTime = stop.InRound?.FixedTime?.ToString("HH:mm");
+        _handling = stop.InRound?.HandlingMinutes;
+    }
+
+    private async Task SaveTuningAsync(ScheduleStop stop)
+    {
+        TimeOnly? fixedTime = TimeOnly.TryParse(_fixedTime, System.Globalization.CultureInfo.InvariantCulture, out var time) ? time : null;
+        await OnTune.InvokeAsync((stop, fixedTime, _handling));
+        _tuning = null;
+    }
+
+    /// <summary>De reservatie waarvan het adres nu verbeterd wordt, en de velden van dat formulier.</summary>
+    private Guid? _editing;
+    private string _street = "", _postalCode = "", _city = "";
+
+    private void Edit(ScheduleStop stop)
+    {
+        _editing = stop.ReservationId;
+        (_street, _postalCode, _city) = (stop.Address!.Street, stop.Address.PostalCode, stop.Address.City);
+    }
+
+    private async Task SaveAsync(ScheduleStop stop)
+    {
+        await OnCorrect.InvokeAsync((stop, new Address { Street = _street, PostalCode = _postalCode, City = _city, Country = stop.Address!.Country }));
+        _editing = null;
+    }
+
+    /// <summary>Geleverd kan zolang de reservatie bevestigd is, Teruggebracht ook nog na het leveren.</summary>
+    private bool CanMark(ScheduleStop stop) => Action switch
+    {
+        ReservationStatus.Delivered => stop.Status == ReservationStatus.Confirmed,
+        ReservationStatus.Returned => stop.Status is ReservationStatus.Confirmed or ReservationStatus.Delivered,
+        _ => false,
+    };
+
+    private static string AddressLine(Address a) => $"{a.Street}, {a.PostalCode} {a.City}";
+
+    /// <summary>
+    /// Waze start meteen de navigatie naar het punt van de stop. Zonder punt zoekt Waze het adres zelf op, misschien
+    /// vindt Waze het wel.
+    /// </summary>
+    private static string WazeUrl(Address a, GeoPoint? point) => point is null
+        ? $"https://waze.com/ul?q={Uri.EscapeDataString(AddressLine(a))}&navigate=yes"
+        : $"https://waze.com/ul?ll={point}&navigate=yes";
+
+    private static string TelephoneHref(string phone) => new(phone.Where(c => char.IsDigit(c) || c == '+').ToArray());
+
+    private static string StatusLabel(ReservationStatus s) => s switch
+    {
+        ReservationStatus.Confirmed => "Bevestigd",
+        ReservationStatus.Delivered => "Geleverd",
+        ReservationStatus.Returned => "Teruggebracht",
+        ReservationStatus.Completed => "Afgerond",
+        ReservationStatus.Cancelled => "Geannuleerd",
+        _ => s.ToString(),
+    };
+
+    private static string Local(DateTimeOffset at) => Belgium.Local(at).ToString("dd/MM HH:mm");
+}

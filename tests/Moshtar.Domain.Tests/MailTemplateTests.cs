@@ -13,6 +13,66 @@ public class MailTemplateTests
     public void Reservation_confirmation_has_a_valid_standard_text_in_every_language(string culture) =>
         Assert.Empty(Confirmation.Problems(Confirmation.Standard(culture)));
 
+    [Theory]
+    [InlineData(MailKind.ExpectedDeliveryTime, "nl")]
+    [InlineData(MailKind.ExpectedDeliveryTime, "fr")]
+    [InlineData(MailKind.ExpectedDeliveryTime, "en")]
+    [InlineData(MailKind.ExpectedCollectionTime, "nl")]
+    [InlineData(MailKind.ExpectedCollectionTime, "fr")]
+    [InlineData(MailKind.ExpectedCollectionTime, "en")]
+    public void Expected_time_mails_have_a_valid_standard_text_with_the_window_in_every_language(MailKind kind, string culture)
+    {
+        var standard = MailKinds.For(kind).Standard(culture);
+
+        Assert.Empty(MailKinds.For(kind).Problems(standard));
+        Assert.Contains("{expectedWindow}", standard.Body);
+    }
+
+    [Theory]
+    [InlineData(MailKind.ExpectedDeliveryTime, "nl", "Hallo {firstName}")]
+    [InlineData(MailKind.ExpectedDeliveryTime, "fr", "Bonjour {firstName}")]
+    [InlineData(MailKind.ExpectedDeliveryTime, "en", "Hello {firstName}")]
+    [InlineData(MailKind.ExpectedCollectionTime, "nl", "Hallo {firstName}")]
+    [InlineData(MailKind.ExpectedCollectionTime, "fr", "Bonjour {firstName}")]
+    [InlineData(MailKind.ExpectedCollectionTime, "en", "Hello {firstName}")]
+    public void Expected_time_mails_have_a_short_whatsapp_message_with_the_window_in_every_language(MailKind kind, string culture, string greeting)
+    {
+        var definition = MailKinds.For(kind);
+        var whatsApp = definition.Standard(culture).WhatsApp;
+
+        Assert.True(definition.HasWhatsApp);
+        Assert.NotNull(whatsApp);
+        Assert.StartsWith(greeting, whatsApp);
+        Assert.Contains("{expectedWindow}", whatsApp);
+        Assert.DoesNotContain("*", whatsApp);
+        Assert.Empty(definition.Problems(definition.Standard(culture)));
+    }
+
+    [Fact]
+    public void Other_mails_have_no_whatsapp_message()
+    {
+        Assert.False(Confirmation.HasWhatsApp);
+        Assert.Null(Confirmation.Standard("nl").WhatsApp);
+    }
+
+    [Fact]
+    public void The_whatsapp_message_knows_the_same_placeholders_and_needs_the_window()
+    {
+        var standard = MailKinds.ExpectedCollectionTime.Standard("nl");
+
+        var problems = MailKinds.ExpectedCollectionTime.Problems(standard with { WhatsApp = "Hallo {voornaam}, we komen {expectedDate}." });
+
+        Assert.Equal(["Onbekende plaatshouder {voornaam}.", "{expectedWindow} ontbreekt in het WhatsApp-bericht."], problems);
+    }
+
+    [Fact]
+    public void The_window_is_required_in_an_expected_time_mail()
+    {
+        var problems = MailKinds.ExpectedDeliveryTime.Problems(new MailTemplateText("Levering op {expectedDate}", "Hallo {firstName}, tot {expectedDate}."));
+
+        Assert.Equal(["{expectedWindow} ontbreekt in de tekst."], problems);
+    }
+
     [Fact]
     public void Standard_text_of_an_unknown_language_is_dutch() =>
         Assert.Equal(Confirmation.Standard("nl"), Confirmation.Standard("de"));

@@ -32,6 +32,13 @@ public class Reservation : TenantEntity
     public ReservationStatus Status { get; set; } = ReservationStatus.Confirmed;
     public DeliveryMethod DeliveryMethod { get; set; } = DeliveryMethod.Delivery;
     public Address? DeliveryAddress { get; set; }
+    /// <summary>
+    /// Het punt van het leveradres op de kaart, of null zolang het niet gevonden is. Zonder punt toont de planning
+    /// een waarschuwing en kan de stop niet mee in een route.
+    /// </summary>
+    public GeoPoint? DeliveryPoint { get; set; }
+    /// <summary>Zette een gebruiker het punt zelf, met een speld op de kaart, omdat de kaart het adres niet kende?</summary>
+    public bool DeliveryPointConfirmed { get; set; }
     public string? Notes { get; set; }
     public string Culture { get; set; } = "nl";
 
@@ -111,6 +118,37 @@ public class Reservation : TenantEntity
         Status = status;
         Record(status == ReservationStatus.Cancelled ? ReservationEventKind.Cancelled : ReservationEventKind.StatusChanged, actor, atUtc);
     }
+
+    /// <summary>
+    /// Verbetert het leveradres, met het punt dat de kaart er nu voor vindt (null: nog altijd niet gevonden), en noteert
+    /// dat in de historiek. Een speld die eerder bevestigd werd, hoorde bij het oude adres en vervalt.
+    /// </summary>
+    public void CorrectDeliveryAddress(Address address, GeoPoint? point, ReservationActor actor, DateTime atUtc)
+    {
+        if (DeliveryMethod != DeliveryMethod.Delivery)
+            throw new InvalidOperationException($"Reservatie {Number} wordt afgehaald en heeft geen leveradres.");
+        DeliveryAddress = address;
+        DeliveryPoint = point;
+        DeliveryPointConfirmed = false;
+        Record(ReservationEventKind.AddressCorrected, actor, atUtc);
+    }
+
+    /// <summary>
+    /// Een gebruiker bevestigt dat het leveradres juist is door zelf een speld op de kaart te zetten. Vanaf dan telt
+    /// de stop als gevonden.
+    /// </summary>
+    public void ConfirmDeliveryPoint(GeoPoint point, ReservationActor actor, DateTime atUtc)
+    {
+        if (DeliveryMethod != DeliveryMethod.Delivery)
+            throw new InvalidOperationException($"Reservatie {Number} wordt afgehaald en heeft geen leveradres.");
+        DeliveryPoint = point;
+        DeliveryPointConfirmed = true;
+        Record(ReservationEventKind.PointConfirmed, actor, atUtc);
+    }
+
+    /// <summary>Noteert in de historiek dat de klant zijn verwacht tijdsvenster gemaild kreeg.</summary>
+    public void RecordExpectedTimeMailed(ReservationActor actor, DateTime atUtc) =>
+        Record(ReservationEventKind.ExpectedTimeMailed, actor, atUtc);
 
     private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc, string? note = null) =>
         History.Add(new ReservationEvent

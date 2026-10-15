@@ -358,7 +358,7 @@ public sealed class BundleAdministrationTests(MoshtarApp app) : IClassFixture<Mo
     private static ReservationRequest Request(DateOnly start, ReservationLineRequest line) => new(
         new DateRange(start, start),
         [line],
-        new ReservationCustomer("Test", "Klant", "klant@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+        new ReservationCustomer("Test", "Klant", "klant@example.test", "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
         DeliveryMethod.Pickup, null, null, "nl");
 
     /// <summary>Zoveel foto's om te uploaden.</summary>

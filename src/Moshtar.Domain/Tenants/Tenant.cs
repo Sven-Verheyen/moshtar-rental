@@ -30,6 +30,11 @@ public class Tenant
     public string? Street { get; set; }
     public string? PostalCode { get; set; }
     public string? City { get; set; }
+    /// <summary>
+    /// Het punt van het bedrijfsadres op de kaart: daar vertrekt en eindigt elke ronde. Null zolang het niet opgezocht
+    /// of niet gevonden is; het wordt opnieuw opgezocht als het adres verandert.
+    /// </summary>
+    public Moshtar.Domain.Common.GeoPoint? AddressPoint { get; set; }
     public string? WhatsAppPhone { get; set; }
     public string? VatNumber { get; set; }
     public string? FacebookUrl { get; set; }
@@ -44,6 +49,21 @@ public class Tenant
     public List<string> ServiceArea { get; set; } = [];
     /// <summary>Kunnen klanten zelf afhalen? Zo niet, dan levert de verhuurder altijd en is er geen keuze.</summary>
     public bool OffersPickup { get; set; }
+
+    // Standaarden voor de rondes in de Planning (zie RoundSettings).
+    public TimeOnly DeliveryDeparture { get; set; } = Rounds.RoundSettings.Default.DeliveryDeparture;
+    public TimeOnly CollectionDeparture { get; set; } = Rounds.RoundSettings.Default.CollectionDeparture;
+    public int SetupMinutes { get; set; } = Rounds.RoundSettings.Default.SetupMinutes;
+    public int TeardownMinutes { get; set; } = Rounds.RoundSettings.Default.TeardownMinutes;
+    public int WindowMinutes { get; set; } = Rounds.RoundSettings.Default.WindowMinutes;
+
+    /// <summary>De standaarden voor de rondes van deze verhuurder.</summary>
+    public Rounds.RoundSettings RoundSettings
+    {
+        get => new(DeliveryDeparture, CollectionDeparture, SetupMinutes, TeardownMinutes, WindowMinutes);
+        set => (DeliveryDeparture, CollectionDeparture, SetupMinutes, TeardownMinutes, WindowMinutes) =
+            (value.DeliveryDeparture, value.CollectionDeparture, value.SetupMinutes, value.TeardownMinutes, value.WindowMinutes);
+    }
 
     /// <summary>Sleutel van het logo in de afbeeldingenopslag (ADR 0005).</summary>
     public string? LogoImageKey { get; set; }

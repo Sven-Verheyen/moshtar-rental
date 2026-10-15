@@ -39,6 +39,19 @@ public sealed class RolePermissionTests(MoshtarApp app) : IClassFixture<MoshtarA
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Theory]
+    [InlineData("/admin/planning")]
+    [InlineData("/admin/planning/leverlijst")]
+    public async Task Without_logging_in_the_planning_pages_send_you_to_the_login(string page)
+    {
+        var client = app.CreateClient(MoshtarApp.HopsakeeHost);
+
+        var response = await client.GetAsync(page);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal("/admin/inloggen", response.Headers.Location!.AbsolutePath);
+    }
+
     [Fact]
     public async Task Administrator_reaches_every_page_and_sees_the_full_menu()
     {

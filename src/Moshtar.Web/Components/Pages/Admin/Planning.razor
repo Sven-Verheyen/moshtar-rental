@@ -1,0 +1,341 @@
+@page "/admin"
+@page "/admin/planning"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Common
+@using Moshtar.Domain.Rounds
+@inject ISchedule Schedule
+@inject IRoundPlanner Rounds
+@inject IRoundMessages RoundMessages
+@inject IReservationService ReservationService
+@inject TimeProvider Clock
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject Moshtar.Application.Maps.BrowserMap BrowserMap
+
+<PageTitle>Planning</PageTitle>
+
+<AdminShell Title="Planning">
+    <PlanningViewSwitch View="View" Day="Day" />
+    <div class="planning-nav">
+        <MudButton Href="@Url(View, Step(-1))" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.ChevronLeft" aria-label="@($"Vorige {Unit}")">Vorige @Unit</MudButton>
+        <MudDatePicker Date="@Day.ToDateTime(TimeOnly.MinValue)" DateChanged="GoTo" DateFormat="dd/MM/yyyy" Label="Datum"
+                       Variant="Variant.Outlined" Margin="Margin.Dense" Class="planning-date" />
+        <MudButton Href="@Url(View, Step(1))" Variant="Variant.Outlined" EndIcon="@Icons.Material.Filled.ChevronRight" aria-label="@($"Volgende {Unit}")">Volgende @Unit</MudButton>
+        @if (Day != Today)
+        {
+            <MudButton Href="@Url(View, Today)" Variant="Variant.Text">Vandaag</MudButton>
+        }
+    </div>
+    <MudText Typo="Typo.h5" Class="mb-3">@Heading</MudText>
+
+    @if (View != PlanningView.Day)
+    {
+        @if (_days is null)
+        {
+            <MudProgressLinear Indeterminate="true" />
+        }
+        else if (View == PlanningView.Week)
+        {
+            <ScheduleWeek Days="_days" Today="Today" />
+        }
+        else
+        {
+            <ScheduleMonth Days="_days" Today="Today" />
+        }
+    }
+    else if (_day is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_day.IsEmpty)
+    {
+        <MudAlert Severity="Severity.Info">Niets gepland op deze dag.</MudAlert>
+    }
+    else
+    {
+        @if (_pinFor is { } pinFor)
+        {
+            <MudPaper id="speld" Class="planning-pin pa-3 mb-3" Outlined="true">
+                <MudText Typo="Typo.subtitle1"><b>Speld zetten voor @pinFor.CustomerName (@pinFor.Number)</b></MudText>
+                <MudText Typo="Typo.body2" Class="mb-2">
+                    @(MapKey is null ? "Vul de coördinaten in" : "Klik op de kaart op de plek van het adres (je kan de speld nog verslepen), of vul de coördinaten in"),
+                    bv. 51.1702, 5.1703. Bevestig enkel als het adres zeker juist is.
+                </MudText>
+                <MudTextField @bind-Value="_coordinates" Label="Coördinaten (breedte, lengte)" Variant="Variant.Outlined" Margin="Margin.Dense" />
+                <div class="d-flex gap-2 mt-2">
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.PushPin"
+                               OnClick="ConfirmPinAsync">Speld bevestigen</MudButton>
+                    <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _pinFor = null">Annuleren</MudButton>
+                </div>
+            </MudPaper>
+        }
+        <PlanningMap Day="_day" MapKey="@MapKey" Pinning="_pinFor is not null" OnPinPlaced="PinPlaced" />
+        <section id="leverronde" class="planning-round">
+            <MudText Typo="Typo.h6">Leverronde</MudText>
+            @if (_day.Deliveries.Count > 0)
+            {
+                <RoundTools Round="_day.DeliveryRound" OnPropose="() => ProposeAsync(RoundKind.Delivery)"
+                            OnUpdate="() => UpdateRoundAsync(RoundKind.Delivery)"
+                            OnDeparture="t => DepartureAsync(RoundKind.Delivery, t)"
+                            OnMail="() => MailAsync(RoundKind.Delivery)"
+                            SheetUrl="@SheetUrl(RoundKind.Delivery)" />
+            }
+            <StopList Stops="_day.Deliveries" Empty="Geen leveringen." Action="ReservationStatus.Delivered" OnDone="MarkAsync"
+                      OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Opbouwtijd"
+                      DefaultHandlingMinutes="@(_day.DeliveryRound?.DefaultHandlingMinutes ?? 0)"
+                      OnMove="m => MoveAsync(RoundKind.Delivery, m)" OnTune="t => TuneAsync(RoundKind.Delivery, t)"
+                      OnWhatsApp="s => WhatsAppAsync(RoundKind.Delivery, s)" />
+        </section>
+        <section id="ophaalronde" class="planning-round">
+            <MudText Typo="Typo.h6">Ophaalronde</MudText>
+            @if (_day.Collections.Count > 0)
+            {
+                <RoundTools Round="_day.CollectionRound" OnPropose="() => ProposeAsync(RoundKind.Collection)"
+                            OnUpdate="() => UpdateRoundAsync(RoundKind.Collection)"
+                            OnDeparture="t => DepartureAsync(RoundKind.Collection, t)"
+                            OnMail="() => MailAsync(RoundKind.Collection)"
+                            SheetUrl="@SheetUrl(RoundKind.Collection)" />
+            }
+            <StopList Stops="_day.Collections" Empty="Geen ophalingen." Action="ReservationStatus.Returned" OnDone="MarkAsync"
+                      OnCorrect="CorrectAsync" OnPin="StartPin" HandlingLabel="Afbouwtijd"
+                      DefaultHandlingMinutes="@(_day.CollectionRound?.DefaultHandlingMinutes ?? 0)"
+                      OnMove="m => MoveAsync(RoundKind.Collection, m)" OnTune="t => TuneAsync(RoundKind.Collection, t)"
+                      OnWhatsApp="s => WhatsAppAsync(RoundKind.Collection, s)" />
+        </section>
+        @if (_day.Pickups.Count > 0)
+        {
+            <section id="komt-afhalen" class="planning-round">
+                <MudText Typo="Typo.h6">Komt afhalen</MudText>
+                <StopList Stops="_day.Pickups" Action="ReservationStatus.Delivered" OnDone="MarkAsync" />
+            </section>
+        }
+        @if (_day.Returns.Count > 0)
+        {
+            <section id="brengt-terug" class="planning-round">
+                <MudText Typo="Typo.h6">Brengt terug</MudText>
+                <StopList Stops="_day.Returns" Action="ReservationStatus.Returned" OnDone="MarkAsync" />
+            </section>
+        }
+    }
+    <p class="mt-6"><MudLink Href="admin/reservaties">Alle reservaties</MudLink></p>
+</AdminShell>
+
+@code {
+    /// <summary>De gekozen dag als yyyy-MM-dd; zonder of ongeldig opent de planning op vandaag.</summary>
+    [SupplyParameterFromQuery(Name = "dag")] private string? Dag { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    /// <summary>dag (standaard), week of maand.</summary>
+    [SupplyParameterFromQuery(Name = "weergave")] private string? Weergave { get; set; }
+
+    private ScheduleDay? _day;
+
+    /// <summary>De dagen van de week of maand.</summary>
+    private IReadOnlyList<ScheduleDay>? _days;
+
+    private DateOnly Today => Belgium.Today(Clock);
+
+    private DateOnly Day => DateOnly.TryParseExact(Dag, "yyyy-MM-dd", out var day) ? day : Today;
+
+    private PlanningView View => PlanningViews.Parse(Weergave);
+
+    private DateOnly Monday => Day.AddDays(-(((int)Day.DayOfWeek + 6) % 7));
+
+    private string Unit => View switch { PlanningView.Week => "week", PlanningView.Month => "maand", _ => "dag" };
+
+    private string Heading => View switch
+    {
+        PlanningView.Week => $"Week van {Monday.ToString("d MMMM", Belgium.Dutch)} tot {Monday.AddDays(6).ToString("d MMMM yyyy", Belgium.Dutch)}",
+        PlanningView.Month => Day.ToString("MMMM yyyy", Belgium.Dutch),
+        _ => Day.ToString("dddd d MMMM yyyy", Belgium.Dutch),
+    };
+
+    /// <summary>De gekozen datum, een dag, week of maand verder of terug.</summary>
+    private DateOnly Step(int direction) => View switch
+    {
+        PlanningView.Week => Day.AddDays(7 * direction),
+        PlanningView.Month => Day.AddMonths(direction),
+        _ => Day.AddDays(direction),
+    };
+
+    /// <summary>De sleutel voor de kaart in de browser, die enkel kaarttegels mag tonen; zonder geen kaart.</summary>
+    private string? MapKey => BrowserMap.Key;
+
+    private string SheetUrl(RoundKind kind) => $"admin/planning/leverlijst?dag={Day:yyyy-MM-dd}&ronde={kind.Slug()}";
+
+    /// <summary>De stop waarvoor nu een speld gezet wordt, en de coördinaten van die speld.</summary>
+    private ScheduleStop? _pinFor;
+    private string? _coordinates;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _day = null;
+        _pinFor = null;
+        _days = null;
+        if (View == PlanningView.Week) _days = await Schedule.GetDaysAsync(Monday, Monday.AddDays(6));
+        else if (View == PlanningView.Month)
+        {
+            var first = new DateOnly(Day.Year, Day.Month, 1);
+            _days = await Schedule.GetDaysAsync(first, first.AddMonths(1).AddDays(-1));
+        }
+        else _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private static string Url(PlanningView view, DateOnly day) => PlanningViews.Url(view, day);
+
+    private void GoTo(DateTime? date)
+    {
+        if (date is { } d) Navigation.NavigateTo(Url(View, DateOnly.FromDateTime(d)));
+    }
+
+    /// <summary>Afvinken: de gewone statuswijziging, met de gebruiker in de historiek.</summary>
+    private async Task MarkAsync((ScheduleStop Stop, ReservationStatus Status) done)
+    {
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            await ReservationService.ChangeStatusAsync(done.Stop.ReservationId, done.Status, actor);
+            Snackbar.Add($"Reservatie {done.Stop.Number}: {(done.Status == ReservationStatus.Delivered ? "geleverd" : "teruggebracht")}.", Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    /// <summary>
+    /// Een wijziging aan een ronde: de uren worden herrekend en bewaard, en de dag opnieuw getoond. Lukt het bewaren
+    /// niet, dan een melding in plaats van een vastgelopen pagina.
+    /// </summary>
+    private async Task PlanAsync(RoundKind kind, Func<IRoundPlanner, Task> change, string? done = null)
+    {
+        try
+        {
+            await change(Rounds);
+            if (done is not null)
+                Snackbar.Add($"{kind.Name()}: {done}", Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            Snackbar.Add(NotSaved(kind), Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private static string NotSaved(RoundKind kind) => $"{kind.Name()}: niet bewaard, de ronde werd net ook ergens anders aangepast. Probeer opnieuw.";
+
+    private Task ProposeAsync(RoundKind kind) => PlanAsync(kind, p => p.ProposeAsync(Day, kind), "route voorgesteld.");
+
+    private Task UpdateRoundAsync(RoundKind kind) => PlanAsync(kind, p => p.UpdateAsync(Day, kind), "ronde bijgewerkt.");
+
+    private Task DepartureAsync(RoundKind kind, TimeOnly departure) => PlanAsync(kind, p => p.SetDepartureAsync(Day, kind, departure));
+
+    private async Task MailAsync(RoundKind kind)
+    {
+        var round = kind.Name();
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            var mailed = await RoundMessages.MailExpectedTimesAsync(Day, kind, actor);
+            Snackbar.Add(mailed switch
+            {
+                0 => $"{round}: iedereen kreeg zijn venster al.",
+                1 => $"{round}: 1 klant gemaild.",
+                _ => $"{round}: {mailed} klanten gemaild.",
+            }, Severity.Info);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            Snackbar.Add(NotSaved(kind), Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    /// <summary>De WhatsApp-knop opent WhatsApp in een nieuw tabblad; hier wordt enkel onthouden dat erop gedrukt werd.</summary>
+    private async Task WhatsAppAsync(RoundKind kind, ScheduleStop stop)
+    {
+        try
+        {
+            await RoundMessages.RecordWhatsAppAsync(Day, kind, stop.ReservationId);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+        {
+            Snackbar.Add(NotSaved(kind), Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private Task MoveAsync(RoundKind kind, (ScheduleStop Stop, int Position) move) =>
+        PlanAsync(kind, p => p.MoveAsync(Day, kind, move.Stop.ReservationId, move.Position));
+
+    private Task TuneAsync(RoundKind kind, (ScheduleStop Stop, TimeOnly? FixedTime, int? HandlingMinutes) tune) =>
+        PlanAsync(kind, async p =>
+        {
+            await p.SetFixedTimeAsync(Day, kind, tune.Stop.ReservationId, tune.FixedTime);
+            await p.SetHandlingMinutesAsync(Day, kind, tune.Stop.ReservationId, tune.HandlingMinutes);
+        });
+
+    private async Task CorrectAsync((ScheduleStop Stop, Address Address) correction)
+    {
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            var reservation = await ReservationService.CorrectDeliveryAddressAsync(correction.Stop.ReservationId, correction.Address, actor);
+            if (reservation.DeliveryPoint is null)
+                Snackbar.Add($"Reservatie {reservation.Number}: adres bewaard, maar nog altijd niet gevonden op de kaart.", Severity.Warning);
+            else
+                Snackbar.Add($"Reservatie {reservation.Number}: adres verbeterd en gevonden.", Severity.Info);
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+
+    private void StartPin(ScheduleStop stop)
+    {
+        _pinFor = stop;
+        _coordinates = null;
+    }
+
+    private void PinPlaced(GeoPoint point) => _coordinates = point.ToString().Replace(",", ", ");
+
+    private async Task ConfirmPinAsync()
+    {
+        if (_pinFor is not { } stop) return;
+        if (GeoPoint.Parse(_coordinates) is not { } point)
+        {
+            Snackbar.Add("Zet eerst een speld op de kaart, of vul de coördinaten in, bv. 51.1702, 5.1703.", Severity.Warning);
+            return;
+        }
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            await ReservationService.ConfirmDeliveryPointAsync(stop.ReservationId, point, actor);
+            Snackbar.Add($"Reservatie {stop.Number}: speld bevestigd.", Severity.Info);
+            _pinFor = null;
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _day = await Schedule.GetDayAsync(Day);
+    }
+}

@@ -38,7 +38,7 @@ internal static class WebsiteCart
 
     /// <summary>Stap 2 op de winkelkarpagina: de rest van de gegevens en "Reserveren".</summary>
     public static async Task<HttpResponseMessage> ReserveAsync(HttpClient client, string firstName, string cartPath = "/winkelkar",
-        string delivery = "Delivery", string? phone = null, string street = "Kerkstraat 1")
+        string delivery = "Delivery", string? phone = "0470 12 34 56", string street = "Kerkstraat 1")
     {
         var page = await PageAsync(client, cartPath);
         var fields = new Dictionary<string, string>
@@ -57,7 +57,7 @@ internal static class WebsiteCart
 
     /// <summary>Alles in één keer: in winkelkar, stap 1 en stap 2. Geeft de pagina na het reserveren.</summary>
     public static async Task<string> ReserveItemAsync(HttpClient client, string itemPath, string email, string firstName,
-        string cartPath = "/winkelkar", string delivery = "Delivery", string? phone = null, string street = "Kerkstraat 1")
+        string cartPath = "/winkelkar", string delivery = "Delivery", string? phone = "0470 12 34 56", string street = "Kerkstraat 1")
     {
         await AddAsync(client, itemPath);
         await IdentifyAsync(client, email, cartPath: cartPath);

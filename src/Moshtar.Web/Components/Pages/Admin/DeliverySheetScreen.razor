@@ -1,0 +1,131 @@
+@page "/admin/planning/leverlijst"
+@layout AdminLayout
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Common
+@using Moshtar.Domain.Rounds
+@inject ISchedule Schedule
+@inject TimeProvider Clock
+
+@* De Leverlijst: een printvriendelijke pagina (A4 staand), zonder het menu van het back office. Statisch, geen pdf. *@
+<PageTitle>Leverlijst @Title.ToLowerInvariant() @Day.ToString("d/MM/yyyy")</PageTitle>
+
+@if (_sheet is { } sheet)
+{
+    <main class="leverlijst">
+        <header class="leverlijst-head">
+            <div>
+                <h1>Leverlijst @Title.ToLowerInvariant()</h1>
+                <p class="leverlijst-day">
+                    @Day.ToString("dddd d MMMM yyyy", Belgium.Dutch)
+                    @if (sheet.Round is { } round)
+                    {
+                        <span> · Vertrek @ExpectedWindow.Time(round.Departure), terug om @ExpectedWindow.Time(round.Return)</span>
+                    }
+                </p>
+            </div>
+            <div class="leverlijst-screen-only">
+                <a href="@PlanningViews.Url(PlanningView.Day, Day)">Terug naar de planning</a>
+                <button type="button" onclick="window.print()">Printen</button>
+            </div>
+        </header>
+
+        <section id="laadlijst" class="leverlijst-load">
+            <h2>Laadlijst</h2>
+            @if (sheet.LoadingList.Count == 0)
+            {
+                <p>Niets te laden.</p>
+            }
+            else
+            {
+                <ul>
+                    @foreach (var item in sheet.LoadingList)
+                    {
+                        <li data-article="@item.Name" data-quantity="@item.Quantity"><b>@item.Quantity ×</b> @item.Name</li>
+                    }
+                </ul>
+            }
+        </section>
+
+        <section id="stops" class="leverlijst-stops">
+            <h2>Stops@(sheet.Round is null ? " (op postcode, nog geen route)" : "")</h2>
+            @if (sheet.Stops.Count == 0)
+            {
+                <p>@(Kind == RoundKind.Delivery ? "Geen leveringen." : "Geen ophalingen.")</p>
+            }
+            @foreach (var (stop, index) in sheet.Stops.Select((s, i) => (s, i)))
+            {
+                <article class="leverlijst-stop" data-reservation="@stop.Number" data-order="@stop.InRound?.Position">
+                    <span class="leverlijst-check" aria-label="Afvinken"></span>
+                    <span class="leverlijst-number">@(stop.InRound?.Position ?? index + 1)</span>
+                    <div class="leverlijst-body">
+                        <div class="leverlijst-line">
+                            @if (stop.InRound is { } times)
+                            {
+                                <b class="leverlijst-window" data-window="@times.Window">@times.Window</b>
+                                @if (times.FixedTime is { } fixedTime)
+                                {
+                                    <span>(vast uur @ExpectedWindow.Time(fixedTime))</span>
+                                }
+                            }
+                            <span class="leverlijst-kind">@Action</span>
+                            <b>@stop.CustomerName</b>
+                            <span>@stop.Number</span>
+                            @if (stop.Phone is { } phone)
+                            {
+                                <span>@phone</span>
+                            }
+                        </div>
+                        @if (stop.Address is { } address)
+                        {
+                            <div>@address.Street, @address.PostalCode @address.City</div>
+                        }
+                        <div class="leverlijst-lines">
+                            @foreach (var line in stop.Lines)
+                            {
+                                <span>
+                                    @line.Quantity × @line.Name@if (line.Contents.Count > 0)
+                                    {
+                                        <text> (@string.Join(", ", line.Contents.Select(c => $"{c.Quantity} × {c.Name}")))</text>
+                                    }
+                                </span>
+                            }
+                        </div>
+                        @if (stop.Notes is { } notes)
+                        {
+                            <div class="leverlijst-notes"><i>@notes</i></div>
+                        }
+                    </div>
+                </article>
+            }
+        </section>
+
+        @if (sheet.Round is not null)
+        {
+            <section id="routekaart" class="leverlijst-route">
+                <RouteSketch Stops="sheet.Stops" Start="sheet.BusinessPoint" />
+            </section>
+        }
+    </main>
+}
+
+@code {
+    /// <summary>De dag als yyyy-MM-dd; zonder of ongeldig: vandaag in België.</summary>
+    [SupplyParameterFromQuery(Name = "dag")] private string? Dag { get; set; }
+
+    /// <summary>levering (standaard) of ophaling.</summary>
+    [SupplyParameterFromQuery(Name = "ronde")] private string? Ronde { get; set; }
+
+    private DeliverySheet? _sheet;
+
+    private DateOnly Day => DateOnly.TryParseExact(Dag, "yyyy-MM-dd", out var day) ? day : Belgium.Today(Clock);
+
+    private RoundKind Kind => RoundKinds.FromSlug(Ronde);
+
+    private string Title => Kind.Name();
+
+    /// <summary>Wat er bij elke stop moet gebeuren.</summary>
+    private string Action => Kind == RoundKind.Delivery ? "Leveren" : "Ophalen";
+
+    protected override async Task OnParametersSetAsync() =>
+        _sheet = DeliverySheet.For(await Schedule.GetDayAsync(Day), Kind);
+}

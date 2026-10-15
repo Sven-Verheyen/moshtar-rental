@@ -29,6 +29,17 @@ public interface IReservationService
     Task<Reservation> ChangeStatusAsync(Guid reservationId, ReservationStatus status, ReservationActor actor, CancellationToken ct = default);
 
     /// <summary>
+    /// Verbetert het leveradres van een reservatie, zoekt het opnieuw op de kaart en noteert dat in de historiek.
+    /// Wordt het nog altijd niet gevonden, dan blijft het punt leeg (en de waarschuwing in de planning staan).
+    /// Geeft de bijgewerkte reservatie terug.
+    /// </summary>
+    Task<Reservation> CorrectDeliveryAddressAsync(Guid reservationId, Address address, ReservationActor actor, CancellationToken ct = default);
+
+    /// <summary>
+    /// Zet het punt van het leveradres op deze speld, voor een adres dat zeker juist is maar dat de kaart niet kent,
+    /// en noteert dat in de historiek. Geeft de bijgewerkte reservatie terug.
+    /// </summary>
+    Task<Reservation> ConfirmDeliveryPointAsync(Guid reservationId, GeoPoint point, ReservationActor actor, CancellationToken ct = default);
     /// Vervangt een artikel in de reservatie door een alternatief: een ander artikel uit dezelfde categorie dat aan staat
     /// en vrij is in de volledige huurperiode (met bufferdagen), gecontroleerd en bewaard onder dezelfde lock per
     /// verhuurder als reserveren. Op een losse lijn blijft de prijs dezelfde; in een pakket wordt enkel het artikel

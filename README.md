@@ -28,7 +28,10 @@ aan andere verhuurbedrijven aangeboden te worden.
   voorraad vast: wat intussen niet meer vrij is, staat aangeduid.
   Een reservatie wordt meteen bevestigd als de voorraad het toelaat. De klant krijgt dan een bevestigingsmail in
   zijn taal (NL, FR of EN), ook als de reservatie in het back office ingevoerd werd.
-- **Back office** (`/admin`): reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie
+- **Back office** (`/admin`): opent op de **Planning** van vandaag (`/admin/planning?dag=…`): per dag de leverronde
+  (reservaties die die dag beginnen) en de ophaalronde (die die dag eindigen), op postcode gesorteerd, met klant,
+  telefoon, adres, artikelen (pakketten opengeklapt), opmerkingen en status, een knop "Geleverd" of "Teruggebracht" en
+  "Navigeer" (Waze). Wie zelf komt afhalen of terugbrengt, staat apart. Werkt ook op een gsm. Verder reservaties bekijken, van status veranderen en annuleren, met de historiek per reservatie
   (wie wat deed en wanneer). Zelf een reservatie invoeren, bv. voor een klant die belt (`/admin/reservaties/nieuw`),
   met dezelfde voorraadcontrole als de reservatiewebsite. Categorieën beheren. Artikelen aanmaken en wijzigen
   (`/admin/artikelen`): naam en beschrijving per taal (alleen de standaardtaal verplicht; het overzicht toont welke
@@ -98,6 +101,15 @@ tests/
   `docs/adr/0002-verhuurder-mailt-vanaf-eigen-domein.md`). Zonder `Mail:AzureCommunicationServicesConnectionString`
   wordt niets verstuurd: mails worden dan enkel gelogd, zoals lokaal en in de tests. Lokaal vind je zo
   ook de link uit een uitnodiging of herstelmail terug in de console.
+- **Kaart**: adressen en de kaart in de planning komen van Azure Maps (`docs/adr/0006-azure-maps-voor-kaart-en-routes.md`), met de sleutel uit
+  `Maps:AzureMapsKey` (adressen en routes, enkel op de server). Zonder sleutel zoekt een lokale vervanger de adressen
+  op en berekent hij routes: die vindt elk adres met een Belgische postcode en een huisnummer (zonder huisnummer:
+  "Adres niet gevonden") en rijdt in vogelvlucht aan 50 km/u. In de tests is het altijd de vervanger. De kaart in de
+  browser gebruikt een aparte sleutel, `Maps:AzureMapsBrowserKey`, die in Azure beperkt is tot kaarttegels; zonder die
+  sleutel toont de planning geen kaart.
+- **Rondes**: "Route voorstellen" bewaart een ronde (`Round`) met de snelste volgorde; de uren en verwachte
+  tijdsvensters rekent `RoundTimes` uit, een nieuwe stop komt via `RoundInsertion` op de goedkoopste plek. Zie
+  `IRoundPlanner`.
 - **Afbeeldingen**: logo, sfeerfoto en foto's (tot 10 per artikel, de eerste is de hoofdfoto) uploadt de beheerder; Moshtar bewaart ze zelf, per verhuurder
   gescheiden, verkleind naar vaste breedtes (400, 800 en 1600 px) als WebP, en bewaart enkel de sleutel; het publieke
   adres wordt eruit afgeleid (zie `docs/adr/0005-verhuurder-uploadt-afbeeldingen-naar-moshtar.md` en `IImageStore`).

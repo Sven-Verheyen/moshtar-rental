@@ -1,3 +1,5 @@
+using Moshtar.Domain.Rounds;
+
 namespace Moshtar.Application.Tenancy;
 
 /// <summary>De bedrijfsgegevens en het werkgebied van de verhuurder, zoals bewaard.</summary>
@@ -20,6 +22,8 @@ public sealed record BusinessDetailsSettings
     public IReadOnlyList<string> ServiceArea { get; init; } = [];
     /// <summary>Kunnen klanten zelf afhalen, of levert de verhuurder altijd?</summary>
     public bool OffersPickup { get; init; }
+    /// <summary>De standaarden voor de rondes in de Planning: vertrekuren, opbouw- en afbouwtijd, breedte van het venster.</summary>
+    public RoundSettings Rounds { get; init; } = RoundSettings.Default;
 }
 
 /// <summary>Een ingevuld veld is niet geldig; <see cref="Problems"/> zegt wat er mis is.</summary>

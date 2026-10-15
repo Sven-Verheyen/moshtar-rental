@@ -214,7 +214,7 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
         var address = new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" };
         return await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
             new DateRange(Day, Day), lines,
-            new ReservationCustomer(firstName, "Test", email, null, address),
+            new ReservationCustomer(firstName, "Test", email, "0470 12 34 56", address),
             delivery, address, notes, culture), actor);
     }
 

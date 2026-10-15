@@ -1,4 +1,3 @@
-@page "/admin"
 @page "/admin/reservaties"
 @layout AdminLayout
 @rendermode InteractiveServer
@@ -219,6 +218,9 @@
     {
         ReservationEventKind.Created => "Aangemaakt",
         ReservationEventKind.Cancelled => "Geannuleerd",
+        ReservationEventKind.AddressCorrected => "Leveradres verbeterd",
+        ReservationEventKind.PointConfirmed => "Speld op de kaart bevestigd",
+        ReservationEventKind.ExpectedTimeMailed => "Verwacht tijdsvenster gemaild",
         ReservationEventKind.AlternativesMailed => entry.Note is { } note ? $"Alternatieven gemaild: {note}" : "Alternatieven gemaild",
         ReservationEventKind.ItemReplaced => entry.Note is { } replaced ? $"Artikel vervangen: {replaced}" : "Artikel vervangen",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",

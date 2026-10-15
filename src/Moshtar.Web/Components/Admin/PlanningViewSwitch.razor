@@ -1,0 +1,17 @@
+@* Wisselen tussen Dag, Week en Maand in de Planning; de gekozen datum blijft behouden. *@
+<MudButtonGroup Variant="Variant.Outlined" Class="planning-views mb-3" aria-label="Weergave">
+    @foreach (var (view, label) in Views)
+    {
+        <MudButton Href="@PlanningViews.Url(view, Day)" Variant="@(view == View ? Variant.Filled : Variant.Outlined)"
+                   Color="@(view == View ? Color.Primary : Color.Default)" data-view="@label">@label</MudButton>
+    }
+</MudButtonGroup>
+
+@code {
+    private static readonly (PlanningView View, string Label)[] Views =
+        [(PlanningView.Day, "Dag"), (PlanningView.Week, "Week"), (PlanningView.Month, "Maand")];
+
+    [Parameter, EditorRequired] public PlanningView View { get; set; }
+
+    [Parameter, EditorRequired] public DateOnly Day { get; set; }
+}

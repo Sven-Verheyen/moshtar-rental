@@ -5,14 +5,20 @@ namespace Moshtar.Domain.Mail;
 /// <summary>
 /// Onderwerp en tekst van een mailsjabloon in één taal. De tekst bestaat uit alinea's, gescheiden door een
 /// lege regel, en kent geen HTML (ADR 0003). Plaatshouders staan tussen accolades, bv. {firstName}.
+/// <see cref="WhatsApp"/> is het korte WhatsApp-bericht met dezelfde plaatshouders, zonder opmaak; enkel bij een soort
+/// mail die er een heeft (<see cref="MailKindDefinition.HasWhatsApp"/>), anders null.
 /// </summary>
-public sealed record MailTemplateText(string Subject, string Body);
+public sealed record MailTemplateText(string Subject, string Body, string? WhatsApp = null);
 
 /// <summary>Een soort mail die een verhuurder aan zijn klanten stuurt.</summary>
 public enum MailKind
 {
     ReservationConfirmation,
     CartReminder,
+    /// <summary>Het verwacht tijdsvenster van een levering, per leverronde met de hand gemaild.</summary>
+    ExpectedDeliveryTime,
+    /// <summary>Het verwacht tijdsvenster van een ophaling, per ophaalronde met de hand gemaild.</summary>
+    ExpectedCollectionTime,
     ReservationAlternatives,
 }
 
@@ -34,6 +40,9 @@ public sealed partial class MailKindDefinition(
     public IReadOnlyList<string> Placeholders { get; } = placeholders;
     public IReadOnlyList<string> Blocks { get; } = blocks;
 
+    /// <summary>Heeft deze soort mail ook een WhatsApp-bericht (Verwacht leveruur en Verwacht ophaaluur)?</summary>
+    public bool HasWhatsApp => standardByCulture["nl"].WhatsApp is not null;
+
     /// <summary>Moet deze plaatshouder in de tekst staan?</summary>
     public bool IsRequired(string placeholder) => requiredInBody.Contains(placeholder);
 
@@ -41,11 +50,19 @@ public sealed partial class MailKindDefinition(
     public MailTemplateText Standard(string culture) =>
         standardByCulture.GetValueOrDefault(culture) ?? standardByCulture["nl"];
 
+    /// <summary>
+    /// De tekst van een aanpassing zoals ze geldt: een aanpassing van voor er WhatsApp-berichten waren, krijgt het
+    /// standaardbericht in die taal.
+    /// </summary>
+    public MailTemplateText WithStandardWhatsApp(MailTemplateText text, string culture) =>
+        HasWhatsApp && text.WhatsApp is null ? text with { WhatsApp = Standard(culture).WhatsApp } : text;
+
     /// <summary>Wat er mis is met deze tekst, als zinnen voor de beheerder. Leeg als ze verstuurd kan worden.</summary>
     public IReadOnlyList<string> Problems(MailTemplateText text)
     {
         var problems = new List<string>();
-        foreach (var name in PlaceholdersIn(text.Subject).Concat(PlaceholdersIn(text.Body)).Distinct())
+        var whatsApp = PlaceholdersIn(text.WhatsApp ?? "").ToList();
+        foreach (var name in PlaceholdersIn(text.Subject).Concat(PlaceholdersIn(text.Body)).Concat(whatsApp).Distinct())
             if (!Placeholders.Contains(name))
                 problems.Add($"Onbekende plaatshouder {{{name}}}.");
         foreach (var block in Blocks)
@@ -56,6 +73,10 @@ public sealed partial class MailKindDefinition(
         foreach (var required in requiredInBody)
             if (!PlaceholdersIn(text.Body).Contains(required))
                 problems.Add($"{{{required}}} ontbreekt in de tekst.");
+        if (text.WhatsApp is not null)
+            foreach (var required in requiredInBody)
+                if (!whatsApp.Contains(required))
+                    problems.Add($"{{{required}}} ontbreekt in het WhatsApp-bericht.");
         return problems;
     }
 
@@ -77,6 +98,11 @@ public static class MailKinds
     public const string ReservationDetails = "reservationDetails";
     public const string CartContents = "cartContents";
     public const string CartLink = "cartLink";
+    /// <summary>Het verwacht tijdsvenster van de stop, bv. 9u30 – 10u30.</summary>
+    public const string ExpectedWindow = "expectedWindow";
+    /// <summary>De dag van de levering of ophaling, voluit.</summary>
+    public const string ExpectedDate = "expectedDate";
+    public const string DeliveryAddress = "deliveryAddress";
     public const string Alternatives = "alternatives";
 
     /// <summary>Wat een blokplaatshouder invoegt, voor de beheerder.</summary>
@@ -193,6 +219,113 @@ public static class MailKinds
                 """),
         });
 
+    private static readonly string[] ExpectedTimePlaceholders =
+        ["firstName", "lastName", "reservationNumber", "rentalPeriod", ExpectedDate, ExpectedWindow, DeliveryAddress, "companyName", "contactEmail", "phone"];
+
+    public static readonly MailKindDefinition ExpectedDeliveryTime = new(
+        MailKind.ExpectedDeliveryTime,
+        "Verwacht leveruur",
+        placeholders: ExpectedTimePlaceholders,
+        requiredInBody: [ExpectedWindow],
+        blocks: [],
+        standardByCulture: new Dictionary<string, MailTemplateText>
+        {
+            ["nl"] = new(
+                "Levering van je reservatie bij {companyName} op {expectedDate}: {expectedWindow}",
+                """
+                Hallo {firstName},
+
+                We leveren je reservatie {reservationNumber} op {expectedDate} op {deliveryAddress}. We verwachten aan te komen in het tijdsvenster van {expectedWindow}.
+
+                Het verkeer kan dat nog wat verschuiven. Zorg je dat er iemand is om ons de plek te tonen?
+
+                Vragen of iets wijzigen? Antwoord gewoon op deze mail.
+
+                {companyName}
+                """,
+                "Hallo {firstName}, we leveren je reservatie {reservationNumber} bij {companyName} op {expectedDate}. We verwachten aan te komen tussen {expectedWindow}. Tot dan!"),
+            ["fr"] = new(
+                "Livraison de votre réservation chez {companyName} le {expectedDate} : {expectedWindow}",
+                """
+                Bonjour {firstName},
+
+                Nous livrons votre réservation {reservationNumber} le {expectedDate} à l'adresse {deliveryAddress}. Nous prévoyons d'arriver dans la plage horaire {expectedWindow}.
+
+                La circulation peut encore la décaler un peu. Pouvez-vous veiller à ce que quelqu'un soit présent pour nous montrer l'emplacement ?
+
+                Une question ou un changement ? Répondez simplement à cet e-mail.
+
+                {companyName}
+                """,
+                "Bonjour {firstName}, nous livrons votre réservation {reservationNumber} chez {companyName} le {expectedDate}. Nous prévoyons d'arriver entre {expectedWindow}. À bientôt !"),
+            ["en"] = new(
+                "Delivery of your reservation with {companyName} on {expectedDate}: {expectedWindow}",
+                """
+                Hello {firstName},
+
+                We deliver your reservation {reservationNumber} on {expectedDate} at {deliveryAddress}. We expect to arrive within the time window {expectedWindow}.
+
+                Traffic may still shift it a little. Could you make sure someone is there to show us where to set up?
+
+                Questions or changes? Simply reply to this email.
+
+                {companyName}
+                """,
+                "Hello {firstName}, we deliver your reservation {reservationNumber} with {companyName} on {expectedDate}. We expect to arrive between {expectedWindow}. See you then!"),
+        });
+
+    public static readonly MailKindDefinition ExpectedCollectionTime = new(
+        MailKind.ExpectedCollectionTime,
+        "Verwacht ophaaluur",
+        placeholders: ExpectedTimePlaceholders,
+        requiredInBody: [ExpectedWindow],
+        blocks: [],
+        standardByCulture: new Dictionary<string, MailTemplateText>
+        {
+            ["nl"] = new(
+                "Ophaling van je reservatie bij {companyName} op {expectedDate}: {expectedWindow}",
+                """
+                Hallo {firstName},
+
+                We komen je reservatie {reservationNumber} ophalen op {expectedDate} op {deliveryAddress}. We verwachten aan te komen in het tijdsvenster van {expectedWindow}.
+
+                Het verkeer kan dat nog wat verschuiven. Zorg je dat alles klaarstaat en dat er iemand is?
+
+                Vragen? Antwoord gewoon op deze mail.
+
+                {companyName}
+                """,
+                "Hallo {firstName}, we komen je reservatie {reservationNumber} bij {companyName} ophalen op {expectedDate}. We verwachten aan te komen tussen {expectedWindow}. Staat alles klaar?"),
+            ["fr"] = new(
+                "Reprise de votre réservation chez {companyName} le {expectedDate} : {expectedWindow}",
+                """
+                Bonjour {firstName},
+
+                Nous venons reprendre votre réservation {reservationNumber} le {expectedDate} à l'adresse {deliveryAddress}. Nous prévoyons d'arriver dans la plage horaire {expectedWindow}.
+
+                La circulation peut encore la décaler un peu. Pouvez-vous veiller à ce que tout soit prêt et que quelqu'un soit présent ?
+
+                Une question ? Répondez simplement à cet e-mail.
+
+                {companyName}
+                """,
+                "Bonjour {firstName}, nous venons reprendre votre réservation {reservationNumber} chez {companyName} le {expectedDate}. Nous prévoyons d'arriver entre {expectedWindow}. Tout sera prêt ?"),
+            ["en"] = new(
+                "Collection of your reservation with {companyName} on {expectedDate}: {expectedWindow}",
+                """
+                Hello {firstName},
+
+                We come to collect your reservation {reservationNumber} on {expectedDate} at {deliveryAddress}. We expect to arrive within the time window {expectedWindow}.
+
+                Traffic may still shift it a little. Could you make sure everything is ready and someone is there?
+
+                Questions? Simply reply to this email.
+
+                {companyName}
+                """,
+                "Hello {firstName}, we come to collect your reservation {reservationNumber} with {companyName} on {expectedDate}. We expect to arrive between {expectedWindow}. Will everything be ready?"),
+        });
+
     public static readonly MailKindDefinition ReservationAlternatives = new(
         MailKind.ReservationAlternatives,
         "Alternatieven bij een tekort",
@@ -242,7 +375,7 @@ public static class MailKinds
                 """),
         });
 
-    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation, CartReminder, ReservationAlternatives];
+    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation, CartReminder, ReservationAlternatives, ExpectedDeliveryTime, ExpectedCollectionTime];
 
     public static MailKindDefinition For(MailKind kind) => All.Single(d => d.Kind == kind);
 }

@@ -11,6 +11,12 @@ public enum ReservationEventKind
     AlternativesMailed = 4,
     /// <summary>Een artikel in de reservatie is vervangen door een alternatief, los of binnen een pakket.</summary>
     ItemReplaced = 5,
+    /// <summary>Het leveradres werd verbeterd, en opnieuw opgezocht op de kaart.</summary>
+    AddressCorrected = 6,
+    /// <summary>Een gebruiker zette zelf een speld op de kaart voor een adres dat de kaart niet kende.</summary>
+    PointConfirmed = 7,
+    /// <summary>De klant kreeg zijn verwacht tijdsvenster voor de levering of ophaling gemaild.</summary>
+    ExpectedTimeMailed = 8,
 }
 
 /// <summary>Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, of de klant via de reservatiewebsite.</summary>

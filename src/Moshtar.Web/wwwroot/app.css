@@ -49,3 +49,70 @@ h1:focus {
 .account-error { background: #fdecea; color: #a61b1b; padding: .6rem .75rem; border-radius: .4rem; }
 .account-success { background: #e6f4ea; color: #1e5b2f; padding: .6rem .75rem; border-radius: .4rem; }
 .account-card a { color: #1e6fd9; }
+
+/* Planning: bruikbaar op een gsm in de bestelwagen */
+.planning-nav { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-bottom: 1rem; }
+.planning-nav .planning-date { max-width: 11rem; }
+.planning-round { margin-bottom: 1.5rem; }
+.planning-lines { margin: .25rem 0; padding-left: 1.25rem; }
+.planning-lines ul { padding-left: 1.25rem; }
+.planning-address { overflow-wrap: anywhere; }
+.planning-stop-done { opacity: .55; filter: grayscale(1); }
+.planning-map { height: 22rem; width: 100%; border-radius: 4px; overflow: hidden; }
+.planning-map-pinning { outline: 3px solid var(--mud-palette-warning); }
+.planning-map-popup { padding: .5rem .75rem; }
+.planning-edit { background: var(--mud-palette-background-gray); }
+.planning-postal-code { max-width: 7rem; }
+.planning-order { display: inline-flex; align-items: center; justify-content: center; min-width: 1.6rem; height: 1.6rem; border-radius: 50%; background: var(--mud-palette-primary); color: var(--mud-palette-primary-text); font-weight: 600; font-size: .85rem; }
+.planning-times { font-size: .9rem; margin: .25rem 0; }
+.planning-field { max-width: 11rem; }
+@media (max-width: 600px) { .planning-map { height: 16rem; } }
+.planning-week, .planning-month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: .5rem; margin-bottom: 1.5rem; }
+.planning-cell { display: block; padding: .5rem; border: 1px solid var(--mud-palette-lines-default); border-radius: 4px; color: inherit; text-decoration: none; min-width: 0; overflow-wrap: anywhere; }
+.planning-cell:hover { background: var(--mud-palette-action-default-hover); }
+.planning-today { border-color: var(--mud-palette-primary); border-width: 2px; }
+.planning-cell-title { font-weight: 600; margin-bottom: .25rem; }
+.planning-week .planning-cell-title { text-transform: capitalize; }
+.planning-cell-empty { font-size: .8rem; color: var(--mud-palette-text-secondary); }
+.planning-part { margin-bottom: .5rem; }
+.planning-part-title { font-size: .75rem; text-transform: uppercase; color: var(--mud-palette-text-secondary); }
+.planning-brief { font-size: .85rem; margin-bottom: .25rem; }
+.planning-brief-lines { font-size: .75rem; color: var(--mud-palette-text-secondary); }
+.planning-month .planning-cell { min-height: 5rem; }
+.planning-month-weekday { font-size: .75rem; font-weight: 600; text-align: center; color: var(--mud-palette-text-secondary); }
+.planning-count { font-size: .75rem; line-height: 1.2; }
+@media (max-width: 900px) {
+    .planning-week { grid-template-columns: 1fr; }
+    .planning-month { gap: 2px; }
+    .planning-month .planning-cell { padding: .2rem; min-height: 3.5rem; }
+    .planning-count { font-size: .6rem; }
+}
+
+/* Leverlijst: één ronde op een A4 staand, zonder menu of knoppen op de print. */
+.leverlijst { max-width: 190mm; margin: 0 auto; padding: 1rem; font-size: 11pt; line-height: 1.3; color: #000; background: #fff; }
+.leverlijst h1 { font-size: 16pt; margin: 0; }
+.leverlijst h2 { font-size: 12pt; margin: .75rem 0 .35rem; border-bottom: 1px solid #000; }
+.leverlijst-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.leverlijst-day { margin: .15rem 0 0; }
+.leverlijst-screen-only { display: flex; gap: .75rem; align-items: center; }
+.leverlijst-screen-only button { font: inherit; padding: .35rem .9rem; cursor: pointer; }
+.leverlijst-load ul { columns: 3; column-gap: 1.5rem; margin: 0; padding: 0; list-style: none; }
+.leverlijst-stop { display: flex; gap: .5rem; align-items: flex-start; padding: .35rem 0; border-bottom: 1px solid #bbb; break-inside: avoid; page-break-inside: avoid; }
+.leverlijst-check { flex: none; width: 1rem; height: 1rem; border: 1.5px solid #000; margin-top: .1rem; }
+.leverlijst-number { flex: none; min-width: 1.4rem; font-weight: 700; }
+.leverlijst-body { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.leverlijst-line { display: flex; flex-wrap: wrap; gap: .25rem .75rem; }
+.leverlijst-kind { text-transform: uppercase; font-size: 9pt; letter-spacing: .03em; }
+.leverlijst-lines { display: flex; flex-wrap: wrap; gap: 0 1rem; font-size: 10pt; }
+.leverlijst-notes { font-size: 10pt; }
+.leverlijst-route { margin-top: .75rem; break-inside: avoid; page-break-inside: avoid; }
+.leverlijst-map { display: block; width: 100%; max-height: 80mm; }
+@media (max-width: 600px) {
+    .leverlijst-head { flex-direction: column; }
+    .leverlijst-load ul { columns: 2; }
+}
+@page { size: A4 portrait; margin: 12mm; }
+@media print {
+    .leverlijst-screen-only, #components-reconnect-modal { display: none !important; }
+    .leverlijst { max-width: none; padding: 0; font-size: 10pt; }
+}

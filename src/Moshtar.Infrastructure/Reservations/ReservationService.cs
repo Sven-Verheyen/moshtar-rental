@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moshtar.Application.Images;
 using Moshtar.Application.Mail;
+using Moshtar.Application.Maps;
+using Moshtar.Infrastructure.Maps;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Availability;
@@ -21,7 +23,8 @@ namespace Moshtar.Infrastructure.Reservations;
 /// één scherm (zoals de alternatieven per reservatie in Tekorten) mogen ze tegelijk gebruiken.
 /// </summary>
 internal sealed class ReservationService(
-    IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images, ILogger<ReservationService> logger) : IReservationService
+    IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images,
+    IMapService maps, ILogger<ReservationService> logger) : IReservationService
 {
     public async Task<IReadOnlyList<StockShortage>> CheckAvailabilityAsync(
         DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct = default)
@@ -35,6 +38,9 @@ internal sealed class ReservationService(
     {
         Validate(request);
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen tenant gekend.");
+        var deliveryAddress = request.DeliveryMethod == DeliveryMethod.Delivery ? request.DeliveryAddress ?? request.Customer.Address : null;
+        // Voor de lock: de kaartdienst kan even op zich laten wachten, en andere reservaties moeten daar niet op wachten.
+        var deliveryPoint = deliveryAddress is null ? null : await maps.TryFindAsync(deliveryAddress, logger, ct);
 
         await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -54,7 +60,8 @@ internal sealed class ReservationService(
             EndDate = request.Period.End,
             Status = ReservationStatus.Confirmed,
             DeliveryMethod = request.DeliveryMethod,
-            DeliveryAddress = request.DeliveryMethod == DeliveryMethod.Delivery ? request.DeliveryAddress ?? request.Customer.Address : null,
+            DeliveryAddress = deliveryAddress,
+            DeliveryPoint = deliveryPoint,
             Notes = request.Notes,
             Culture = request.Culture,
             CreatedAtUtc = clock.GetUtcNow().UtcDateTime,
@@ -100,6 +107,37 @@ internal sealed class ReservationService(
             ?? throw new InvalidOperationException("Reservatie niet gevonden.");
         reservation.ChangeStatus(status, actor, clock.GetUtcNow().UtcDateTime);
         // De nieuwe status en de gebeurtenis in de historiek gaan samen in één SaveChanges, dus één transactie.
+        await db.SaveChangesAsync(ct);
+        return reservation;
+    }
+
+    public async Task<Reservation> CorrectDeliveryAddressAsync(Guid reservationId, Address address, ReservationActor actor, CancellationToken ct = default)
+    {
+        var corrected = new Address
+        {
+            Street = address.Street.Trim(), PostalCode = address.PostalCode.Trim(), City = address.City.Trim(),
+            Country = string.IsNullOrWhiteSpace(address.Country) ? "BE" : address.Country.Trim(),
+        };
+        if (corrected.Street.Length == 0 || corrected.PostalCode.Length == 0 || corrected.City.Length == 0)
+            throw new ArgumentException("Vul de straat met huisnummer, de postcode en de gemeente in.");
+        var point = await maps.TryFindAsync(corrected, logger, ct);
+
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId, ct)
+            ?? throw new InvalidOperationException("Reservatie niet gevonden.");
+        reservation.CorrectDeliveryAddress(corrected, point, actor, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(ct);
+        return reservation;
+    }
+
+    public async Task<Reservation> ConfirmDeliveryPointAsync(Guid reservationId, GeoPoint point, ReservationActor actor, CancellationToken ct = default)
+    {
+        if (!GeoPoint.IsValid(point.Latitude, point.Longitude))
+            throw new ArgumentException("Dit is geen punt op de kaart.");
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var reservation = await db.Reservations.FirstOrDefaultAsync(r => r.Id == reservationId, ct)
+            ?? throw new InvalidOperationException("Reservatie niet gevonden.");
+        reservation.ConfirmDeliveryPoint(point, actor, clock.GetUtcNow().UtcDateTime);
         await db.SaveChangesAsync(ct);
         return reservation;
     }
@@ -279,7 +317,7 @@ internal sealed class ReservationService(
         }
         customer.FirstName = request.Customer.FirstName;
         customer.LastName = request.Customer.LastName;
-        customer.Phone = request.Customer.Phone;
+        customer.Phone = PhoneNumber.International(request.Customer.Phone);
         customer.Address = request.Customer.Address;
         customer.PreferredCulture = request.Culture;
         return customer;
@@ -310,5 +348,11 @@ internal sealed class ReservationService(
             throw new ArgumentException($"Je kan hoogstens {RentalPeriodLimits.MaxYearsAhead} jaar vooruit reserveren.");
         if (string.IsNullOrWhiteSpace(request.Customer.Email))
             throw new ArgumentException("E-mailadres is verplicht.");
+        // Verplicht voor elke nieuwe reservatie, zodat de verhuurder de klant kan bellen of WhatsAppen. Bestaande
+        // reservaties en klanten zonder nummer blijven geldig.
+        if (string.IsNullOrWhiteSpace(request.Customer.Phone))
+            throw new ArgumentException("Het telefoonnummer is verplicht.");
+        if (PhoneNumber.International(request.Customer.Phone) is null)
+            throw new ArgumentException("Dit is geen geldig telefoonnummer, bv. 0470 12 34 56 of +32 470 12 34 56.");
     }
 }

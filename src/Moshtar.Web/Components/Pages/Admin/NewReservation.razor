@@ -59,7 +59,7 @@
                         <MudTextField @bind-Value="_form.LastName" Label="Achternaam" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.LastName" />
                     </div>
                     <MudTextField @bind-Value="_form.Email" Label="E-mailadres" InputType="InputType.Email" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Email" />
-                    <MudTextField @bind-Value="_form.Phone" Label="Telefoon" InputType="InputType.Telephone" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Phone" />
+                    <MudTextField @bind-Value="_form.Phone" Label="Telefoon" HelperText="Bv. 0470 12 34 56 of +32 470 12 34 56" InputType="InputType.Telephone" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Phone" />
                     <MudTextField @bind-Value="_form.Street" Label="Straat en huisnummer" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Street" />
                     <div class="d-flex gap-2">
                         <MudTextField @bind-Value="_form.PostalCode" Label="Postcode" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.PostalCode" Style="max-width: 8rem" />

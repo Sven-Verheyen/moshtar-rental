@@ -1,0 +1,91 @@
+@using Moshtar.Application.Schedule
+@using Moshtar.Domain.Rounds
+
+@* Boven een ronde in de Planning: een route voorstellen, het vertrekuur van die dag, verwachte uren mailen en "Ronde gewijzigd". *@
+<div class="planning-round-tools d-flex flex-wrap align-center gap-2 mb-2">
+    @if (Round is { } round)
+    {
+        <span data-departure="@round.Departure.ToString("HH:mm")">
+            Vertrek <b>@ExpectedWindow.Time(round.Departure)</b>, terug om <b>@ExpectedWindow.Time(round.Return)</b>
+        </span>
+        @if (_editing)
+        {
+            <MudTextField @bind-Value="_departure" Label="Vertrekuur" InputType="InputType.Time" Variant="Variant.Outlined"
+                          Margin="Margin.Dense" Class="planning-field" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Small" OnClick="SaveDepartureAsync">Bewaren</MudButton>
+            <MudButton Variant="Variant.Text" Size="Size.Small" OnClick="() => _editing = false">Annuleren</MudButton>
+        }
+        else
+        {
+            <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Schedule" data-action="vertrekuur"
+                       OnClick="EditDeparture">Vertrekuur wijzigen</MudButton>
+        }
+        <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Route" data-action="route-voorstellen"
+                   OnClick="OnPropose">Route opnieuw voorstellen</MudButton>
+        @* Een gewijzigde ronde heeft vensters die niet meer kloppen: eerst bijwerken, dan mailen. *@
+        @if (!round.Changed)
+        {
+            <MudButton Variant="Variant.Outlined" Size="Size.Small" StartIcon="@Icons.Material.Filled.Email" data-action="uren-mailen"
+                       OnClick="OnMail">Verwachte uren mailen</MudButton>
+        }
+    }
+    else
+    {
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Route"
+                   data-action="route-voorstellen" OnClick="OnPropose">Route voorstellen</MudButton>
+    }
+    @if (SheetUrl is not null)
+    {
+        <MudButton Href="@SheetUrl" Target="_blank" Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Print"
+                   data-action="leverlijst">Leverlijst</MudButton>
+    }
+</div>
+@if (Round is { PastMidnight: true })
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2" data-warning="middernacht">
+        Deze ronde loopt over middernacht: de uren na middernacht zijn van de volgende dag. Vertrek vroeger of verdeel de stops.
+    </MudAlert>
+}
+@if (Round is { Changed: true })
+{
+    <MudAlert Severity="Severity.Warning" Dense="true" Class="mb-2" data-warning="ronde-gewijzigd">
+        Ronde gewijzigd: er kwam een reservatie bij, er viel er een weg of een adres (ook dat van het bedrijf) veranderde sinds de route gemaakt werd.
+        Werk eerst de ronde bij voor je de verwachte uren mailt.
+        <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Warning" StartIcon="@Icons.Material.Filled.Refresh"
+                   data-action="ronde-bijwerken" OnClick="OnUpdate">Ronde bijwerken</MudButton>
+    </MudAlert>
+}
+
+@code {
+    /// <summary>De bewaarde ronde; null zolang er geen route is.</summary>
+    [Parameter] public ScheduleRound? Round { get; set; }
+
+    [Parameter] public EventCallback OnPropose { get; set; }
+
+    /// <summary>Na "Ronde gewijzigd": nieuwe stops invoegen en weggevallen weglaten.</summary>
+    [Parameter] public EventCallback OnUpdate { get; set; }
+
+    [Parameter] public EventCallback<TimeOnly> OnDeparture { get; set; }
+
+    /// <summary>"Verwachte uren mailen": wie nog geen of een ander venster kreeg, krijgt een mail.</summary>
+    [Parameter] public EventCallback OnMail { get; set; }
+
+    /// <summary>De link naar de Leverlijst van deze ronde, om te printen.</summary>
+    [Parameter] public string? SheetUrl { get; set; }
+
+    private bool _editing;
+    private string? _departure;
+
+    private void EditDeparture()
+    {
+        _editing = true;
+        _departure = Round?.Departure.ToString("HH:mm");
+    }
+
+    private async Task SaveDepartureAsync()
+    {
+        if (TimeOnly.TryParse(_departure, System.Globalization.CultureInfo.InvariantCulture, out var departure))
+            await OnDeparture.InvokeAsync(departure);
+        _editing = false;
+    }
+}

@@ -152,5 +152,9 @@ internal static class ReservationConfirmation
         string Money(decimal amount) => amount.ToString("C", culture);
     }
 
+    /// <summary>De cultuur voor datums en bedragen in een mail in deze taal (zie <see cref="LanguageOf"/>).</summary>
+    public static CultureInfo CultureOf(string language) =>
+        CultureInfo.GetCultureInfo((ByCulture.GetValueOrDefault(language) ?? ByCulture["nl"]).CultureName);
+
     private static string E(string value) => WebUtility.HtmlEncode(value);
 }

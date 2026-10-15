@@ -6,6 +6,7 @@ using Moshtar.Application.Reservations;
 using Moshtar.Domain.Carts;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Customers;
 using Moshtar.Domain.Marketing;
 using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Persistence;
@@ -124,6 +125,11 @@ internal sealed class CartService(
             return CartReservationResult.Refused("CartGone");
         if (cart.Email is null)
             return CartReservationResult.Refused("CartNoEmail");
+        // Ook de reserveerflow weigert dit, maar dan zonder melding in de taal van de klant.
+        if (string.IsNullOrWhiteSpace(details.Phone))
+            return CartReservationResult.Refused("CartPhoneRequired");
+        if (PhoneNumber.International(details.Phone) is null)
+            return CartReservationResult.Refused("CartPhoneInvalid");
         // Wat niet meer op de reservatiewebsite staat, kan niet gereserveerd worden: de klant verwijdert het eerst.
         var entries = (await catalog.GetCatalogAsync(details.Culture, ct)).Select(Ref).ToHashSet();
         if (cart.Lines.Any(l => !entries.Contains(l.Entry)))

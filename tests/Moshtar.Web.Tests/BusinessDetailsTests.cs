@@ -1,6 +1,7 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Tenancy;
+using Moshtar.Domain.Rounds;
 using Moshtar.Infrastructure.Identity;
 
 namespace Moshtar.Web.Tests;
@@ -86,6 +87,39 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
 
         await admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", GoogleAnalyticsId = " " });
         Assert.Null((await admin.GetAsync()).GoogleAnalyticsId);
+    }
+
+    [Fact]
+    public async Task The_round_settings_start_from_the_standard_and_can_be_changed()
+    {
+        await app.CreateTenantAsync("gegevens-rondes", "gegevens-rondes.test");
+        await using var scope = await app.TenantScopeAsync("gegevens-rondes");
+        var admin = Admin(scope);
+        Assert.Equal(new RoundSettings(new TimeOnly(8, 0), new TimeOnly(18, 0), 30, 20, 60), (await admin.GetAsync()).Rounds);
+
+        var changed = new RoundSettings(new TimeOnly(7, 30), new TimeOnly(17, 0), 45, 25, 120);
+        await admin.SaveAsync(await admin.GetAsync() with { Rounds = changed });
+
+        Assert.Equal(changed, (await admin.GetAsync()).Rounds);
+    }
+
+    [Fact]
+    public async Task Round_settings_that_make_no_sense_are_refused()
+    {
+        await app.CreateTenantAsync("gegevens-rondes-fout", "gegevens-rondes-fout.test");
+        await using var scope = await app.TenantScopeAsync("gegevens-rondes-fout");
+        var admin = Admin(scope);
+
+        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(async () => await admin.SaveAsync(await admin.GetAsync() with
+        {
+            Rounds = new RoundSettings(new TimeOnly(8, 0), new TimeOnly(18, 0), -5, 20, 45),
+        }));
+
+        Assert.Equal([
+            "De opbouwtijd moet tussen 0 en 480 minuten liggen.",
+            "De breedte van het venster is een veelvoud van 30 minuten, van 30 tot 240 minuten.",
+        ], refused.Problems);
+        Assert.Equal(30, (await admin.GetAsync()).Rounds.SetupMinutes);
     }
 
     [Fact]
@@ -208,7 +242,10 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         var page = await client.GetAsync("/admin/bedrijfsgegevens");
 
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
-        Assert.Contains("href=\"admin/bedrijfsgegevens\"", await page.Content.ReadAsStringAsync());
+        var html = await page.Content.ReadAsStringAsync();
+        Assert.Contains("href=\"admin/bedrijfsgegevens\"", html);
+        Assert.Contains("Vertrekuur leverronde", html);
+        Assert.Contains("Breedte venster", html);
     }
 
     [Fact]

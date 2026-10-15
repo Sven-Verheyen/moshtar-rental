@@ -12,9 +12,11 @@ public class MailTemplateCustomization : TenantEntity
     public string Culture { get; set; } = "";
     public string Subject { get; set; } = "";
     public string Body { get; set; } = "";
+    /// <summary>Het WhatsApp-bericht, enkel bij een soort mail die er een heeft (<see cref="MailKindDefinition.HasWhatsApp"/>).</summary>
+    public string? WhatsApp { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
     /// <summary>De gebruiker die het mailsjabloon laatst aanpaste.</summary>
     public Guid UpdatedByUserId { get; set; }
 
-    public MailTemplateText Text => new(Subject, Body);
+    public MailTemplateText Text => new(Subject, Body, WhatsApp);
 }

@@ -367,7 +367,7 @@ public sealed class RentalItemAdministrationTests(MoshtarApp app) : IClassFixtur
     private static ReservationRequest Request(DateOnly start, ReservationLineRequest line, DateOnly? end = null) => new(
         new DateRange(start, end ?? start),
         [line],
-        new ReservationCustomer("Test", "Klant", "klant@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+        new ReservationCustomer("Test", "Klant", "klant@example.test", "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
         DeliveryMethod.Pickup, null, null, "nl");
 
     private static async Task<Guid> AddBundleAsync(AsyncServiceScope scope, Guid itemId)

@@ -147,7 +147,7 @@ public sealed class ReservationAlternativesTests(MoshtarApp app) : IClassFixture
         var result = await Reservations(scope).ReserveAsync(new ReservationRequest(
             new DateRange(day, day),
             [new ReservationLineRequest(jungle, null, 1), new ReservationLineRequest(null, party, 1), new ReservationLineRequest(pirate, null, 1)],
-            new ReservationCustomer("Gert", "Klant", "gert@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+            new ReservationCustomer("Gert", "Klant", "gert@example.test", "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
             DeliveryMethod.Pickup, null, null, "nl"), ReservationActor.Website);
         var gert = result.Reservation!;
         await Items(scope).SaveAsync(jungle, Input("Jungle", castles, dayPrice: 100, stock: 0));
@@ -309,7 +309,7 @@ public sealed class ReservationAlternativesTests(MoshtarApp app) : IClassFixture
     {
         var result = await Reservations(scope).ReserveAsync(new ReservationRequest(
             new DateRange(start, end), [line],
-            new ReservationCustomer(firstName, "Klant", $"{firstName.ToLowerInvariant()}@example.test", null, new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
+            new ReservationCustomer(firstName, "Klant", $"{firstName.ToLowerInvariant()}@example.test", "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
             DeliveryMethod.Pickup, null, null, culture), ReservationActor.Website);
         return result.Reservation ?? throw new InvalidOperationException("Reserveren mislukt.");
     }

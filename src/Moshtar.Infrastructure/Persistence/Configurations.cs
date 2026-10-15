@@ -6,6 +6,7 @@ using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Rounds;
 using Moshtar.Domain.Tenants;
 using Moshtar.Domain.Website;
 using Moshtar.Infrastructure.Identity;
@@ -24,6 +25,7 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(t => t.Street).HasMaxLength(200);
         b.Property(t => t.PostalCode).HasMaxLength(20);
         b.Property(t => t.City).HasMaxLength(100);
+        b.OwnsOne(t => t.AddressPoint);
         b.Property(t => t.WhatsAppPhone).HasMaxLength(30);
         b.Property(t => t.VatNumber).HasMaxLength(30);
         b.Property(t => t.FacebookUrl).HasMaxLength(500);
@@ -32,6 +34,9 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(t => t.GoogleBusinessUrl).HasMaxLength(500);
         b.Property(t => t.GoogleAnalyticsId).HasMaxLength(30);
         b.Ignore(t => t.Cultures);
+        b.Ignore(t => t.RoundSettings);
+        // De standaarden voor de rondes krijgen bestaande verhuurders in de migratie Rondes (geen HasDefaultValue:
+        // dan zou EF een bewust gekozen 0 minuten niet bewaren).
         b.HasMany(t => t.Hosts).WithOne().HasForeignKey(h => h.TenantId);
     }
 }
@@ -118,6 +123,7 @@ internal class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
         b.Ignore(r => r.OccupiesStock);
         b.HasOne(r => r.Customer).WithMany().HasForeignKey(r => r.CustomerId).OnDelete(DeleteBehavior.Restrict);
         b.OwnsOne(r => r.DeliveryAddress);
+        b.OwnsOne(r => r.DeliveryPoint);
         b.OwnsMany(r => r.Lines, l =>
         {
             l.ToTable("ReservationLines");
@@ -137,6 +143,28 @@ internal class ReservationConfiguration : IEntityTypeConfiguration<Reservation>
             l.Ignore(x => x.LineTotal);
             l.HasOne<RentalItem>().WithMany().HasForeignKey(x => x.RentalItemId).OnDelete(DeleteBehavior.Restrict);
             l.HasOne<Bundle>().WithMany().HasForeignKey(x => x.BundleId).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+}
+
+internal class RoundConfiguration : IEntityTypeConfiguration<Round>
+{
+    public void Configure(EntityTypeBuilder<Round> b)
+    {
+        b.ToTable("Rounds");
+        b.HasIndex(r => new { r.TenantId, r.Day, r.Kind }).IsUnique();
+        b.Ignore(r => r.Ordered);
+        b.OwnsOne(r => r.BusinessPoint);
+        b.OwnsMany(r => r.Stops, s =>
+        {
+            s.ToTable("RoundStops");
+            s.WithOwner().HasForeignKey("RoundId");
+            s.HasKey(x => x.Id);
+            s.Property(x => x.Id).ValueGeneratedNever();
+            s.OwnsOne(x => x.Point);
+            s.Navigation(x => x.Point).IsRequired();
+            s.Ignore(x => x.Window);
+            s.HasOne<Reservation>().WithMany().HasForeignKey(x => x.ReservationId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }
@@ -188,6 +216,7 @@ internal class MailTemplateCustomizationConfiguration : IEntityTypeConfiguration
         b.Property(t => t.Kind).HasConversion<string>().HasMaxLength(40);
         b.Property(t => t.Culture).HasMaxLength(10);
         b.Property(t => t.Subject).HasMaxLength(300);
+        b.Property(t => t.WhatsApp).HasMaxLength(1000);
         b.Ignore(t => t.Text);
         b.HasIndex(t => new { t.TenantId, t.Kind, t.Culture }).IsUnique();
         // Gebruikers worden uitgeschakeld, nooit verwijderd.
