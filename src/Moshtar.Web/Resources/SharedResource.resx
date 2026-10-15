@@ -77,6 +77,7 @@
   <data name="Yes" xml:space="preserve"><value>Ja</value></data>
   <data name="No" xml:space="preserve"><value>Nee</value></data>
   <data name="ComboHint" xml:space="preserve"><value>Samen voordeliger: {0}</value></data>
+  <data name="PromotionLabel" xml:space="preserve"><value>Actie −{0}%</value></data>
   <data name="PerPiece" xml:space="preserve"><value>per stuk</value></data>
   <data name="OtherLanguages" xml:space="preserve"><value>Andere talen</value></data>
   <data name="Address" xml:space="preserve"><value>Adres</value></data>

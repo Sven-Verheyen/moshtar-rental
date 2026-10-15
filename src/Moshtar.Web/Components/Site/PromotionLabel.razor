@@ -1,0 +1,10 @@
+@inject IStringLocalizer<SharedResource> L
+@* Het label "Actie −10%" naast een doorstreepte prijs; niets zonder actie. *@
+@if (Promotion is not null)
+{
+    <span class="promotion-label">@L["PromotionLabel", Promotion.Percentage.ToString("0.##", CultureInfo.CurrentUICulture)]</span>
+}
+
+@code {
+    [Parameter] public Moshtar.Domain.Prices.PricingRule? Promotion { get; set; }
+}

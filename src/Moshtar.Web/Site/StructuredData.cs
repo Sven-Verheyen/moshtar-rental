@@ -59,9 +59,10 @@ public static class StructuredData
 
     /// <summary>
     /// Een artikel of pakket met zijn dagprijs, inclusief btw. Het is een verhuring (LeaseOut), geen verkoop; de prijs
-    /// geldt per dag (UN/CEFACT-code DAY).
+    /// geldt per dag (UN/CEFACT-code DAY). <paramref name="dayPrice"/>: de dagprijs die de bezoeker ziet, met een actie
+    /// die niet aan huurperiodes gebonden is; anders de gewone dagprijs.
     /// </summary>
-    public static JsonObject Product(CatalogEntry entry, SiteLinks links, IImageStore images)
+    public static JsonObject Product(CatalogEntry entry, SiteLinks links, IImageStore images, decimal? dayPrice = null)
     {
         var url = links.Absolute(new RentalRoute(entry.Slug), links.Culture);
         var data = Node("Product");
@@ -73,7 +74,7 @@ public static class StructuredData
         data["url"] = url;
         data["sku"] = entry.Slug;
 
-        var price = entry.DayPrice.ToString("0.00", CultureInfo.InvariantCulture);
+        var price = (dayPrice ?? entry.DayPrice).ToString("0.00", CultureInfo.InvariantCulture);
         var specification = Typed("UnitPriceSpecification");
         specification["price"] = price;
         specification["priceCurrency"] = "EUR";

@@ -27,14 +27,15 @@
         {
             <p class="muted">@L["BundleContains"]: @string.Join(", ", Entry.Contents)</p>
         }
-        @if (Chosen.Period is { } period)
-        {
-            <p class="price">@SiteText.Money(Entry.PriceFor(period.Days)) <span class="muted">@ForDays(period.Days)</span></p>
-        }
-        else
-        {
-            <p class="price">@SiteText.Money(Entry.DayPrice) <span class="muted">@L["PerDay"]</span></p>
-        }
+        @* De prijs met de actie die geldt: de gewone prijs doorstreept en het label. *@
+        <p class="price">
+            @if (Price?.Promotion is not null)
+            {
+                <s class="old-price">@SiteText.Money(Price.Normal)</s>
+            }
+            @SiteText.Money(Price?.Price ?? Entry.DayPrice) <span class="muted">@(Chosen.Period is { } period ? ForDays(period.Days) : L["PerDay"].Value)</span>
+            <PromotionLabel Promotion="Price?.Promotion" />
+        </p>
         <a class="button" href="@href" aria-hidden="true" tabindex="-1">@L["MoreInfo"]</a>
     </div>
 </article>
@@ -43,6 +44,8 @@
     [Parameter, EditorRequired] public CatalogEntry Entry { get; set; } = null!;
     [Parameter] public ChosenPeriod Chosen { get; set; } = ChosenPeriod.None;
     [Parameter] public bool Unavailable { get; set; }
+    /// <summary>De prijs op de kaart (voor de gekozen huurperiode, anders per dag), met de actie die geldt.</summary>
+    [Parameter] public SitePrice? Price { get; set; }
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
 }

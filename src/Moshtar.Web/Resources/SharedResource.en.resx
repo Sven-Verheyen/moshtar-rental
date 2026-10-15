@@ -77,6 +77,7 @@
   <data name="Yes" xml:space="preserve"><value>Yes</value></data>
   <data name="No" xml:space="preserve"><value>No</value></data>
   <data name="ComboHint" xml:space="preserve"><value>Better together: {0}</value></data>
+  <data name="PromotionLabel" xml:space="preserve"><value>Sale −{0}%</value></data>
   <data name="PerPiece" xml:space="preserve"><value>per item</value></data>
   <data name="OtherLanguages" xml:space="preserve"><value>Other languages</value></data>
   <data name="Address" xml:space="preserve"><value>Address</value></data>

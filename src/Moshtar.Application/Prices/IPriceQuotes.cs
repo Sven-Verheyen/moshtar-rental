@@ -27,10 +27,36 @@ public sealed class PriceQuoter(DateOnly reservationDate, IReadOnlyList<PricingR
     public PriceResult Quote(DateRange period, IReadOnlyList<PriceLine> lines) =>
         PriceCalculator.Calculate(new PriceRequest(lines, period, ReservationDate, Rules));
 
+    /// <summary>
+    /// De prijs van één stuk op de reservatiewebsite (artikelkaart, artikelpagina, structured data), met de actie die
+    /// geldt. Met huurperiode: de prijs voor die periode. Zonder: de dagprijs, en alleen een actie die niet aan
+    /// huurperiodes gebonden is (zonder datum weet de klant nog niet of ze voor hem geldt). Een combinatiekorting telt
+    /// hier niet: die vraagt meerdere stuks.
+    /// </summary>
+    public SitePrice SitePriceFor(CatalogEntry entry, DateRange? period)
+    {
+        var line = entry.ToPriceLine(1);
+        var result = period is { } p
+            ? Quote(p, [line])
+            // Eén dag aan dagprijs, alleen met de acties zonder huurperiodebereik.
+            : PriceCalculator.Calculate(new PriceRequest([line], new DateRange(ReservationDate, ReservationDate), ReservationDate,
+                Rules.Where(r => r.Kind == PricingRuleKind.Promotion && !r.IsBoundToRentalDates).ToList()));
+        var normal = result.Lines[0].UnitPrice;
+        return result.Pieces[0] is { Rule: { Kind: PricingRuleKind.Promotion } promotion, Discount: > 0 } piece
+            ? new SitePrice(normal, normal - piece.Discount, promotion)
+            : new SitePrice(normal, normal, null);
+    }
+
     /// <summary>De combinatiekortingen die vandaag gelden voor dit artikel of pakket, voor de zin op de artikelpagina.</summary>
     public IReadOnlyList<PricingRule> CombosFor(CatalogEntry entry) =>
         Rules.Where(r => r.Kind == PricingRuleKind.Combo && r.IsInForceOn(ReservationDate) && r.Covers(entry.Ref(), entry.CategoryId)).ToList();
 }
+
+/// <summary>
+/// Een prijs op de reservatiewebsite: <see cref="Normal"/> zonder korting, <see cref="Price"/> wat de klant betaalt, en
+/// de actie die het verschil maakt (of null). Met een actie staat de gewone prijs doorstreept naast het label.
+/// </summary>
+public sealed record SitePrice(decimal Normal, decimal Price, PricingRule? Promotion);
 
 public static class PriceLines
 {

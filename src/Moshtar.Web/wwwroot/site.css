@@ -214,6 +214,8 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .price { font-weight: 800; font-size: 1.15rem; margin: .5rem 0 .75rem; }
 .price-large { font-size: 1.5rem; }
 .price .muted { font-size: 1rem; font-weight: 500; }
+.price .old-price { font-weight: 500; opacity: .65; margin-right: .3rem; }
+.promotion-label { display: inline-block; margin-left: .3rem; padding: .1rem .55rem; border-radius: 999px; background: #fff1c2; color: #5c3b00; font-size: .85rem; font-weight: 700; white-space: nowrap; vertical-align: middle; }
 
 /* Artikelpagina */
 .back a { color: var(--muted); text-decoration: none; }
