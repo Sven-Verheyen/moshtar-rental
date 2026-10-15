@@ -61,7 +61,8 @@
                 {
                     var index = i;
                     var line = _lines[index];
-                    var priced = _result?.Lines.ElementAtOrDefault(index);
+                    // Op sleutel, niet op positie: een artikel of pakket dat niet meer op de reservatiewebsite staat, valt weg uit de uitkomst.
+                    var priced = _result?.Lines.FirstOrDefault(l => l.Entry == line.Entry.Ref());
                     <tr>
                         <td>@line.Entry.Name</td>
                         <td style="max-width: 6rem">
@@ -70,7 +71,7 @@
                         </td>
                         @if (priced is null)
                         {
-                            <td colspan="5">Kies een huurperiode.</td>
+                            <td colspan="5">@(_result is null ? "Kies een huurperiode." : "Staat niet (meer) op de reservatiewebsite: telt niet mee.")</td>
                         }
                         else
                         {

@@ -36,7 +36,7 @@ internal sealed class PriceExamples(IDbContextFactory<AppDbContext> contexts, IT
             .Quote(example.Period, chosen.Select(c => c.Entry.ToPriceLine(c.Quantity)).ToList());
 
         var lines = result.Lines.Select((line, index) => new PriceExampleLineResult(
-                chosen[index].Entry.Name, line.Line.Quantity, chosen[index].Entry.PriceFor(example.Period.Days), line.UnitPrice, line.Days,
+                line.Line.Entry, chosen[index].Entry.Name, line.Line.Quantity, chosen[index].Entry.PriceFor(example.Period.Days), line.UnitPrice, line.Days,
                 result.Pieces.Where(p => p.LineIndex == index).Select(p => new PriceExamplePiece(p.Price, p.Rule is { } r ? NameOf(r) : null, p.Discount)).ToList()))
             .ToList();
         var discounts = result.Discounts.Select(d => new PriceExampleDiscount(NameOf(d.Rule), d.Amount, d.Pieces)).ToList();

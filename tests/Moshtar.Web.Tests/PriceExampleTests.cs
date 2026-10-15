@@ -79,6 +79,26 @@ public sealed class PriceExampleTests(MoshtarApp app) : IClassFixture<MoshtarApp
     }
 
     [Fact]
+    public async Task Each_result_line_names_its_entry_so_an_entry_that_is_no_longer_available_shifts_nothing()
+    {
+        var day = TestReservations.FutureDay(40);
+        var (prinses, piraat) = await NewTenantAsync("rekentool-weg", day.AddDays(1));
+        await using (var scope = await app.TenantScopeAsync("rekentool-weg"))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            (await db.RentalItems.SingleAsync(i => i.Id == prinses)).IsActive = false;
+            await db.SaveChangesAsync();
+        }
+
+        var result = await CalculateAsync("rekentool-weg", new PriceExample(new DateRange(day, day), Today,
+            [new(CatalogRef.Item(prinses), 1), new(CatalogRef.Item(piraat), 1)]));
+
+        // De prinses staat niet meer op de reservatiewebsite: alleen de piraat blijft, met zijn eigen sleutel.
+        var line = Assert.Single(result.Lines);
+        Assert.Equal((CatalogRef.Item(piraat), "Piratenkasteel", 100m), (line.Entry, line.Name, line.UnitPrice));
+    }
+
+    [Fact]
     public async Task Administrator_sees_the_price_calculator_at_the_top_of_the_pricing_rules_page()
     {
         var client = await app.LoggedInClientAsync("rekentool-beheerder@hopsakee.test", UserRole.Administrator);

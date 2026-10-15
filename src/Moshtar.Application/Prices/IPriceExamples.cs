@@ -31,11 +31,13 @@ public sealed record PriceExampleLine(CatalogRef Entry, int Quantity);
 public sealed record PriceExampleResult(IReadOnlyList<PriceExampleLineResult> Lines, IReadOnlyList<PriceExampleDiscount> Discounts, decimal Subtotal, decimal Total);
 
 /// <summary>
-/// Een lijn: <see cref="NormalPrice"/> is de gewone prijs per stuk (zonder prijsregels), <see cref="UnitPrice"/> de prijs
-/// per stuk met de periodeprijzen van elke dag (<see cref="Days"/>), en per stuk de korting die het kreeg.
+/// Een lijn voor het artikel of pakket <see cref="Entry"/>: de rekentool zoekt de lijn op die sleutel, want een artikel
+/// of pakket dat niet meer op de reservatiewebsite staat, valt weg. <see cref="NormalPrice"/> is de gewone prijs per stuk
+/// (zonder prijsregels), <see cref="UnitPrice"/> de prijs per stuk met de periodeprijzen van elke dag
+/// (<see cref="Days"/>), en per stuk de korting die het kreeg.
 /// </summary>
 public sealed record PriceExampleLineResult(
-    string Name, int Quantity, decimal NormalPrice, decimal UnitPrice, IReadOnlyList<PricedDay> Days, IReadOnlyList<PriceExamplePiece> Pieces)
+    CatalogRef Entry, string Name, int Quantity, decimal NormalPrice, decimal UnitPrice, IReadOnlyList<PricedDay> Days, IReadOnlyList<PriceExamplePiece> Pieces)
 {
     public decimal LineTotal => UnitPrice * Quantity;
 }
