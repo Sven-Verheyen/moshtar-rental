@@ -2,11 +2,11 @@
 @inject IPriceQuotes Prices
 
 @* Met een huurperiode: wat vrij is bovenaan, de rest met "niet vrij op deze datum". De volgorde blijft verder die van de catalogus.
-   De prijsregels één keer laden voor alle kaarten. *@
+*@
 <div class="catalog-grid">
     @foreach (var entry in Entries.OrderBy(e => Unavailable.Contains(e.Id)))
     {
-        <CatalogCard Entry="entry" Chosen="Chosen" Unavailable="Unavailable.Contains(entry.Id)" Price="@_prices?.SitePriceFor(entry, Chosen.Period)" />
+        <CatalogCard Entry="entry" Chosen="Chosen" Unavailable="Unavailable.Contains(entry.Id)" Quoter="_quoter" />
     }
 </div>
 
@@ -15,7 +15,11 @@
     [Parameter] public ChosenPeriod Chosen { get; set; } = ChosenPeriod.None;
     [Parameter] public IReadOnlySet<Guid> Unavailable { get; set; } = new HashSet<Guid>();
 
-    private PriceQuoter? _prices;
+    private PriceQuoter? _quoter;
 
-    protected override async Task OnInitializedAsync() => _prices = await Prices.CurrentAsync();
+    /// <summary>
+    /// De prijsregels, één keer voor alle kaarten: met een huurperiode voor de prijs met periodeprijzen, en met of
+    /// zonder voor de acties.
+    /// </summary>
+    protected override async Task OnParametersSetAsync() => _quoter ??= await Prices.CurrentAsync();
 }

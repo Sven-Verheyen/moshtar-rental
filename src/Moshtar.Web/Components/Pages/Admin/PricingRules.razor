@@ -5,16 +5,14 @@
 
 <PageTitle>Prijsregels</PageTitle>
 
-@* Alle prijsregels op één plaats, per soort een tabblad; ?tab=acties opent meteen de acties. Alleen het open tabblad
-   wordt getekend: de editors delen één databankcontext en mogen niet tegelijk laden. *@
+@* Alle prijsregels op één plaats, per soort een tabblad; ?tab=periodeprijzen of ?tab=acties opent meteen dat tabblad. *@
 <AdminShell Title="Prijsregels">
-    <MudTabs @bind-ActivePanelIndex="_tab" Elevation="1" Rounded="true" TabPanelsClass="pt-4">
+    <MudTabs Elevation="1" Rounded="true" TabPanelsClass="pt-4" @bind-ActivePanelIndex="_activeTab">
         <MudTabPanel Text="Combinatiekortingen">
             <ComboDiscountsEditor />
         </MudTabPanel>
         <MudTabPanel Text="Periodeprijzen">
-            @* Het tabblad Periodeprijzen (#92). *@
-            <MudText Typo="Typo.body2">Periodeprijzen komen hier binnenkort.</MudText>
+            <PeriodPricesEditor />
         </MudTabPanel>
         <MudTabPanel Text="Acties">
             <PromotionsEditor />
@@ -24,13 +22,12 @@
 </AdminShell>
 
 @code {
+    /// <summary>De tabbladen in volgorde, zoals in ?tab=.</summary>
+    private static readonly string[] Tabs = ["combinatiekortingen", "periodeprijzen", "acties"];
+
     [SupplyParameterFromQuery(Name = "tab")] private string? Tab { get; set; }
 
-    private int _tab;
+    private int _activeTab;
 
-    protected override void OnInitialized() => _tab = Tab switch
-    {
-        "acties" => 2,
-        _ => 0,
-    };
+    protected override void OnInitialized() => _activeTab = Math.Max(0, Array.IndexOf(Tabs, Tab?.ToLowerInvariant()));
 }

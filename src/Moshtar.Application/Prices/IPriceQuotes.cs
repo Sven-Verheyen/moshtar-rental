@@ -28,6 +28,12 @@ public sealed class PriceQuoter(DateOnly reservationDate, IReadOnlyList<PricingR
         PriceCalculator.Calculate(new PriceRequest(lines, period, ReservationDate, Rules));
 
     /// <summary>
+    /// De prijs van één stuk van dit artikel of pakket voor de huurperiode, met de periodeprijzen van elke dag: wat de
+    /// reservatiewebsite toont met een gekozen datum (zonder datum blijft de gewone prijs, <see cref="CatalogEntry.PriceFor"/>).
+    /// </summary>
+    public decimal PriceFor(CatalogEntry entry, DateRange period) => Quote(period, [entry.ToPriceLine(1)]).Lines[0].UnitPrice;
+
+    /// <summary>
     /// De prijs van één stuk op de reservatiewebsite (artikelkaart, artikelpagina, structured data), met de actie die
     /// geldt. Met huurperiode: de prijs voor die periode. Zonder: de dagprijs, en alleen een actie die niet aan
     /// huurperiodes gebonden is (zonder datum weet de klant nog niet of ze voor hem geldt). Een combinatiekorting telt

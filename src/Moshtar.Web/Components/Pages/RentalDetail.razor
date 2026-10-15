@@ -21,7 +21,7 @@
 }
 
 <SiteHead Title="@_entry.Name" Description="@(_entry.Description ?? _entry.Name)" Image="@(_entry.MainPhoto is { } photo ? Images.ShareUrl(photo) : null)"
-          OgType="product" NoIndex="_chosen.InUrl" JsonLd="@([StructuredData.Product(_entry, Links, Images, _dayPrice.Price), Breadcrumbs])" />
+          OgType="product" NoIndex="_chosen.InUrl" JsonLd="@([StructuredData.Product(_entry, Links, Images, ChosenPrice, DayPrice.Price), Breadcrumbs])" />
 
 <div class="page">
 <p class="back"><a href="@BackHref">← @BackText</a></p>
@@ -79,12 +79,12 @@
         }
         @* Zonder datum de dagprijs, met een actie die niet aan huurperiodes gebonden is: oude prijs doorstreept en label. *@
         <p class="price price-large">
-            @if (_dayPrice.Promotion is not null)
+            @if (DayPrice.Promotion is not null)
             {
-                <s class="old-price">@SiteText.Money(_dayPrice.Normal)</s>
+                <s class="old-price">@SiteText.Money(DayPrice.Normal)</s>
             }
-            @SiteText.Money(_dayPrice.Price) <span class="muted">@L["PerDay"]</span>
-            <PromotionLabel Promotion="_dayPrice.Promotion" />
+            @SiteText.Money(DayPrice.Price) <span class="muted">@L["PerDay"]</span>
+            <PromotionLabel Promotion="DayPrice.Promotion" />
             @if (_entry.ExtraDayPrice is { } extra)
             {
                 <span class="muted"> · @SiteText.Money(extra) @L["PerExtraDay"]</span>
@@ -122,15 +122,12 @@
             <AnalyticsEvent Name="check_availability" Data="@AvailabilityChecked(period)" />
             <div class="availability free" role="status">
                 <p><strong>@L["AvailableOn", SiteText.Period(period)]</strong></p>
-                <p class="price price-large">
-                    @L["Total"]:
-                    @if (_periodPrice?.Promotion is not null)
+                @{ var price = PeriodPrice(period); }
+                @* Met een actie de gewone prijs doorstreept en het label. *@
+                <p class="price price-large">@L["Total"]: @if (price.Promotion is not null)
                     {
-                        <s class="old-price">@SiteText.Money(_periodPrice.Normal)</s>
-                    }
-                    @SiteText.Money(_periodPrice?.Price ?? 0) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span>
-                    <PromotionLabel Promotion="_periodPrice?.Promotion" />
-                </p>
+                        <s class="old-price">@SiteText.Money(price.Normal)</s>@(" ")
+                    }@SiteText.Money(price.Price) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span><PromotionLabel Promotion="price.Promotion" /></p>
                 <p><a href="@(Here + "#reserveren")">@L["OtherDate"]</a></p>
             </div>
             @if (CartResult == CartEndpoints.Added)
@@ -174,8 +171,7 @@
     private DateOnly _today;
     private bool _available;
     private IReadOnlyList<string> _combos = [];
-    private SitePrice _dayPrice = null!;
-    private SitePrice? _periodPrice;
+    private PriceQuoter? _quoter;
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
@@ -209,16 +205,14 @@
             _category = (await CategoryLink.AllAsync(Texts, Links)).FirstOrDefault(c => c.Id == categoryId);
 
         var fallback = TenantContext.Tenant?.DefaultCulture ?? Culture;
-        var prices = await Prices.CurrentAsync();
-        _combos = prices.CombosFor(_entry).Select(r => r.NameIn(Culture, fallback)).Where(n => n.Length > 0).ToList();
-        _dayPrice = prices.SitePriceFor(_entry, null);
+        _quoter = await Prices.CurrentAsync();
+        _combos = _quoter.CombosFor(_entry).Select(r => r.NameIn(Culture, fallback)).Where(n => n.Length > 0).ToList();
 
         _today = ChosenPeriod.Today(Clock);
         _chosen = ChosenPeriod.From(Start, End, _today);
         if (_chosen.Period is { } period)
         {
             _available = (await Reservations.CheckAvailabilityAsync(period, [Line(1)])).Count == 0;
-            _periodPrice = prices.SitePriceFor(_entry, period);
         }
     }
 
@@ -241,9 +235,22 @@
     private System.Text.Json.Nodes.JsonObject AddedToCart(Moshtar.Domain.Common.DateRange period)
     {
         var quantity = Math.Clamp(AddedQuantity ?? 1, 1, Cart.MaxQuantity);
-        var price = _periodPrice?.Price ?? _entry!.PriceFor(period.Days);
+        var price = PriceFor(period);
         return AnalyticsItems.Event(price * quantity, [AnalyticsItems.Item(_entry!.Slug, _entry.Name, quantity, price)]);
     }
+
+    /// <summary>De prijs per stuk voor de huurperiode, met periodeprijzen: dezelfde berekening als de winkelkar.</summary>
+    /// <summary>Wat één stuk kost voor deze huurperiode: met periodeprijzen en de actie die geldt.</summary>
+    private decimal PriceFor(Moshtar.Domain.Common.DateRange period) => PeriodPrice(period).Price;
+
+    private SitePrice PeriodPrice(Moshtar.Domain.Common.DateRange period) =>
+        _quoter?.SitePriceFor(_entry!, period) ?? new SitePrice(_entry!.PriceFor(period.Days), _entry.PriceFor(period.Days), null);
+
+    /// <summary>Zonder datum: de dagprijs, met een actie die niet aan huurperiodes gebonden is.</summary>
+    private SitePrice DayPrice => _quoter?.SitePriceFor(_entry!, null) ?? new SitePrice(_entry!.DayPrice, _entry.DayPrice, null);
+
+    /// <summary>Met een gekozen huurperiode de prijs die de bezoeker ziet, ook voor de structured data; anders null (dagprijs).</summary>
+    private StructuredData.PeriodPrice? ChosenPrice => _chosen.Period is { } period ? new(period.Days, PriceFor(period)) : null;
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
 

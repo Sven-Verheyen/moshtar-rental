@@ -3,6 +3,9 @@
 
 @{
     var href = Links.Href(new RentalRoute(Entry.Slug)) + Chosen.Query;
+    // Met een gekozen huurperiode de prijs met periodeprijzen, zonder de dagprijs; telkens met de actie die geldt.
+    var price = Quoter?.SitePriceFor(Entry, Chosen.Period)
+        ?? (Chosen.Period is { } chosen ? new SitePrice(Entry.PriceFor(chosen.Days), Entry.PriceFor(chosen.Days), null) : new SitePrice(Entry.DayPrice, Entry.DayPrice, null));
 }
 <article class="catalog-card @(Unavailable ? "unavailable" : null)">
     @if (Entry.MainPhoto is { } photo)
@@ -29,12 +32,12 @@
         }
         @* De prijs met de actie die geldt: de gewone prijs doorstreept en het label. *@
         <p class="price">
-            @if (Price?.Promotion is not null)
+            @if (price.Promotion is not null)
             {
-                <s class="old-price">@SiteText.Money(Price.Normal)</s>
+                <s class="old-price">@SiteText.Money(price.Normal)</s>
             }
-            @SiteText.Money(Price?.Price ?? Entry.DayPrice) <span class="muted">@(Chosen.Period is { } period ? ForDays(period.Days) : L["PerDay"].Value)</span>
-            <PromotionLabel Promotion="Price?.Promotion" />
+            @SiteText.Money(price.Price) <span class="muted">@(Chosen.Period is { } period ? ForDays(period.Days) : L["PerDay"].Value)</span>
+            <PromotionLabel Promotion="price.Promotion" />
         </p>
         <a class="button" href="@href" aria-hidden="true" tabindex="-1">@L["MoreInfo"]</a>
     </div>
@@ -44,8 +47,8 @@
     [Parameter, EditorRequired] public CatalogEntry Entry { get; set; } = null!;
     [Parameter] public ChosenPeriod Chosen { get; set; } = ChosenPeriod.None;
     [Parameter] public bool Unavailable { get; set; }
-    /// <summary>De prijs op de kaart (voor de gekozen huurperiode, anders per dag), met de actie die geldt.</summary>
-    [Parameter] public SitePrice? Price { get; set; }
+    /// <summary>De prijsregels, voor de prijs met periodeprijzen en acties; zonder: de gewone prijs.</summary>
+    [Parameter] public PriceQuoter? Quoter { get; set; }
 
     private string ForDays(int days) => days == 1 ? L["ForOneDay"] : L["ForDays", days];
 }

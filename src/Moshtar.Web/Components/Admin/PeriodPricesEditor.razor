@@ -1,0 +1,315 @@
+@inject IPricingRuleAdministration Admin
+@inject ICategoryAdministration CategoryAdmin
+@inject IRentalItemAdministration ItemAdmin
+@inject IBundleAdministration BundleAdmin
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@* Het tabblad Periodeprijzen op de pagina Prijsregels: de lijst (verlopen regels grijs onderaan) en een formulier. *@
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.body2" Class="mb-2">
+        Elke dag van de huurperiode die tussen de data en op de gekozen weekdagen valt, wordt een percentage duurder of
+        goedkoper: met "zaterdag +20%" kost alleen de zaterdag van een weekend meer. Gelden er op één dag meerdere
+        periodeprijzen, dan tellen de percentages op (zomer +10% en zaterdag +20% = +30%). De periodeprijs zit in de prijs
+        van het artikel; kortingen rekenen daarna. Bestaande reservaties houden hun prijs als je een regel wijzigt of verwijdert.
+    </MudText>
+
+    @if (_periodPrices is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_periodPrices.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Class="mb-2">Er zijn nog geen periodeprijzen.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Class="mb-4">
+            <thead>
+                <tr>
+                    <th>Naam</th>
+                    <th>Op</th>
+                    <th>Wanneer</th>
+                    <th>Percentage</th>
+                    <th>Einddatum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var periodPrice in _periodPrices)
+                {
+                    <tr style="@(periodPrice.IsExpired ? "color: var(--mud-palette-text-disabled)" : null)">
+                        <td>@periodPrice.Input.Name</td>
+                        <td>@TargetText(periodPrice.Input.Target)</td>
+                        <td>@WhenText(periodPrice.Input)</td>
+                        <td>@PercentageText(periodPrice.Input.Percentage)</td>
+                        <td>@(periodPrice.Input.EndDate is { } end ? (periodPrice.IsExpired ? $"verlopen op {end:dd/MM/yyyy}" : $"t.e.m. {end:dd/MM/yyyy}") : "geen")</td>
+                        <td style="white-space: nowrap">
+                            <MudSwitch T="bool" Value="periodPrice.Input.IsActive" ValueChanged="active => SetActiveAsync(periodPrice, active)" Color="Color.Primary"
+                                       Label="@(periodPrice.Input.IsActive ? "Aan" : "Uit")" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" aria-label="Wijzigen" OnClick="() => Edit(periodPrice)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Verwijderen" OnClick="() => DeleteAsync(periodPrice)" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+
+    <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editing is null ? "Nieuwe periodeprijs" : "Periodeprijs wijzigen")</MudText>
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudTextField T="string" @bind-Value="_draft.Name" Label="Naam" Variant="Variant.Outlined" MaxLength="100" Required="true"
+                          HelperText="Alleen voor jou, bv. &quot;Zomer&quot; of &quot;Drukke zaterdag&quot;." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudNumericField T="decimal" @bind-Value="_draft.Percentage" Label="Percentage" Min="-90" Max="200" Format="0.##" Variant="Variant.Outlined"
+                             HelperText="Positief: duurder, negatief: goedkoper." />
+        </MudItem>
+        <MudItem xs="12" md="3" />
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" Clearable="true" @bind-Date="_draft.From" Label="Van" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Leeg: geen begindatum." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" Clearable="true" @bind-Date="_draft.Until" Label="Tot en met" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Leeg: geen einde." />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudText Typo="Typo.body2">Weekdagen (geen: elke dag)</MudText>
+            <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="0">
+                @foreach (var day in Week)
+                {
+                    var d = day;
+                    <MudCheckBox T="bool" Value="_draft.Weekdays.Contains(d)" ValueChanged="on => ToggleWeekday(d, on)" Label="@DayName(d)" Dense="true" />
+                }
+            </MudStack>
+        </MudItem>
+        <MudItem xs="12">
+            <MudRadioGroup T="TargetKind" @bind-Value="_draft.TargetKind">
+                <MudRadio T="TargetKind" Value="TargetKind.All">Alles</MudRadio>
+                <MudRadio T="TargetKind" Value="TargetKind.Categories">Categorieën</MudRadio>
+                <MudRadio T="TargetKind" Value="TargetKind.Chosen">Gekozen artikelen en pakketten</MudRadio>
+            </MudRadioGroup>
+        </MudItem>
+        @if (_draft.TargetKind == TargetKind.Categories)
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.CategoryIds" Label="Categorieën" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => CategoryName(id))">
+                    @foreach (var category in _categories)
+                    {
+                        <MudSelectItem T="Guid" Value="category.Id">@category.Texts[DefaultCulture].Name.Value</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        else if (_draft.TargetKind == TargetKind.Chosen)
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.RentalItemIds" Label="Artikelen" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => ItemName(id))">
+                    @foreach (var item in _items)
+                    {
+                        <MudSelectItem T="Guid" Value="item.Id">@item.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.BundleIds" Label="Pakketten" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => BundleName(id))">
+                    @foreach (var bundle in _bundles)
+                    {
+                        <MudSelectItem T="Guid" Value="bundle.Id">@bundle.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" Clearable="true" @bind-Date="_draft.EndDate" Label="Einddatum" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Laatste dag van reserveren. Leeg: geen einddatum." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSwitch T="bool" @bind-Value="_draft.IsActive" Color="Color.Primary" Label="@(_draft.IsActive ? "Aan" : "Uit")" />
+        </MudItem>
+    </MudGrid>
+    <Problems Items="_problems" />
+    <MudStack Row="true" Class="mt-3">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">@(_editing is null ? "Toevoegen" : "Opslaan")</MudButton>
+        @if (_editing is not null)
+        {
+            <MudButton Variant="Variant.Text" OnClick="Reset">Annuleren</MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    private enum TargetKind { All, Categories, Chosen }
+
+    private sealed class Draft
+    {
+        public string Name { get; set; } = "";
+        public decimal Percentage { get; set; } = 10;
+        public DateTime? From { get; set; }
+        public DateTime? Until { get; set; }
+        public HashSet<DayOfWeek> Weekdays { get; set; } = [];
+        public TargetKind TargetKind { get; set; } = TargetKind.All;
+        public IReadOnlyCollection<Guid> CategoryIds { get; set; } = [];
+        public IReadOnlyCollection<Guid> RentalItemIds { get; set; } = [];
+        public IReadOnlyCollection<Guid> BundleIds { get; set; } = [];
+        public DateTime? EndDate { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    /// <summary>Maandag tot zondag, zoals in België.</summary>
+    private static readonly DayOfWeek[] Week =
+        [DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday, DayOfWeek.Sunday];
+
+    private IReadOnlyList<PeriodPriceSummary>? _periodPrices;
+    private IReadOnlyList<CategoryDetails> _categories = [];
+    private IReadOnlyList<RentalItemSummary> _items = [];
+    private IReadOnlyList<BundleSummary> _bundles = [];
+    private Draft _draft = new();
+    private Guid? _editing;
+    private IReadOnlyList<string>? _problems;
+
+    private string DefaultCulture => TenantContext.Tenant?.DefaultCulture ?? "nl";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await CategoryAdmin.GetAllAsync();
+        _items = await ItemAdmin.GetAllAsync();
+        _bundles = await BundleAdmin.GetAllAsync();
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _periodPrices = await Admin.GetPeriodPricesAsync();
+
+    private void Reset()
+    {
+        _editing = null;
+        _draft = new Draft();
+        _problems = null;
+    }
+
+    private void Edit(PeriodPriceSummary periodPrice)
+    {
+        _editing = periodPrice.Id;
+        _problems = null;
+        var input = periodPrice.Input;
+        _draft = new Draft
+        {
+            Name = input.Name,
+            Percentage = input.Percentage,
+            From = input.From?.ToDateTime(TimeOnly.MinValue),
+            Until = input.Until?.ToDateTime(TimeOnly.MinValue),
+            Weekdays = input.Weekdays.ToHashSet(),
+            TargetKind = input.Target.All ? TargetKind.All : input.Target.CategoryIds.Count > 0 ? TargetKind.Categories : TargetKind.Chosen,
+            CategoryIds = input.Target.CategoryIds.ToHashSet(),
+            RentalItemIds = input.Target.RentalItemIds.ToHashSet(),
+            BundleIds = input.Target.BundleIds.ToHashSet(),
+            EndDate = input.EndDate?.ToDateTime(TimeOnly.MinValue),
+            IsActive = input.IsActive,
+        };
+    }
+
+    private void ToggleWeekday(DayOfWeek day, bool on)
+    {
+        if (on) _draft.Weekdays.Add(day);
+        else _draft.Weekdays.Remove(day);
+    }
+
+    private async Task SaveAsync()
+    {
+        var target = _draft.TargetKind switch
+        {
+            TargetKind.Categories => PricingTarget.Categories(_draft.CategoryIds.ToArray()),
+            TargetKind.Chosen => PricingTarget.Chosen(_draft.RentalItemIds.ToList(), _draft.BundleIds.ToList()),
+            _ => PricingTarget.Everything,
+        };
+        var input = new PeriodPriceInput(_draft.Name ?? "", target, _draft.Percentage, Date(_draft.From), Date(_draft.Until),
+            Week.Where(_draft.Weekdays.Contains).ToList(), _draft.IsActive, Date(_draft.EndDate));
+        try
+        {
+            if (_editing is { } ruleId) await Admin.SavePeriodPriceAsync(ruleId, input);
+            else await Admin.CreatePeriodPriceAsync(input);
+            Snackbar.Add(_editing is null ? "Periodeprijs toegevoegd." : "Periodeprijs gewijzigd.", Severity.Success);
+            Reset();
+            await LoadAsync();
+        }
+        catch (PricingRuleException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private async Task SetActiveAsync(PeriodPriceSummary periodPrice, bool active)
+    {
+        await Admin.SetActiveAsync(periodPrice.Id, active);
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync(PeriodPriceSummary periodPrice)
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Periodeprijs verwijderen",
+            $"Wil je \"{periodPrice.Input.Name}\" verwijderen? Bestaande reservaties houden hun prijs.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        try
+        {
+            await Admin.DeleteAsync(periodPrice.Id);
+            if (_editing == periodPrice.Id) Reset();
+            await LoadAsync();
+            Snackbar.Add("Periodeprijs verwijderd.", Severity.Success);
+        }
+        catch (PricingRuleException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private static DateOnly? Date(DateTime? date) => date is { } d ? DateOnly.FromDateTime(d) : null;
+
+    private static string PercentageText(decimal percentage) => (percentage > 0 ? "+" : "") + percentage.ToString("0.##") + "%";
+
+    /// <summary>Wanneer de periodeprijs geldt, bv. "01/07/2027 – 31/08/2027, za, zo".</summary>
+    private static string WhenText(PeriodPriceInput input)
+    {
+        var dates = (input.From, input.Until) switch
+        {
+            ({ } from, { } until) => $"{from:dd/MM/yyyy} – {until:dd/MM/yyyy}",
+            ({ } from, null) => $"vanaf {from:dd/MM/yyyy}",
+            (null, { } until) => $"t.e.m. {until:dd/MM/yyyy}",
+            _ => null,
+        };
+        var days = input.Weekdays.Count == 0 ? null : string.Join(", ", Week.Where(input.Weekdays.Contains).Select(DayName));
+        return string.Join(", ", new[] { dates, days }.OfType<string>());
+    }
+
+    private static string DayName(DayOfWeek day) => day switch
+    {
+        DayOfWeek.Monday => "ma",
+        DayOfWeek.Tuesday => "di",
+        DayOfWeek.Wednesday => "wo",
+        DayOfWeek.Thursday => "do",
+        DayOfWeek.Friday => "vr",
+        DayOfWeek.Saturday => "za",
+        _ => "zo",
+    };
+
+    /// <summary>Waarop de regel werkt, met de namen in de standaardtaal; wat intussen verwijderd is, valt weg.</summary>
+    private string TargetText(PricingTarget target)
+    {
+        if (target.All) return "Alles";
+        var categories = target.CategoryIds.Select(CategoryName).Where(n => n.Length > 0);
+        var chosen = target.RentalItemIds.Select(ItemName).Concat(target.BundleIds.Select(BundleName)).Where(n => n.Length > 0);
+        return string.Join(", ", categories.Select(c => $"Categorie {c}").Concat(chosen));
+    }
+
+    private string CategoryName(Guid id) => _categories.FirstOrDefault(c => c.Id == id)?.Texts[DefaultCulture].Name.Value ?? "";
+
+    private string ItemName(Guid id) => _items.FirstOrDefault(i => i.Id == id)?.Name ?? "";
+
+    private string BundleName(Guid id) => _bundles.FirstOrDefault(b => b.Id == id)?.Name ?? "";
+}

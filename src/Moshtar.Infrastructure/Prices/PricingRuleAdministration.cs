@@ -7,7 +7,7 @@ using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Prices;
 
-internal sealed class PricingRuleAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock) : IPricingRuleAdministration
+internal sealed partial class PricingRuleAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock) : IPricingRuleAdministration
 {
     private const int MaxNameLength = 100;
 

@@ -256,6 +256,126 @@ public class PriceCalculatorTests
         Assert.Empty(result.Discounts);
     }
 
+    [Fact]
+    public void A_period_price_on_saturday_only_makes_the_saturday_more_expensive()
+    {
+        // Vrijdag tot zondag: vrijdag 150 (dagprijs), zaterdag 75 + 20% = 90, zondag 75.
+        var friday = new DateRange(new DateOnly(2026, 6, 5), new DateOnly(2026, 6, 7));
+        var rule = Period("Zaterdag", 20, weekdays: [DayOfWeek.Saturday]);
+
+        var result = Calculate([Item(150, Castles, extraDayPrice: 75)], [rule], friday);
+
+        Assert.Equal(315m, Assert.Single(result.Lines).UnitPrice);
+        Assert.Empty(result.Discounts);
+    }
+
+    [Fact]
+    public void A_period_price_counts_only_the_days_within_its_dates()
+    {
+        // Huurperiode 30 juni tot 2 juli, zomer vanaf 1 juli +10%: 100 + 50 × 1,10 + 50 × 1,10 = 210.
+        var period = new DateRange(new DateOnly(2026, 6, 30), new DateOnly(2026, 7, 2));
+        var summer = Period("Zomer", 10, from: new DateOnly(2026, 7, 1), until: new DateOnly(2026, 8, 31));
+
+        var result = Calculate([Item(100, Castles, extraDayPrice: 50)], [summer], period);
+
+        Assert.Equal(210m, Assert.Single(result.Lines).UnitPrice);
+    }
+
+    [Fact]
+    public void Weekdays_and_dates_together_count_only_the_weekdays_within_the_dates()
+    {
+        // Zaterdagen in juli +50%: zaterdag 27 juni telt niet, zaterdag 4 juli wel.
+        var julySaturdays = Period("Zaterdagen in juli", 50, weekdays: [DayOfWeek.Saturday],
+            from: new DateOnly(2026, 7, 1), until: new DateOnly(2026, 7, 31));
+        var june = new DateRange(new DateOnly(2026, 6, 27), new DateOnly(2026, 6, 27));
+        var july = new DateRange(new DateOnly(2026, 7, 4), new DateOnly(2026, 7, 4));
+        var julyFriday = new DateRange(new DateOnly(2026, 7, 3), new DateOnly(2026, 7, 3));
+
+        Assert.Equal(100m, Calculate([Item(100, Castles)], [julySaturdays], june).Lines[0].UnitPrice);
+        Assert.Equal(150m, Calculate([Item(100, Castles)], [julySaturdays], july).Lines[0].UnitPrice);
+        Assert.Equal(100m, Calculate([Item(100, Castles)], [julySaturdays], julyFriday).Lines[0].UnitPrice);
+    }
+
+    [Fact]
+    public void A_period_price_for_a_category_leaves_other_items_and_bundles_alone()
+    {
+        var castlesOnly = Period("Springkastelen op zaterdag", 20, categories: [Castles]);
+        var party = CatalogRef.Bundle(Guid.NewGuid());
+
+        var result = Calculate([Item(150, Castles), Item(20, Games), Line(party, 200)], [castlesOnly]);
+
+        Assert.Equal([180m, 20m, 200m], result.Lines.Select(l => l.UnitPrice));
+    }
+
+    [Fact]
+    public void A_period_price_for_everything_also_covers_bundles()
+    {
+        var party = CatalogRef.Bundle(Guid.NewGuid());
+
+        var result = Calculate([Line(party, 200)], [Period("Zaterdag", 20, weekdays: [DayOfWeek.Saturday])]);
+
+        Assert.Equal(240m, Assert.Single(result.Lines).UnitPrice);
+    }
+
+    [Fact]
+    public void Two_period_prices_on_the_same_day_add_up()
+    {
+        // Zomer +10% en zaterdag +20% = +30% op zaterdag.
+        var summer = Period("Zomer", 10, from: new DateOnly(2026, 6, 1), until: new DateOnly(2026, 8, 31));
+        var saturday = Period("Zaterdag", 20, weekdays: [DayOfWeek.Saturday]);
+
+        var result = Calculate([Item(100, Castles)], [summer, saturday]);
+
+        Assert.Equal(130m, Assert.Single(result.Lines).UnitPrice);
+        Assert.Empty(result.Discounts);
+    }
+
+    [Fact]
+    public void A_cheaper_period_price_lowers_the_price_but_never_below_nothing()
+    {
+        var quiet = Period("Rustig", -30);
+        Assert.Equal(70m, Calculate([Item(100, Castles)], [quiet]).Lines[0].UnitPrice);
+
+        var veryQuiet = Period("Heel rustig", -90);
+        Assert.Equal(0m, Calculate([Item(100, Castles)], [quiet, veryQuiet]).Lines[0].UnitPrice);
+    }
+
+    [Fact]
+    public void A_period_price_that_is_switched_off_or_expired_does_not_count()
+    {
+        var off = Period("Uit", 20);
+        off.IsActive = false;
+        var expired = Period("Verlopen", 20);
+        expired.EndDate = Today.AddDays(-1);
+
+        Assert.Equal(100m, Calculate([Item(100, Castles)], [off, expired]).Lines[0].UnitPrice);
+    }
+
+    [Fact]
+    public void A_discount_computes_on_the_price_after_the_period_price()
+    {
+        var saturday = Period("Zaterdag", 20, weekdays: [DayOfWeek.Saturday]);
+        var combo = Combo("2e springkasteel 50% korting", minimum: 2, percentage: 50, categories: [Castles]);
+
+        // 150 → 180 en 100 → 120; 50% van 120 = 60.
+        var result = Calculate([Item(150, Castles), Item(100, Castles)], [saturday, combo]);
+
+        Assert.Equal(300m, result.Subtotal);
+        Assert.Equal(60m, Assert.Single(result.Discounts).Amount);
+        Assert.Equal(240m, result.Total);
+    }
+
+    [Fact]
+    public void Each_day_with_a_period_price_is_rounded_to_the_cent()
+    {
+        // 0,05 met +10% = 0,055 → 0,06 per dag; twee dagen samen 0,12 (het totaal afronden zou 0,11 geven).
+        var twoDays = new DateRange(new DateOnly(2026, 6, 6), new DateOnly(2026, 6, 7));
+
+        var result = Calculate([Item(0.05m, Castles)], [Period("Iets duurder", 10)], twoDays);
+
+        Assert.Equal(0.12m, Assert.Single(result.Lines).UnitPrice);
+    }
+
     private static PriceResult Calculate(IReadOnlyList<PriceLine> lines, IReadOnlyList<PricingRule> rules, DateRange? period = null) =>
         PriceCalculator.Calculate(new PriceRequest(lines, period ?? Saturday, Today, rules));
 
@@ -292,5 +412,20 @@ public class PriceCalculatorTests
         ReservedUntil = until ?? Today.AddDays(30),
         RentalFrom = rentalFrom,
         RentalUntil = rentalUntil,
+    };
+
+    private static PricingRule Period(string name, decimal percentage, DayOfWeek[]? weekdays = null, DateOnly? from = null, DateOnly? until = null,
+        Guid[]? categories = null, Guid[]? items = null, Guid[]? bundles = null) => new()
+    {
+        Kind = PricingRuleKind.Period,
+        Names = [new Translation { Culture = "nl", Name = name }],
+        Percentage = percentage,
+        Weekdays = [.. weekdays ?? []],
+        PeriodStart = from,
+        PeriodEnd = until,
+        AppliesToAll = categories is null && items is null && bundles is null,
+        CategoryIds = [.. categories ?? []],
+        RentalItemIds = [.. items ?? []],
+        BundleIds = [.. bundles ?? []],
     };
 }
