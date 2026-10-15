@@ -15,11 +15,23 @@ public sealed record PriceLine(CatalogRef Entry, Guid? CategoryId, Pricing Prici
 /// </summary>
 public sealed record PriceRequest(IReadOnlyList<PriceLine> Lines, DateRange Period, DateOnly ReservationDate, IReadOnlyList<PricingRule> Rules);
 
-/// <summary>Een lijn met haar prijs per stuk voor de huurperiode, na periodeprijzen en voor kortingen.</summary>
+/// <summary>
+/// Een lijn met haar prijs per stuk voor de huurperiode, na periodeprijzen en voor kortingen, en hoe die prijs dag per
+/// dag tot stand kwam (<see cref="Days"/>, voor de rekentool).
+/// </summary>
 public sealed record PricedLine(PriceLine Line, decimal UnitPrice)
 {
     public decimal LineTotal => UnitPrice * Line.Quantity;
+
+    /// <summary>Elke dag van de huurperiode met zijn prijs per stuk; samen <see cref="UnitPrice"/>.</summary>
+    public IReadOnlyList<PricedDay> Days { get; init; } = [];
 }
+
+/// <summary>
+/// Eén dag van de huurperiode voor één stuk: de gewone prijs van die dag (dagprijs op dag 1, anders prijs per extra
+/// dag), de som van de periodeprijzen die dan gelden in procent, en de prijs daarmee, op de cent afgerond.
+/// </summary>
+public sealed record PricedDay(DateOnly Date, decimal NormalPrice, decimal Percentage, decimal Price);
 
 /// <summary>
 /// Eén stuk van een lijn (<see cref="LineIndex"/> in de gevraagde lijnen) met zijn prijs en de korting die het kreeg,
@@ -57,7 +69,7 @@ public static class PriceCalculator
     public static PriceResult Calculate(PriceRequest request)
     {
         var rules = request.Rules.Where(r => r.IsInForceOn(request.ReservationDate)).ToList();
-        var lines = request.Lines.Select(l => new PricedLine(l, UnitPrice(l, request.Period, rules))).ToList();
+        var lines = request.Lines.Select(l => Price(l, request.Period, rules)).ToList();
         var pieces = lines.SelectMany((l, index) => Enumerable.Repeat(new Piece(index, l.Line, l.UnitPrice), l.Line.Quantity)).ToList();
 
         var candidates = pieces.Select(_ => new List<Candidate>()).ToArray();
@@ -77,16 +89,17 @@ public static class PriceCalculator
         return new PriceResult(lines, priced, discounts);
     }
 
-    /// <summary>De prijs per stuk voor de huurperiode, dag per dag, met de periodeprijzen van elke dag, op de cent.</summary>
-    private static decimal UnitPrice(PriceLine line, DateRange period, IReadOnlyList<PricingRule> rules)
+    /// <summary>De prijs per stuk voor elke dag van de huurperiode, met de periodeprijzen van die dag, op de cent.</summary>
+    private static PricedLine Price(PriceLine line, DateRange period, IReadOnlyList<PricingRule> rules)
     {
-        var total = 0m;
+        var days = new List<PricedDay>();
         foreach (var day in period.EachDay())
         {
             var price = day == period.Start ? line.Pricing.DayPrice : line.Pricing.ExtraDayPrice ?? line.Pricing.DayPrice;
-            total += Round(price * (100 + DayPercentage(line, day, rules)) / 100);
+            var percentage = DayPercentage(line, day, rules);
+            days.Add(new PricedDay(day, price, percentage, Round(price * (100 + percentage) / 100)));
         }
-        return total;
+        return new PricedLine(line, days.Sum(d => d.Price)) { Days = days };
     }
 
     /// <summary>

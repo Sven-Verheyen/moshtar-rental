@@ -5,8 +5,12 @@
 
 <PageTitle>Prijsregels</PageTitle>
 
-@* Alle prijsregels op één plaats, per soort een tabblad; ?tab=periodeprijzen of ?tab=acties opent meteen dat tabblad. *@
+@*
+    Alle prijsregels op één plaats, per soort een tabblad; ?tab=periodeprijzen of ?tab=acties opent meteen dat tabblad.
+    Bovenaan de rekentool: dezelfde berekening als de winkelkar (PriceCalculator), zonder iets te bewaren.
+*@
 <AdminShell Title="Prijsregels">
+    <PriceExampleTool />
     <MudTabs Elevation="1" Rounded="true" TabPanelsClass="pt-4" @bind-ActivePanelIndex="_activeTab">
         <MudTabPanel Text="Combinatiekortingen">
             <ComboDiscountsEditor />
@@ -18,7 +22,6 @@
             <PromotionsEditor />
         </MudTabPanel>
     </MudTabs>
-    @* De rekentool komt hier, onder de tabbladen: dezelfde berekening als de website (PriceCalculator), zonder iets te bewaren. *@
 </AdminShell>
 
 @code {

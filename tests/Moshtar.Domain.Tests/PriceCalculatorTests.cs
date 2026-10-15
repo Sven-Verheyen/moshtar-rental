@@ -270,6 +270,22 @@ public class PriceCalculatorTests
     }
 
     [Fact]
+    public void Each_day_shows_its_normal_price_its_period_price_percentage_and_its_price()
+    {
+        // Voor de rekentool: vrijdag 150 (dagprijs), zaterdag 75 met +20% (90), zondag 75 zonder periodeprijs.
+        var friday = new DateRange(new DateOnly(2026, 6, 5), new DateOnly(2026, 6, 7));
+        var rule = Period("Zaterdag", 20, weekdays: [DayOfWeek.Saturday]);
+
+        var line = Assert.Single(Calculate([Item(150, Castles, extraDayPrice: 75)], [rule], friday).Lines);
+
+        Assert.Equal([
+            new PricedDay(new DateOnly(2026, 6, 5), 150m, 0m, 150m),
+            new PricedDay(new DateOnly(2026, 6, 6), 75m, 20m, 90m),
+            new PricedDay(new DateOnly(2026, 6, 7), 75m, 0m, 75m),
+        ], line.Days);
+    }
+
+    [Fact]
     public void A_period_price_counts_only_the_days_within_its_dates()
     {
         // Huurperiode 30 juni tot 2 juli, zomer vanaf 1 juli +10%: 100 + 50 × 1,10 + 50 × 1,10 = 210.
