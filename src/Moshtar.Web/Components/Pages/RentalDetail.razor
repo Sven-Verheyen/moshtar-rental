@@ -12,6 +12,7 @@
 @inject ITenantContext TenantContext
 @inject IImageStore Images
 @inject IPriceQuotes Prices
+@inject ICartService Carts
 
 @if (_entry is null)
 {
@@ -175,6 +176,7 @@
     [SupplyParameterFromQuery(Name = ChosenPeriod.EndKey)] private string? End { get; set; }
     [SupplyParameterFromQuery(Name = CartEndpoints.ResultKey)] private string? CartResult { get; set; }
     [SupplyParameterFromQuery(Name = CartEndpoints.AddedQuantityKey)] private int? AddedQuantity { get; set; }
+    [CascadingParameter] private HttpContext? HttpContext { get; set; }
 
     private CatalogEntry? _entry;
     private CategoryLink? _category;
@@ -183,6 +185,8 @@
     private bool _available;
     private IReadOnlyList<string> _combos = [];
     private PriceQuoter? _quoter;
+    // Alleen net na "In winkelkar": de winkelkar met wat er net in ging, voor de waarde van add_to_cart.
+    private CartView? _cart;
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
@@ -225,6 +229,8 @@
         {
             _available = (await Reservations.CheckAvailabilityAsync(period, [Line(1)])).Count == 0;
         }
+        if (CartResult == CartEndpoints.Added)
+            _cart = await Carts.GetAsync(CartEndpoints.Key(HttpContext), Culture);
     }
 
     private ReservationLineRequest Line(int quantity) => _entry!.Kind == CatalogEntryKind.Item
@@ -242,13 +248,35 @@
         ["available"] = _available,
     };
 
-    /// <summary>Voor Google Analytics: wat net in de winkelkar ging, aan de prijs voor de huurperiode. Geen persoonsgegevens.</summary>
+    /// <summary>
+    /// Voor Google Analytics: wat net in de winkelkar ging. De waarde is hoeveel het totaal van de winkelkar steeg, met
+    /// de combinatiekortingen die de nieuwe stuks samen met wat er al in zat maken; de prijs per stuk is die waarde
+    /// gedeeld door het aantal, op de cent. Geen persoonsgegevens.
+    /// </summary>
     private System.Text.Json.Nodes.JsonObject AddedToCart(Moshtar.Domain.Common.DateRange period)
     {
         var quantity = Math.Clamp(AddedQuantity ?? 1, 1, Cart.MaxQuantity);
-        var price = PriceFor(period);
-        return AnalyticsItems.Event(price * quantity, [AnalyticsItems.Item(_entry!.Slug, _entry.Name, quantity, price)]);
+        var value = AddedValue(period, quantity);
+        var price = Math.Round(value / quantity, 2, MidpointRounding.AwayFromZero);
+        return AnalyticsItems.Event(value, [AnalyticsItems.Item(_entry!.Slug, _entry.Name, quantity, price)]);
     }
+
+    /// <summary>
+    /// Het totaal van de winkelkar erna min het totaal ervoor (zonder de stuks die er net bij kwamen), met dezelfde
+    /// berekening als de winkelkar. Zonder winkelkar telt alleen wat er net in ging.
+    /// </summary>
+    private decimal AddedValue(Moshtar.Domain.Common.DateRange period, int quantity)
+    {
+        var here = _entry!.Ref();
+        var after = (_cart?.Lines ?? []).Where(l => l.Entry is not null).Select(l => (Entry: l.Entry!, l.Quantity)).ToList();
+        if (!after.Any(l => l.Entry.Ref() == here)) after.Add((_entry, quantity));
+        var before = after.Select(l => l.Entry.Ref() == here ? l with { Quantity = l.Quantity - quantity } : l).Where(l => l.Quantity > 0);
+        var cartPeriod = _cart?.Period ?? period;
+        return CartTotal(cartPeriod, after) - CartTotal(cartPeriod, before);
+    }
+
+    private decimal CartTotal(Moshtar.Domain.Common.DateRange period, IEnumerable<(CatalogEntry Entry, int Quantity)> lines) =>
+        _quoter!.Quote(period, lines.Select(l => l.Entry.ToPriceLine(l.Quantity)).ToList()).Total;
 
     /// <summary>Wat één stuk kost voor deze huurperiode: met periodeprijzen en de actie die geldt.</summary>
     private decimal PriceFor(Moshtar.Domain.Common.DateRange period) => PeriodPrice(period).Price;
