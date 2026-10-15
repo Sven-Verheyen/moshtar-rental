@@ -34,6 +34,24 @@ public sealed record ComboDiscountInput(
 /// <summary>Een combinatiekorting in het back office. <see cref="IsExpired"/>: de einddatum is voorbij, de regel staat grijs onderaan.</summary>
 public sealed record ComboDiscountSummary(Guid Id, ComboDiscountInput Input, bool IsExpired);
 
+/// <summary>
+/// Wat de beheerder van een actie ingeeft: <see cref="Percentage"/> korting op het doel (standaard alles) voor
+/// reservaties gemaakt van <see cref="ReservedFrom"/> tot en met <see cref="ReservedUntil"/>, optioneel enkel voor
+/// huurperiodes binnen <see cref="RentalFrom"/> en <see cref="RentalUntil"/>. Na de einddatum is de actie verlopen.
+/// </summary>
+public sealed record PromotionInput(
+    IReadOnlyList<PricingRuleName> Names,
+    PricingTarget Target,
+    decimal Percentage,
+    DateOnly? ReservedFrom,
+    DateOnly? ReservedUntil,
+    DateOnly? RentalFrom = null,
+    DateOnly? RentalUntil = null,
+    bool IsActive = true);
+
+/// <summary>Een actie in het back office. <see cref="IsExpired"/>: de einddatum is voorbij, de actie staat grijs onderaan.</summary>
+public sealed record PromotionSummary(Guid Id, PromotionInput Input, bool IsExpired);
+
 /// <summary>Een prijsregel kan zo niet bewaard worden; de boodschappen zijn voor de beheerder bedoeld.</summary>
 public sealed class PricingRuleException(IReadOnlyList<string> problems) : Exception(string.Join(" ", problems))
 {
@@ -55,6 +73,15 @@ public interface IPricingRuleAdministration
 
     /// <summary>Gooit een <see cref="PricingRuleException"/> als de invoer niet klopt, en bewaart dan niets.</summary>
     Task SaveComboAsync(Guid ruleId, ComboDiscountInput input, CancellationToken ct = default);
+
+    /// <summary>De acties: eerst die nog lopen of gepland zijn (ook uitgezette), op naam; daaronder de verlopen.</summary>
+    Task<IReadOnlyList<PromotionSummary>> GetPromotionsAsync(CancellationToken ct = default);
+
+    /// <summary>Gooit een <see cref="PricingRuleException"/> als de invoer niet klopt, en bewaart dan niets.</summary>
+    Task<Guid> CreatePromotionAsync(PromotionInput input, CancellationToken ct = default);
+
+    /// <summary>Gooit een <see cref="PricingRuleException"/> als de invoer niet klopt, en bewaart dan niets.</summary>
+    Task SavePromotionAsync(Guid ruleId, PromotionInput input, CancellationToken ct = default);
 
     /// <summary>Zet een prijsregel van elke soort aan of uit.</summary>
     Task SetActiveAsync(Guid ruleId, bool isActive, CancellationToken ct = default);

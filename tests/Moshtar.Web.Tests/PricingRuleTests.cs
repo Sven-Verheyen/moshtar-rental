@@ -68,6 +68,78 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
+    public async Task A_promotion_is_created_changed_switched_off_and_deleted()
+    {
+        await using var scope = await NewTenantAsync("actie-beheer");
+        var castles = await Categories(scope).CreateAsync([new("nl", "Springkastelen")], Guid.Empty);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        var id = await Rules(scope).CreatePromotionAsync(new PromotionInput(
+            [new("nl", " Lenteactie "), new("fr", "Action printemps")], PricingTarget.Everything, Percentage: 10,
+            ReservedFrom: today, ReservedUntil: today.AddDays(14)));
+
+        var promotion = Assert.Single(await Rules(scope).GetPromotionsAsync());
+        Assert.Equal(id, promotion.Id);
+        Assert.Equal([("nl", "Lenteactie"), ("fr", "Action printemps")], promotion.Input.Names.Select(n => (n.Culture, n.Name)));
+        Assert.True(promotion.Input.Target.All);
+        Assert.Equal((10m, today, today.AddDays(14), (DateOnly?)null, (DateOnly?)null, true, false),
+            (promotion.Input.Percentage, promotion.Input.ReservedFrom, promotion.Input.ReservedUntil, promotion.Input.RentalFrom, promotion.Input.RentalUntil,
+             promotion.Input.IsActive, promotion.IsExpired));
+        Assert.Empty(await Rules(scope).GetCombosAsync());
+
+        await Rules(scope).SavePromotionAsync(id, new PromotionInput(
+            [new("nl", "Zomeractie")], PricingTarget.Categories(castles), 25, today, today.AddDays(30),
+            RentalFrom: new DateOnly(today.Year + 1, 7, 1), RentalUntil: new DateOnly(today.Year + 1, 8, 31)));
+        promotion = Assert.Single(await Rules(scope).GetPromotionsAsync());
+        Assert.Equal(("Zomeractie", 25m, today.AddDays(30)), (promotion.Input.Names.Single().Name, promotion.Input.Percentage, promotion.Input.ReservedUntil));
+        Assert.Equal([castles], promotion.Input.Target.CategoryIds);
+        Assert.Equal((new DateOnly(today.Year + 1, 7, 1), new DateOnly(today.Year + 1, 8, 31)), (promotion.Input.RentalFrom, promotion.Input.RentalUntil));
+
+        await Rules(scope).SetActiveAsync(id, false);
+        Assert.False(Assert.Single(await Rules(scope).GetPromotionsAsync()).Input.IsActive);
+
+        await Rules(scope).DeleteAsync(id);
+        Assert.Empty(await Rules(scope).GetPromotionsAsync());
+    }
+
+    [Fact]
+    public async Task An_invalid_promotion_is_refused()
+    {
+        await using var scope = await NewTenantAsync("actie-ongeldig");
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        var refused = await Assert.ThrowsAsync<PricingRuleException>(() => Rules(scope).CreatePromotionAsync(new PromotionInput(
+            [new("nl", "")], PricingTarget.Chosen([], []), Percentage: 0, ReservedFrom: today, ReservedUntil: today.AddDays(-1),
+            RentalFrom: today.AddDays(10), RentalUntil: today.AddDays(9))));
+        Assert.Equal([
+            "De naam in het Nederlands is leeg.",
+            "Kies alles, een categorie of minstens één artikel of pakket.",
+            "Het kortingspercentage ligt tussen 1 en 100%.",
+            "De einddatum ligt voor de startdatum.",
+            "Het einde van de huurperiodes ligt voor het begin.",
+        ], refused.Problems);
+
+        refused = await Assert.ThrowsAsync<PricingRuleException>(() => Rules(scope).CreatePromotionAsync(new PromotionInput(
+            [new("nl", "Zonder data")], PricingTarget.Everything, 101, null, null)));
+        Assert.Equal(["Het kortingspercentage ligt tussen 1 en 100%.", "Kies een startdatum en een einddatum."], refused.Problems);
+        Assert.Empty(await Rules(scope).GetPromotionsAsync());
+    }
+
+    [Fact]
+    public async Task A_promotion_whose_end_date_is_past_is_listed_at_the_bottom()
+    {
+        await using var scope = await NewTenantAsync("actie-verlopen");
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        var expired = await Rules(scope).CreatePromotionAsync(new([new("nl", "A voorbij")], PricingTarget.Everything, 10, today.AddDays(-10), today.AddDays(-1)));
+        var planned = await Rules(scope).CreatePromotionAsync(new([new("nl", "B gepland")], PricingTarget.Everything, 10, today.AddDays(5), today.AddDays(9)));
+
+        var promotions = await Rules(scope).GetPromotionsAsync();
+        Assert.Equal([planned, expired], promotions.Select(p => p.Id));
+        Assert.Equal([false, true], promotions.Select(p => p.IsExpired));
+    }
+
+    [Fact]
     public async Task Expired_rules_are_listed_at_the_bottom()
     {
         await using var scope = await NewTenantAsync("prijsregel-verlopen");
@@ -109,6 +181,20 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Contains("Periodeprijzen", html);
         Assert.Contains("Acties", html);
         Assert.Contains("2e springkasteel 40% korting", html);
+    }
+
+    [Fact]
+    public async Task Administrator_sees_the_promotions_on_their_tab()
+    {
+        var client = await app.LoggedInClientAsync("acties-beheerder@hopsakee.test", UserRole.Administrator);
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+            await Rules(scope).CreatePromotionAsync(new([new("nl", "Herfstactie op alles")], PricingTarget.Everything, 15, today, today.AddDays(7)));
+
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/admin/prijsregels?tab=acties"));
+
+        Assert.Contains("Herfstactie op alles", html);
+        Assert.Contains("Nieuwe actie", html);
     }
 
     [Fact]
