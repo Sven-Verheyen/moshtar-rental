@@ -133,6 +133,24 @@ _Avoid_: supplement, toeslag, prijsverschil
 Een dag voor of na een huurperiode waarop het exemplaar nog niet vrij is, voor levering, opbouw of poetsen.
 _Avoid_: marge, wachttijd
 
+## Prijzen
+
+**Prijsregel** (`PricingRule`):
+Een regel van een verhuurder die de prijs van artikelen of pakketten in een reservatie verandert: een combinatiekorting, een periodeprijs of een actie. Een reservatie houdt de prijs van het moment van reserveren; een prijsregel die later wijzigt, verandert ze niet.
+_Avoid_: prijszetting, promotie, kortingsregel
+
+**Combinatiekorting** (`ComboDiscount`):
+Een korting in procent op het goedkoopste stuk van elke volledige groep van een minimum aantal stuks uit dezelfde categorie of dezelfde gekozen artikelen in één reservatie, zoals "bij 2 springkastelen 40% korting op het goedkoopste".
+_Avoid_: mengkorting, volumekorting, bundelkorting
+
+**Periodeprijs** (`PeriodPrice`):
+Een percentage waarmee de prijs stijgt of daalt voor elke dag van de huurperiode die in bepaalde data of op bepaalde weekdagen valt, zoals "zaterdag 20% duurder". Een periodeprijs is geen korting en geen meerprijs: hij hoort bij de gewone prijs van die dag.
+_Avoid_: seizoensprijs, toeslag, meerprijs, dagprijs
+
+**Actie** (`Promotion`):
+Een tijdelijke korting in procent voor reservaties die gemaakt worden tussen een start- en einddatum, met een eigen naam per taal, zoals "Reserveer in november: 10% korting".
+_Avoid_: promo, aanbieding, solden
+
 ## Planning en leveringen
 
 **Planning** (`Schedule`):
