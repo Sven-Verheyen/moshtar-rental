@@ -243,25 +243,29 @@
 
     /// <summary>
     /// De bevestigde reservatie als GA4-aankoop: het reservatienummer, het totaal in euro (met de kortingen) en elk
-    /// artikel of pakket; een kortingslijn is geen item. Geen naam, e-mailadres of andere gegevens van de klant.
+    /// artikel of pakket aan zijn prijs na de kortingen; een kortingslijn is geen item. De reservatie bewaart niet welk
+    /// stuk welke korting kreeg: de kortingslijnen worden over de lijnen verdeeld naar hun bedrag, een benadering voor
+    /// GA4. Geen naam, e-mailadres of andere gegevens van de klant.
     /// </summary>
     private System.Text.Json.Nodes.JsonObject Purchase(Reservation reservation)
     {
-        var data = AnalyticsItems.Event(reservation.TotalPrice, reservation.Lines.Where(l => !l.IsPriceOnly).Select(l =>
+        var lines = reservation.Lines.Where(l => !l.IsPriceOnly).ToList();
+        var discounts = AnalyticsItems.Spread(-reservation.Lines.Where(l => l.IsDiscount).Sum(l => l.LineTotal), lines.Select(l => l.LineTotal).ToList());
+        var data = AnalyticsItems.NetEvent(lines.Select((l, index) =>
         {
             var entry = _cart?.Lines.FirstOrDefault(c => c.Ref == new CatalogRef(l.RentalItemId, l.BundleId))?.Entry;
-            return AnalyticsItems.Item(entry?.Slug ?? l.Description, entry?.Name ?? l.Description, l.Quantity, l.UnitPrice);
+            return new AnalyticsItems.Line(entry?.Slug ?? l.Description, entry?.Name ?? l.Description, l.Quantity, l.LineTotal, discounts[index]);
         }));
         data.Insert(0, "transaction_id", reservation.Number);
         return data;
     }
 
     /// <summary>
-    /// De winkelkar voor GA4 (<c>view_cart</c>, <c>begin_checkout</c>): wat nog te reserveren is, met als waarde het totaal
-    /// met de kortingen, zonder klantgegevens.
+    /// De winkelkar voor GA4 (<c>view_cart</c>, <c>begin_checkout</c>): wat nog te reserveren is, elke lijn aan haar prijs
+    /// na de kortingen die haar stuks kregen, met als waarde het totaal met de kortingen, zonder klantgegevens.
     /// </summary>
-    private static System.Text.Json.Nodes.JsonObject CartEvent(CartView cart) => AnalyticsItems.Event(cart.Total,
-        cart.Lines.Where(l => l.Entry is not null).Select(l => AnalyticsItems.Item(l.Entry!.Slug, l.Entry.Name, l.Quantity, l.UnitPrice)));
+    private static System.Text.Json.Nodes.JsonObject CartEvent(CartView cart) => AnalyticsItems.NetEvent(
+        cart.Lines.Where(l => l.Entry is not null).Select(l => new AnalyticsItems.Line(l.Entry!.Slug, l.Entry.Name, l.Quantity, l.LineTotal, l.Discount)));
 
     private static string Kind(CatalogRef entry) => entry.RentalItemId is null ? CartEndpoints.Bundle : CartEndpoints.Item;
     private static Guid Id(CatalogRef entry) => entry.RentalItemId ?? entry.BundleId!.Value;

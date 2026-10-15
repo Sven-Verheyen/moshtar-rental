@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
+using Moshtar.Application.Prices;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
@@ -163,6 +164,34 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
+    public async Task Cart_events_measure_each_line_at_its_price_after_the_discounts_it_got()
+    {
+        await NewTenantAsync("ga-netto", "G-TEST12345");
+        await AddGameAndComboAsync("ga-netto");
+        var client = app.CreateClient("ga-netto.test");
+        await ChooseAsync(client, "ja", "/");
+        var day = TestReservations.FutureDay(44);
+        var period = $"?van={day:yyyy-MM-dd}";
+
+        await WebsiteCart.AddAsync(client, "/huren/kasteel" + period);
+        await WebsiteCart.AddAsync(client, "/huren/spel" + period);
+        var cart = await client.GetStringAsync("/winkelkar");
+        await WebsiteCart.IdentifyAsync(client, "nina@example.test");
+        var reserved = await WebsiteCart.ReserveAsync(client, "Nina");
+        var confirmed = WebUtility.HtmlDecode(await reserved.Content.ReadAsStringAsync());
+
+        // Kasteel 100 en spel 50: het spel is het goedkoopste stuk en krijgt 40% = 20 korting. De kortingslijn is geen item.
+        Assert.Equal("{\"value\":130.00,\"currency\":\"EUR\",\"items\":[" +
+            "{\"item_id\":\"kasteel\",\"item_name\":\"Kasteel\",\"quantity\":1,\"price\":100.00}," +
+            "{\"item_id\":\"spel\",\"item_name\":\"Spel\",\"quantity\":1,\"price\":30.00}]}", Event(cart, "view_cart"));
+        // De reservatie bewaart alleen de kortingslijn: verdeeld over de lijnen naar hun bedrag (20 × 100/150 = 13,33 en
+        // 20 × 50/150 = 6,67), een benadering voor GA4.
+        Assert.Matches("^\\{\"transaction_id\":\"[^\"]+\",\"value\":130.00,\"currency\":\"EUR\",\"items\":\\[" +
+            "\\{\"item_id\":\"kasteel\",\"item_name\":\"Kasteel\",\"quantity\":1,\"price\":86.67\\}," +
+            "\\{\"item_id\":\"spel\",\"item_name\":\"Spel\",\"quantity\":1,\"price\":43.33\\}\\]\\}$", Event(confirmed, "purchase"));
+    }
+
+    [Fact]
     public async Task Without_consent_the_cart_is_not_measured()
     {
         await NewTenantAsync("ga-winkelkar-nee", "G-TEST12345");
@@ -241,6 +270,23 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
             ["keuze"] = choice,
             ["terug"] = returnUrl,
         }));
+    }
+
+    /// <summary>Een spel van 50 per dag, en "2e stuk 40% korting" op het kasteel en het spel samen.</summary>
+    private async Task AddGameAndComboAsync(string slug)
+    {
+        await using var scope = await app.TenantScopeAsync(slug);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var game = new RentalItem
+        {
+            Slug = "spel", Stock = 1, Pricing = new Pricing { DayPrice = 50 },
+            Translations = [new Translation { Culture = "nl", Name = "Spel" }],
+        };
+        db.RentalItems.Add(game);
+        await db.SaveChangesAsync();
+        var castle = db.RentalItems.Single(i => i.Slug == "kasteel");
+        await scope.ServiceProvider.GetRequiredService<IPricingRuleAdministration>().CreateComboAsync(new ComboDiscountInput(
+            [new("nl", "2e stuk 40% korting")], PricingTarget.Chosen([castle.Id, game.Id], []), 2, 40));
     }
 
     private async Task NewTenantAsync(string slug, string? measurementId)

@@ -34,16 +34,16 @@ internal sealed class CartService(
         {
             var entry = entries.GetValueOrDefault(l.Entry);
             return new CartLineView(l.Entry, entry, l.Quantity, priced.UnitPrices.GetValueOrDefault(l.Entry),
-                Available: entry is not null && !Occupies(l, unavailable, entry));
+                Available: entry is not null && !Occupies(l, unavailable, entry)) { Discount = priced.LineDiscounts.GetValueOrDefault(l.Entry) };
         }).ToList();
         return new CartView(period, lines, cart.Email, cart.WantsReminder, cart.WantsNews, priced.Discounts);
     }
 
     /// <summary>
     /// De prijs per stuk van elke lijn die nog op de reservatiewebsite staat en de kortingslijnen, met de prijsregels
-    /// van vandaag: dezelfde berekening als bij het reserveren.
+    /// van vandaag: dezelfde berekening als bij het reserveren. Per lijn ook wat de kortingen van haar stuks aftrekken.
     /// </summary>
-    private async Task<(Dictionary<CatalogRef, decimal> UnitPrices, IReadOnlyList<CartDiscountView> Discounts)> PriceAsync(
+    private async Task<(Dictionary<CatalogRef, decimal> UnitPrices, Dictionary<CatalogRef, decimal> LineDiscounts, IReadOnlyList<CartDiscountView> Discounts)> PriceAsync(
         Cart cart, Dictionary<CatalogRef, CatalogEntry> entries, string culture, CancellationToken ct)
     {
         var quoter = await prices.CurrentAsync(ct);
@@ -51,6 +51,7 @@ internal sealed class CartService(
         var result = quoter.Quote(cart.Period, lines);
         var fallback = tenantContext.Tenant?.DefaultCulture ?? culture;
         return (result.Lines.ToDictionary(l => l.Line.Entry, l => l.UnitPrice),
+            result.Pieces.GroupBy(p => result.Lines[p.LineIndex].Line.Entry).ToDictionary(g => g.Key, g => g.Sum(p => p.Discount)),
             result.Discounts.Select(d => new CartDiscountView(d.Rule.NameIn(culture, fallback), d.Amount)).ToList());
     }
 

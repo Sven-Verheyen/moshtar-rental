@@ -97,6 +97,9 @@ public record CartView(DateRange Period, IReadOnlyList<CartLineView> Lines, stri
 public record CartLineView(CatalogRef Ref, CatalogEntry? Entry, int Quantity, decimal UnitPrice, bool Available)
 {
     public decimal LineTotal => UnitPrice * Quantity;
+
+    /// <summary>Wat de kortingen van de stuks op deze lijn samen aftrekken (positief), uit de berekening per stuk; voor GA4.</summary>
+    public decimal Discount { get; init; }
 }
 
 /// <summary>Een kortingslijn in de winkelkar: de naam van de prijsregel in de taal van de klant en het bedrag (positief).</summary>
