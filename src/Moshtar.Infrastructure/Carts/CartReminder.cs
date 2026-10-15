@@ -72,7 +72,7 @@ internal static class CartReminder
         var lines = cart.Lines.Where(l => l.Entry is not null)
             .Select(l => $"{l.Quantity} × {l.Entry!.Name} – {Money(l.LineTotal)}{(l.Available ? "" : $" ({t.NotAvailable})")}")
             // De kortingen als eigen lijnen, zoals in de winkelkar en de bevestigingsmail.
-            .Concat(cart.DiscountLines.Select(d => $"{d.Name} – {Money(-d.Amount)}"))
+            .Concat(cart.DiscountLines.Select(d => $"{d.Name}: −{Money(d.Amount)}"))
             .ToList();
         var contentsText = new StringBuilder()
             .AppendLine($"{t.Period}: {period}").AppendLine().AppendLine($"{t.Contents}:");

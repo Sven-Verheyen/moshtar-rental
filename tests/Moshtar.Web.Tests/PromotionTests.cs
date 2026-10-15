@@ -122,7 +122,7 @@ public sealed partial class PromotionTests(MoshtarApp app) : IClassFixture<Mosht
         }
 
         var mail = Assert.Single(app.Services.GetRequiredService<RecordingMailTransport>().Sent, m => m.To == "actie@example.test");
-        Assert.Contains("1 × Herfstactie – € -22,00", mail.TextBody);
+        Assert.Contains("- Herfstactie: −€ 22,00", mail.TextBody);
         Assert.Contains("Totaal: € 198,00", mail.TextBody);
 
         await app.CreateUserAsync("actie-lijnen", "medewerker@actie-lijnen.test", UserRole.Staff);

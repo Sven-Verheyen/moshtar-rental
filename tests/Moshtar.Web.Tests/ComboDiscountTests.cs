@@ -131,7 +131,7 @@ public sealed class ComboDiscountTests(MoshtarApp app) : IClassFixture<MoshtarAp
         (await WebsiteCart.ReserveAsync(client, "Mona")).EnsureSuccessStatusCode();
 
         var mail = Assert.Single(Outbox.Sent, m => m.To == "mail@example.test");
-        Assert.Contains("1 × 2e springkasteel 40% korting – € -40,00", mail.TextBody);
+        Assert.Contains("- 2e springkasteel 40% korting: −€ 40,00", mail.TextBody);
         Assert.Contains("Totaal: € 180,00", mail.TextBody);
     }
 
@@ -154,7 +154,7 @@ public sealed class ComboDiscountTests(MoshtarApp app) : IClassFixture<MoshtarAp
         await using (var scope = await app.TenantScopeAsync("hopsakee"))
             await scope.ServiceProvider.GetRequiredService<ICartHousekeeping>().RunAsync(DateTime.UtcNow.AddHours(25));
         var reminder = Assert.Single(Outbox.Sent, m => m.To == "herinner-mij@example.test");
-        Assert.Contains("2e springkasteel 40% korting – € -40,00", reminder.TextBody);
+        Assert.Contains("2e springkasteel 40% korting: −€ 40,00", reminder.TextBody);
         Assert.Contains("Totaal: € 180,00", reminder.TextBody);
     }
 
