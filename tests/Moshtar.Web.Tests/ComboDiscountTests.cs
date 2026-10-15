@@ -163,6 +163,33 @@ public sealed class ComboDiscountTests(MoshtarApp app) : IClassFixture<MoshtarAp
         Assert.DoesNotContain("korting", purchase);
     }
 
+    [Theory]
+    [InlineData("/huren/piraat", "Samen voordeliger: 2e springkasteel 40% korting")]
+    [InlineData("/fr/louer/piraat", "Plus avantageux ensemble : 2e château gonflable -40%")]
+    [InlineData("/en/rent/piraat", "Better together: 2nd bouncy castle 40% off")]
+    public async Task The_item_page_names_the_combo_discount_in_the_language_of_the_page(string path, string sentence)
+    {
+        var slug = "combo-zin-" + (path.StartsWith("/fr/") ? "fr" : path.StartsWith("/en/") ? "en" : "nl");
+        await NewTenantAsync(slug);
+
+        var html = await PageAsync(app.CreateClient($"{slug}.test"), path);
+
+        Assert.Contains(sentence, html);
+    }
+
+    [Fact]
+    public async Task The_item_page_has_no_sentence_outside_the_rule_or_when_the_rule_is_off()
+    {
+        var tenant = await NewTenantAsync("combo-zin-niet");
+        var client = app.CreateClient("combo-zin-niet.test");
+
+        Assert.DoesNotContain("Samen voordeliger", await PageAsync(client, "/huren/molen"));
+
+        await using (var scope = await app.TenantScopeAsync("combo-zin-niet"))
+            await scope.ServiceProvider.GetRequiredService<IPricingRuleAdministration>().SetActiveAsync(tenant.Rule, false);
+        Assert.DoesNotContain("Samen voordeliger", await PageAsync(client, "/huren/piraat"));
+    }
+
     private RecordingMailTransport Outbox => app.Services.GetRequiredService<RecordingMailTransport>();
 
     /// <summary>De gegevens van een GA4-gebeurtenis op de pagina, of null als ze er niet is.</summary>

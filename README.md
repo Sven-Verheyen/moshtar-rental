@@ -50,6 +50,12 @@ aan andere verhuurbedrijven aangeboden te worden.
   plaats van "Populair" (uitgezette artikelen en verborgen pakketten niet); is niets uitgelicht, dan de pakketten en het
   eerste artikel van elke categorie. Met een huurperiode staan de uitgelichte bovenaan, met hun beschikbaarheid, en
   daaronder het hele aanbod.
+  Prijsregels (`/admin/prijsregels`, alleen Beheerder), met eerst de combinatiekortingen: bij een minimum aantal stuks
+  uit een categorie of uit gekozen artikelen en pakketten krijgt het goedkoopste stuk van elke volledige groep een
+  kortingspercentage, met een naam per taal, aan/uit en een optionele einddatum. Eén prijsberekening
+  (`PriceCalculator`) voor de winkelkar, reserveren (website en back office), Open winkelkarren, de herinneringsmail en
+  GA4; een reservatie bewaart elke korting als eigen lijn met de naam van de regel, en houdt die als de regel later
+  wijzigt. De artikelpagina noemt de combinatiekorting waarin het artikel valt.
   De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
   dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
   Per getroffen reservatie staan er de alternatieven (artikelen uit dezelfde categorie, aan en vrij in de volledige

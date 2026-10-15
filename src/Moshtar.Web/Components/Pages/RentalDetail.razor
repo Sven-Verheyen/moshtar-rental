@@ -11,6 +11,7 @@
 @inject TimeProvider Clock
 @inject ITenantContext TenantContext
 @inject IImageStore Images
+@inject IPriceQuotes Prices
 
 @if (_entry is null)
 {
@@ -83,6 +84,11 @@
                 <span class="muted"> · @SiteText.Money(extra) @L["PerExtraDay"]</span>
             }
         </p>
+        @* De combinatiekortingen waarin dit artikel of pakket valt, om er een tweede bij te nemen. *@
+        @foreach (var combo in _combos)
+        {
+            <p class="combo-hint">@L["ComboHint", combo]</p>
+        }
     </section>
 
     <section id="reserveren" class="reservation">
@@ -153,6 +159,7 @@
     private ChosenPeriod _chosen = ChosenPeriod.None;
     private DateOnly _today;
     private bool _available;
+    private IReadOnlyList<string> _combos = [];
 
     private static string Culture => CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
 
@@ -184,6 +191,9 @@
         }
         if (_entry.CategoryId is { } categoryId)
             _category = (await CategoryLink.AllAsync(Texts, Links)).FirstOrDefault(c => c.Id == categoryId);
+
+        var fallback = TenantContext.Tenant?.DefaultCulture ?? Culture;
+        _combos = (await Prices.CurrentAsync()).CombosFor(_entry).Select(r => r.NameIn(Culture, fallback)).Where(n => n.Length > 0).ToList();
 
         _today = ChosenPeriod.Today(Clock);
         _chosen = ChosenPeriod.From(Start, End, _today);
