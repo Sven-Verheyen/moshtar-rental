@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Prices;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Reservations;
 using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Mail;
 using Moshtar.Infrastructure.Persistence;
@@ -47,6 +48,36 @@ public sealed partial class PromotionTests(MoshtarApp app) : IClassFixture<Mosht
         Assert.Contains("€ 180,00 € 162,00 voor 2 dagen Actie −10%", Prices(await PageAsync(client, "/" + query)));
         var detail = await PageAsync(client, "/huren/prinses" + query);
         Assert.Contains("Totaal: € 180,00 € 162,00 voor 2 dagen, per stuk Actie −10%", Prices(detail));
+    }
+
+    [Fact]
+    public async Task With_a_date_the_item_page_shows_the_price_for_the_rental_period_also_when_it_is_not_free()
+    {
+        var day = TestReservations.FutureDay(50);
+        await NewTenantAsync("actie-bezet", rentalFrom: day, rentalUntil: day.AddDays(6));
+        await using (var scope = await app.TenantScopeAsync("actie-bezet"))
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var prinses = await db.RentalItems.SingleAsync(i => i.Slug == "prinses");
+            db.Blockouts.Add(new Blockout { RentalItemId = prinses.Id, Quantity = 2, StartDate = day, EndDate = day.AddDays(1) });
+            await db.SaveChangesAsync();
+        }
+
+        var html = await PageAsync(app.CreateClient("actie-bezet.test"), $"/huren/prinses?van={day:yyyy-MM-dd}&tot={day.AddDays(1):yyyy-MM-dd}");
+
+        Assert.Contains("Niet vrij op", html);
+        // Twee dagen prinses: 120 + 60 = 180, met de actie voor deze huurperiode 162.
+        Assert.Equal(["Totaal: € 180,00 € 162,00 voor 2 dagen, per stuk Actie −10%"], Prices(html));
+    }
+
+    [Fact]
+    public async Task Without_a_date_the_promotion_also_lowers_the_price_per_extra_day()
+    {
+        await NewTenantAsync("actie-extra-dag");
+
+        var html = await PageAsync(app.CreateClient("actie-extra-dag.test"), "/huren/prinses");
+
+        Assert.Equal("€ 120,00 € 108,00 per dag Actie −10% · € 60,00 € 54,00 per extra dag", Prices(html)[0]);
     }
 
     [Theory]

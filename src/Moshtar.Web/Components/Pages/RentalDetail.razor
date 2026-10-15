@@ -77,19 +77,36 @@
                 <dd>@(specs.RequiresPower ? L["Yes"] : L["No"])</dd>
             </dl>
         }
-        @* Zonder datum de dagprijs, met een actie die niet aan huurperiodes gebonden is: oude prijs doorstreept en label. *@
-        <p class="price price-large">
-            @if (DayPrice.Promotion is not null)
-            {
-                <s class="old-price">@SiteText.Money(DayPrice.Normal)</s>
-            }
-            @SiteText.Money(DayPrice.Price) <span class="muted">@L["PerDay"]</span>
-            <PromotionLabel Promotion="DayPrice.Promotion" />
-            @if (_entry.ExtraDayPrice is { } extra)
-            {
-                <span class="muted"> · @SiteText.Money(extra) @L["PerExtraDay"]</span>
-            }
-        </p>
+        @if (_chosen.Period is { } chosenPeriod)
+        {
+            @* Met een gekozen datum de prijs voor die huurperiode (periodeprijzen en de actie die dan geldt), ook als het
+               niet vrij is. Met een actie de gewone prijs doorstreept en het label. *@
+            var price = PeriodPrice(chosenPeriod);
+            <p class="price price-large">@L["Total"]: @if (price.Promotion is not null)
+                {
+                    <s class="old-price">@SiteText.Money(price.Normal)</s>@(" ")
+                }@SiteText.Money(price.Price) <span class="muted">@ForDays(chosenPeriod.Days), @L["PerPiece"]</span><PromotionLabel Promotion="price.Promotion" /></p>
+        }
+        else
+        {
+            @* Zonder datum de dagprijs en de prijs per extra dag, met een actie die niet aan huurperiodes gebonden is:
+               oude prijs doorstreept en label. *@
+            <p class="price price-large">
+                @if (DayPrice.Promotion is not null)
+                {
+                    <s class="old-price">@SiteText.Money(DayPrice.Normal)</s>
+                }
+                @SiteText.Money(DayPrice.Price) <span class="muted">@L["PerDay"]</span>
+                <PromotionLabel Promotion="DayPrice.Promotion" />
+                @if (ExtraDayPrice is { } extra)
+                {
+                    <span class="muted"> · @if (extra.Promotion is not null)
+                        {
+                            <s class="old-price">@SiteText.Money(extra.Normal)</s>@(" ")
+                        }@SiteText.Money(extra.Price) @L["PerExtraDay"]</span>
+                }
+            </p>
+        }
         @* De combinatiekortingen waarin dit artikel of pakket valt, om er een tweede bij te nemen. *@
         @foreach (var combo in _combos)
         {
@@ -122,12 +139,6 @@
             <AnalyticsEvent Name="check_availability" Data="@AvailabilityChecked(period)" />
             <div class="availability free" role="status">
                 <p><strong>@L["AvailableOn", SiteText.Period(period)]</strong></p>
-                @{ var price = PeriodPrice(period); }
-                @* Met een actie de gewone prijs doorstreept en het label. *@
-                <p class="price price-large">@L["Total"]: @if (price.Promotion is not null)
-                    {
-                        <s class="old-price">@SiteText.Money(price.Normal)</s>@(" ")
-                    }@SiteText.Money(price.Price) <span class="muted">@ForDays(period.Days), @L["PerPiece"]</span><PromotionLabel Promotion="price.Promotion" /></p>
                 <p><a href="@(Here + "#reserveren")">@L["OtherDate"]</a></p>
             </div>
             @if (CartResult == CartEndpoints.Added)
@@ -239,7 +250,6 @@
         return AnalyticsItems.Event(price * quantity, [AnalyticsItems.Item(_entry!.Slug, _entry.Name, quantity, price)]);
     }
 
-    /// <summary>De prijs per stuk voor de huurperiode, met periodeprijzen: dezelfde berekening als de winkelkar.</summary>
     /// <summary>Wat één stuk kost voor deze huurperiode: met periodeprijzen en de actie die geldt.</summary>
     private decimal PriceFor(Moshtar.Domain.Common.DateRange period) => PeriodPrice(period).Price;
 
@@ -248,6 +258,10 @@
 
     /// <summary>Zonder datum: de dagprijs, met een actie die niet aan huurperiodes gebonden is.</summary>
     private SitePrice DayPrice => _quoter?.SitePriceFor(_entry!, null) ?? new SitePrice(_entry!.DayPrice, _entry.DayPrice, null);
+
+    /// <summary>Zonder datum: de prijs per extra dag, met dezelfde actie als de dagprijs; null zonder prijs per extra dag.</summary>
+    private SitePrice? ExtraDayPrice => _quoter is not null ? _quoter.ExtraDaySitePriceFor(_entry!)
+        : _entry!.ExtraDayPrice is { } extra ? new SitePrice(extra, extra, null) : null;
 
     /// <summary>Met een gekozen huurperiode de prijs die de bezoeker ziet, ook voor de structured data; anders null (dagprijs).</summary>
     private StructuredData.PeriodPrice? ChosenPrice => _chosen.Period is { } period ? new(period.Days, PriceFor(period)) : null;

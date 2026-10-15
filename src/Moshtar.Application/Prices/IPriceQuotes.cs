@@ -42,11 +42,25 @@ public sealed class PriceQuoter(DateOnly reservationDate, IReadOnlyList<PricingR
     public SitePrice SitePriceFor(CatalogEntry entry, DateRange? period)
     {
         var line = entry.ToPriceLine(1);
-        var result = period is { } p
-            ? Quote(p, [line])
-            // Eén dag aan dagprijs, alleen met de acties zonder huurperiodebereik.
-            : PriceCalculator.Calculate(new PriceRequest([line], new DateRange(ReservationDate, ReservationDate), ReservationDate,
-                Rules.Where(r => r.Kind == PricingRuleKind.Promotion && !r.IsBoundToRentalDates).ToList()));
+        return period is { } p ? SitePriceOf(Quote(p, [line])) : WithoutDate(line);
+    }
+
+    /// <summary>
+    /// Zonder datum: de prijs per extra dag van één stuk, met dezelfde actie als de dagprijs (<see cref="SitePriceFor"/>
+    /// zonder huurperiode); null als het artikel of pakket geen prijs per extra dag heeft.
+    /// </summary>
+    public SitePrice? ExtraDaySitePriceFor(CatalogEntry entry) =>
+        entry.ExtraDayPrice is { } extra
+            ? WithoutDate(entry.ToPriceLine(1) with { Pricing = new Pricing { DayPrice = extra } })
+            : null;
+
+    /// <summary>Eén dag aan de dagprijs van de lijn, alleen met de acties zonder huurperiodebereik.</summary>
+    private SitePrice WithoutDate(PriceLine line) =>
+        SitePriceOf(PriceCalculator.Calculate(new PriceRequest([line], new DateRange(ReservationDate, ReservationDate), ReservationDate,
+            Rules.Where(r => r.Kind == PricingRuleKind.Promotion && !r.IsBoundToRentalDates).ToList())));
+
+    private static SitePrice SitePriceOf(PriceResult result)
+    {
         var normal = result.Lines[0].UnitPrice;
         return result.Pieces[0] is { Rule: { Kind: PricingRuleKind.Promotion } promotion, Discount: > 0 } piece
             ? new SitePrice(normal, normal - piece.Discount, promotion)
