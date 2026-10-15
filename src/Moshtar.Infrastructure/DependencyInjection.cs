@@ -75,6 +75,7 @@ public static class DependencyInjection
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
         services.AddScoped<IPricingRuleAdministration, PricingRuleAdministration>();
+        services.AddScoped<IPriceQuotes, PriceQuotes>();
 
         var mail = configuration.GetSection("Mail");
         services.Configure<MailOptions>(mail);

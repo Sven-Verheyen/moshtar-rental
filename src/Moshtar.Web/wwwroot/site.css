@@ -310,6 +310,7 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .cart-line { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem 1.25rem; align-items: center;
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 1rem 1.25rem; }
 .cart-line.unavailable { border-color: #f5b5b5; }
+.cart-discount { grid-template-columns: 1fr auto; border-style: dashed; }
 .cart-line-name { display: flex; flex-direction: column; gap: .2rem; }
 .cart-line-name a { font-weight: 700; font-size: 1.1rem; }
 .cart-quantity { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .5rem .75rem; }

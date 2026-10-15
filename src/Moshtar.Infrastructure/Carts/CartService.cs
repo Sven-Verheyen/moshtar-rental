@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Carts;
 using Moshtar.Application.Catalog;
+using Moshtar.Application.Prices;
 using Moshtar.Application.Reservations;
 using Moshtar.Domain.Carts;
 using Moshtar.Application.Tenancy;
@@ -19,7 +20,7 @@ namespace Moshtar.Infrastructure.Carts;
 /// </summary>
 internal sealed class CartService(
     IDbContextFactory<AppDbContext> contexts, ICatalogService catalog, IReservationService reservations, ITenantContext tenantContext,
-    TimeProvider clock) : ICartService
+    TimeProvider clock, IPriceQuotes prices) : ICartService
 {
     public async Task<CartView?> GetAsync(string? key, string culture, CancellationToken ct = default)
     {
@@ -28,13 +29,29 @@ internal sealed class CartService(
         var entries = (await catalog.GetCatalogAsync(culture, ct)).ToDictionary(e => Ref(e));
         var period = cart.Period;
         var unavailable = await UnavailableItemsAsync(cart, entries, period, ct);
+        var priced = await PriceAsync(cart, entries, culture, ct);
         var lines = cart.Lines.Select(l =>
         {
             var entry = entries.GetValueOrDefault(l.Entry);
-            return new CartLineView(l.Entry, entry, l.Quantity, entry?.PriceFor(period.Days) ?? 0,
+            return new CartLineView(l.Entry, entry, l.Quantity, priced.UnitPrices.GetValueOrDefault(l.Entry),
                 Available: entry is not null && !Occupies(l, unavailable, entry));
         }).ToList();
-        return new CartView(period, lines, cart.Email, cart.WantsReminder, cart.WantsNews);
+        return new CartView(period, lines, cart.Email, cart.WantsReminder, cart.WantsNews, priced.Discounts);
+    }
+
+    /// <summary>
+    /// De prijs per stuk van elke lijn die nog op de reservatiewebsite staat en de kortingslijnen, met de prijsregels
+    /// van vandaag: dezelfde berekening als bij het reserveren.
+    /// </summary>
+    private async Task<(Dictionary<CatalogRef, decimal> UnitPrices, IReadOnlyList<CartDiscountView> Discounts)> PriceAsync(
+        Cart cart, Dictionary<CatalogRef, CatalogEntry> entries, string culture, CancellationToken ct)
+    {
+        var quoter = await prices.CurrentAsync(ct);
+        var lines = cart.Lines.Where(l => entries.ContainsKey(l.Entry)).Select(l => entries[l.Entry].ToPriceLine(l.Quantity)).ToList();
+        var result = quoter.Quote(cart.Period, lines);
+        var fallback = tenantContext.Tenant?.DefaultCulture ?? culture;
+        return (result.Lines.ToDictionary(l => l.Line.Entry, l => l.UnitPrice),
+            result.Discounts.Select(d => new CartDiscountView(d.Rule.NameIn(culture, fallback), d.Amount)).ToList());
     }
 
     public async Task<int> CountAsync(string? key, CancellationToken ct = default) =>

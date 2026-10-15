@@ -91,6 +91,14 @@
                     <p class="cart-line-total">@(line.Entry is null ? "" : SiteText.Money(line.LineTotal))</p>
                 </li>
             }
+            @* Elke korting als eigen lijn, met de naam van haar prijsregel. *@
+            @foreach (var discount in _cart.DiscountLines)
+            {
+                <li class="cart-line cart-discount">
+                    <div class="cart-line-name"><span>@discount.Name</span></div>
+                    <p class="cart-line-total">−@SiteText.Money(discount.Amount)</p>
+                </li>
+            }
         </ul>
 
         <p class="price price-large cart-total">@L["Total"]: @SiteText.Money(_cart.Total)</p>
@@ -234,12 +242,12 @@
             .Select(l => l.Entry!.Name);
 
     /// <summary>
-    /// De bevestigde reservatie als GA4-aankoop: het reservatienummer, het totaal in euro en elke lijn. Geen naam,
-    /// e-mailadres of andere gegevens van de klant.
+    /// De bevestigde reservatie als GA4-aankoop: het reservatienummer, het totaal in euro (met de kortingen) en elk
+    /// artikel of pakket; een kortingslijn is geen item. Geen naam, e-mailadres of andere gegevens van de klant.
     /// </summary>
     private System.Text.Json.Nodes.JsonObject Purchase(Reservation reservation)
     {
-        var data = AnalyticsItems.Event(reservation.TotalPrice, reservation.Lines.Select(l =>
+        var data = AnalyticsItems.Event(reservation.TotalPrice, reservation.Lines.Where(l => l.RentalItemId is not null || l.BundleId is not null).Select(l =>
         {
             var entry = _cart?.Lines.FirstOrDefault(c => c.Ref == new CatalogRef(l.RentalItemId, l.BundleId))?.Entry;
             return AnalyticsItems.Item(entry?.Slug ?? l.Description, entry?.Name ?? l.Description, l.Quantity, l.UnitPrice);
@@ -248,7 +256,10 @@
         return data;
     }
 
-    /// <summary>De winkelkar voor GA4 (<c>view_cart</c>, <c>begin_checkout</c>): wat nog te reserveren is, zonder klantgegevens.</summary>
+    /// <summary>
+    /// De winkelkar voor GA4 (<c>view_cart</c>, <c>begin_checkout</c>): wat nog te reserveren is, met als waarde het totaal
+    /// met de kortingen, zonder klantgegevens.
+    /// </summary>
     private static System.Text.Json.Nodes.JsonObject CartEvent(CartView cart) => AnalyticsItems.Event(cart.Total,
         cart.Lines.Where(l => l.Entry is not null).Select(l => AnalyticsItems.Item(l.Entry!.Slug, l.Entry.Name, l.Quantity, l.UnitPrice)));
 

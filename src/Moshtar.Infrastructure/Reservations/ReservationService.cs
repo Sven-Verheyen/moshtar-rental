@@ -11,9 +11,12 @@ using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
+using Moshtar.Domain.Carts;
+using Moshtar.Domain.Prices;
 using Moshtar.Domain.Reservations;
 using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Persistence;
+using Moshtar.Infrastructure.Prices;
 
 namespace Moshtar.Infrastructure.Reservations;
 
@@ -51,7 +54,9 @@ internal sealed class ReservationService(
             return new ReservationResult(null, shortages);
 
         var customer = await UpsertCustomerAsync(db, request, ct);
-        var days = request.Period.Days;
+        // De prijsregels van vandaag, binnen dezelfde transactie: dezelfde berekening als de winkelkar.
+        var quoter = await PriceQuotes.CurrentAsync(db, clock, ct);
+        var priced = quoter.Quote(request.Period, request.Lines.Select(l => PriceLineOf(l, items, bundles)).ToList());
         var reservation = new Reservation
         {
             Number = await NextNumberAsync(db, ct),
@@ -65,7 +70,13 @@ internal sealed class ReservationService(
             Notes = request.Notes,
             Culture = request.Culture,
             CreatedAtUtc = clock.GetUtcNow().UtcDateTime,
-            Lines = request.Lines.Select(l => CreateLine(l, items, bundles, days, request.Culture, tenant.DefaultCulture)).ToList(),
+            Lines = request.Lines.Select((l, i) => CreateLine(l, items, bundles, priced.Lines[i].UnitPrice, request.Culture, tenant.DefaultCulture))
+                // Elke korting als eigen lijn zonder artikel of pakket, met de naam van de regel in de taal van de reservatie.
+                .Concat(priced.Discounts.Select(d => new ReservationLine
+                {
+                    Quantity = 1, Description = d.Rule.NameIn(request.Culture, tenant.DefaultCulture), UnitPrice = -d.Amount,
+                }))
+                .ToList(),
         };
         reservation.TotalPrice = reservation.Lines.Sum(l => l.LineTotal);
         reservation.RecordCreated(actor, reservation.CreatedAtUtc);
@@ -282,8 +293,14 @@ internal sealed class ReservationService(
         return (reserved, blocked);
     }
 
+    /// <summary>Een gevraagde lijn als lijn voor de prijsberekening: een artikel met zijn categorie, of een pakket.</summary>
+    private static PriceLine PriceLineOf(ReservationLineRequest l, Dictionary<Guid, RentalItem> items, Dictionary<Guid, Bundle> bundles) =>
+        l.RentalItemId is { } itemId
+            ? new PriceLine(CatalogRef.Item(itemId), items[itemId].CategoryId, items[itemId].Pricing, l.Quantity)
+            : new PriceLine(CatalogRef.Bundle(l.BundleId!.Value), null, bundles[l.BundleId.Value].Pricing, l.Quantity);
+
     private static ReservationLine CreateLine(ReservationLineRequest l, Dictionary<Guid, RentalItem> items, Dictionary<Guid, Bundle> bundles,
-        int days, string culture, string fallbackCulture)
+        decimal unitPrice, string culture, string fallbackCulture)
     {
         if (l.RentalItemId is { } itemId)
         {
@@ -293,7 +310,7 @@ internal sealed class ReservationService(
                 RentalItemId = itemId,
                 Quantity = l.Quantity,
                 Description = item.Translations.For(culture, fallbackCulture)?.Name ?? item.Slug,
-                UnitPrice = item.Pricing.PriceFor(days),
+                UnitPrice = unitPrice,
             };
         }
         var bundle = bundles[l.BundleId!.Value];
@@ -302,7 +319,7 @@ internal sealed class ReservationService(
             BundleId = bundle.Id,
             Quantity = l.Quantity,
             Description = bundle.Translations.For(culture, fallbackCulture)?.Name ?? bundle.Slug,
-            UnitPrice = bundle.Pricing.PriceFor(days),
+            UnitPrice = unitPrice,
         };
     }
 
