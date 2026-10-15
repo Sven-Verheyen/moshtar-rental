@@ -145,8 +145,35 @@ public class PriceCalculatorTests
 
         var result = Calculate([Item(150, Castles), Item(100, Castles)], [small, big]);
 
-        Assert.Same(big, Assert.Single(result.Discounts).Rule);
-        Assert.Equal(30m, result.Discounts[0].Amount);
+        // De 30% gaat naar het goedkoopste stuk; dat heeft al een betere korting, dus de 10% gaat naar het volgende.
+        Assert.Equal([(15m, small), (30m, big)], result.Pieces.Select(p => (p.Discount, p.Rule)));
+        Assert.Equal(2, result.Discounts.Count);
+    }
+
+    [Fact]
+    public void Two_combo_discounts_on_the_same_pieces_each_give_their_discount_to_other_pieces()
+    {
+        var thirty = Combo("2e springkasteel 30% korting", minimum: 2, percentage: 30, categories: [Castles]);
+        var forty = Combo("2e springkasteel 40% korting", minimum: 2, percentage: 40, categories: [Castles]);
+
+        var result = Calculate([Item(100, Castles), Item(120, Castles), Item(150, Castles), Item(200, Castles)], [thirty, forty]);
+
+        // Eerst de hoogste: 40% op de twee goedkoopste (40 + 48), dan 30% op de volgende twee (45 + 60).
+        Assert.Equal([40m, 48m, 45m, 60m], result.Pieces.Select(p => p.Discount));
+        Assert.Equal([(forty, 88m, 2), (thirty, 105m, 2)], result.Discounts.Select(d => (d.Rule, d.Amount, d.Pieces)).OrderBy(d => d.Item2));
+        Assert.Equal(570m - 193m, result.Total);
+    }
+
+    [Fact]
+    public void Two_combo_discounts_with_different_minimums_share_the_pieces()
+    {
+        var thirty = Combo("2e springkasteel 30% korting", minimum: 2, percentage: 30, categories: [Castles]);
+        var forty = Combo("3e springkasteel 40% korting", minimum: 3, percentage: 40, categories: [Castles]);
+
+        var result = Calculate([Item(100, Castles), Item(120, Castles), Item(150, Castles), Item(200, Castles)], [thirty, forty]);
+
+        // 40% op één stuk (vier stuks is één groep van drie): het goedkoopste. 30% op twee stuks: de volgende twee.
+        Assert.Equal([(40m, forty), (36m, thirty), (45m, thirty), (0m, null)], result.Pieces.Select(p => (p.Discount, p.Rule)));
     }
 
     [Fact]
