@@ -150,6 +150,101 @@ public class PriceCalculatorTests
     }
 
     [Fact]
+    public void A_promotion_applies_only_to_reservations_made_within_its_dates()
+    {
+        var promotion = Promotion("Lenteactie", 10, all: true, from: Today, until: Today.AddDays(7));
+
+        Assert.Empty(CalculateOn(Today.AddDays(-1), [Item(150, Castles)], [promotion]).Discounts);
+        Assert.Equal(15m, Assert.Single(CalculateOn(Today, [Item(150, Castles)], [promotion]).Discounts).Amount);
+        Assert.Equal(15m, Assert.Single(CalculateOn(Today.AddDays(7), [Item(150, Castles)], [promotion]).Discounts).Amount);
+        Assert.Empty(CalculateOn(Today.AddDays(8), [Item(150, Castles)], [promotion]).Discounts);
+    }
+
+    [Fact]
+    public void A_promotion_bound_to_rental_dates_applies_only_to_rental_periods_within_them()
+    {
+        var summer = Promotion("Zomeractie", 20, all: true, rentalFrom: new DateOnly(2026, 7, 1), rentalUntil: new DateOnly(2026, 8, 31));
+
+        Assert.Empty(Calculate([Item(150, Castles)], [summer], Saturday).Discounts);
+        var inSummer = new DateRange(new DateOnly(2026, 7, 4), new DateOnly(2026, 7, 5));
+        Assert.Equal(30m + 30m, Assert.Single(Calculate([Item(150, Castles)], [summer], inSummer).Discounts).Amount);
+        var lastDay = new DateRange(new DateOnly(2026, 8, 31), new DateOnly(2026, 8, 31));
+        Assert.Single(Calculate([Item(150, Castles)], [summer], lastDay).Discounts);
+        // Een huurperiode die over de grens loopt, valt er niet binnen.
+        var across = new DateRange(new DateOnly(2026, 8, 31), new DateOnly(2026, 9, 1));
+        Assert.Empty(Calculate([Item(150, Castles)], [summer], across).Discounts);
+    }
+
+    [Fact]
+    public void A_promotion_works_only_on_its_items_and_appears_as_one_line_with_its_pieces()
+    {
+        var castles = Promotion("Springkasteelactie", 10, categories: [Castles]);
+
+        var result = Calculate([Item(150, Castles, quantity: 2), Item(20, Games), Item(100, Castles)], [castles]);
+
+        var discount = Assert.Single(result.Discounts);
+        Assert.Same(castles, discount.Rule);
+        Assert.Equal((40m, 3), (discount.Amount, discount.Pieces));
+        Assert.Equal([15m, 15m, 0m, 10m], result.Pieces.Select(p => p.Discount));
+        Assert.Equal(420m - 40m, result.Total);
+    }
+
+    [Fact]
+    public void Of_two_promotions_on_the_same_item_the_highest_applies()
+    {
+        var everything = Promotion("Alles 10%", 10, all: true);
+        var castles = Promotion("Springkastelen 25%", 25, categories: [Castles]);
+
+        var result = Calculate([Item(100, Castles), Item(20, Games)], [everything, castles]);
+
+        Assert.Equal([25m, 2m], result.Pieces.Select(p => p.Discount));
+        Assert.Equal([castles, everything], result.Pieces.Select(p => p.Rule));
+        Assert.Equal(120m - 27m, result.Total);
+    }
+
+    [Fact]
+    public void Promotion_and_combo_discount_do_not_stack_the_most_favourable_wins_per_piece()
+    {
+        var combo = Combo("2e springkasteel 40% korting", minimum: 2, percentage: 40, categories: [Castles]);
+        var promotion = Promotion("Actie 10%", 10, categories: [Castles]);
+
+        // Het goedkoopste springkasteel krijgt 40% combinatiekorting in plaats van 10% actie, het andere de actie.
+        var result = Calculate([Item(150, Castles), Item(100, Castles)], [combo, promotion]);
+
+        Assert.Equal([(promotion, 15m), (combo, 40m)], result.Pieces.Select(p => (p.Rule!, p.Discount)));
+        Assert.Equal(250m - 55m, result.Total);
+        Assert.Equal(2, result.Discounts.Count);
+    }
+
+    [Fact]
+    public void A_piece_with_a_better_promotion_is_not_the_cheapest_of_a_combo_group()
+    {
+        var combo = Combo("2e springkasteel 40% korting", minimum: 2, percentage: 40, categories: [Castles]);
+        var pirate = CatalogRef.Item(Guid.NewGuid());
+        var promotion = Promotion("Piraat -50%", 50, items: [pirate.RentalItemId!.Value]);
+
+        // De piraat (100) krijgt zijn actie van 50; hij telt nog mee voor de groep, maar de combinatiekorting gaat naar
+        // het volgende goedkoopste springkasteel (120).
+        var result = Calculate([Item(150, Castles), Line(pirate, 100, Castles), Item(120, Castles)], [combo, promotion]);
+
+        Assert.Equal([0m, 50m, 48m], result.Pieces.Select(p => p.Discount));
+        Assert.Equal([null, promotion, combo], result.Pieces.Select(p => p.Rule));
+        Assert.Equal(370m - 98m, result.Total);
+    }
+
+    [Fact]
+    public void A_piece_with_a_better_promotion_still_counts_for_the_group_size()
+    {
+        var combo = Combo("2e springkasteel 40% korting", minimum: 2, percentage: 40, categories: [Castles]);
+        var pirate = CatalogRef.Item(Guid.NewGuid());
+        var promotion = Promotion("Piraat -50%", 50, items: [pirate.RentalItemId!.Value]);
+
+        var result = Calculate([Item(150, Castles), Line(pirate, 100, Castles)], [combo, promotion]);
+
+        Assert.Equal([60m, 50m], result.Pieces.Select(p => p.Discount));
+    }
+
+    [Fact]
     public void Without_rules_the_price_is_the_normal_price_for_the_rental_period()
     {
         var weekend = new DateRange(new DateOnly(2026, 6, 6), new DateOnly(2026, 6, 8));
@@ -163,6 +258,9 @@ public class PriceCalculatorTests
 
     private static PriceResult Calculate(IReadOnlyList<PriceLine> lines, IReadOnlyList<PricingRule> rules, DateRange? period = null) =>
         PriceCalculator.Calculate(new PriceRequest(lines, period ?? Saturday, Today, rules));
+
+    private static PriceResult CalculateOn(DateOnly reservationDate, IReadOnlyList<PriceLine> lines, IReadOnlyList<PricingRule> rules) =>
+        PriceCalculator.Calculate(new PriceRequest(lines, Saturday, reservationDate, rules));
 
     private static PriceLine Item(decimal dayPrice, Guid? category = null, int quantity = 1, decimal? extraDayPrice = null) =>
         new(CatalogRef.Item(Guid.NewGuid()), category, new Pricing { DayPrice = dayPrice, ExtraDayPrice = extraDayPrice }, quantity);
@@ -179,5 +277,20 @@ public class PriceCalculatorTests
         CategoryIds = [.. categories ?? []],
         RentalItemIds = [.. items ?? []],
         BundleIds = [.. bundles ?? []],
+    };
+
+    private static PricingRule Promotion(string name, decimal percentage, bool all = false, Guid[]? categories = null, Guid[]? items = null,
+        DateOnly? from = null, DateOnly? until = null, DateOnly? rentalFrom = null, DateOnly? rentalUntil = null) => new()
+    {
+        Kind = PricingRuleKind.Promotion,
+        Names = [new Translation { Culture = "nl", Name = name }],
+        Percentage = percentage,
+        AppliesToAll = all,
+        CategoryIds = [.. categories ?? []],
+        RentalItemIds = [.. items ?? []],
+        ReservedFrom = from ?? Today.AddDays(-30),
+        ReservedUntil = until ?? Today.AddDays(30),
+        RentalFrom = rentalFrom,
+        RentalUntil = rentalUntil,
     };
 }

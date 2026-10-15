@@ -64,6 +64,19 @@ public class PricingRule : TenantEntity
     public DateOnly? RentalFrom { get; set; }
     public DateOnly? RentalUntil { get; set; }
 
+    /// <summary>Actie: is ze aan huurperiodes gebonden? Dan toont de reservatiewebsite ze pas na het kiezen van een datum.</summary>
+    public bool IsBoundToRentalDates => RentalFrom is not null || RentalUntil is not null;
+
+    /// <summary>Actie: geldt ze voor een reservatie gemaakt op deze dag? Aan, niet verlopen en binnen haar reservatiedata.</summary>
+    public bool IsPromotionOn(DateOnly reservationDate) =>
+        Kind == PricingRuleKind.Promotion && IsInForceOn(reservationDate)
+        && (ReservedFrom is not { } from || from <= reservationDate)
+        && (ReservedUntil is not { } until || reservationDate <= until);
+
+    /// <summary>Actie: valt deze huurperiode helemaal binnen haar huurperiodebereik (of is ze daar niet aan gebonden)?</summary>
+    public bool AllowsRentalPeriod(DateRange period) =>
+        (RentalFrom is not { } from || from <= period.Start) && (RentalUntil is not { } until || period.End <= until);
+
     /// <summary>Geldt de regel voor een reservatie gemaakt op deze dag? Aan, en niet verlopen.</summary>
     public bool IsInForceOn(DateOnly reservationDate) => IsActive && !IsExpiredOn(reservationDate);
 

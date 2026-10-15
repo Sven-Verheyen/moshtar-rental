@@ -48,7 +48,8 @@ public sealed record PriceResult(IReadOnlyList<PricedLine> Lines, IReadOnlyList<
 /// periodeprijzen van die dag, op de cent afgerond;</item>
 /// <item>per stuk de kandidaat-kortingen van de regels (combinatiekortingen, acties), elk in procent van die prijs en op
 /// de cent afgerond;</item>
-/// <item>per stuk hoogstens één korting: de voordeligste.</item>
+/// <item>per stuk hoogstens één korting: de voordeligste. Van twee acties geldt de hoogste; een stuk dat een betere
+/// actie krijgt, is niet het goedkoopste stuk van een groep voor een combinatiekorting.</item>
 /// </list>
 /// </summary>
 public static class PriceCalculator
@@ -60,8 +61,11 @@ public static class PriceCalculator
         var pieces = lines.SelectMany((l, index) => Enumerable.Repeat(new Piece(index, l.Line, l.UnitPrice), l.Line.Quantity)).ToList();
 
         var candidates = pieces.Select(_ => new List<Candidate>()).ToArray();
+        var promotions = BestPromotions(pieces, request, rules);
+        for (var i = 0; i < pieces.Count; i++)
+            if (promotions[i] is { } promotion) candidates[i].Add(promotion);
         foreach (var rule in rules.Where(r => r.Kind == PricingRuleKind.Combo))
-            AddComboCandidates(rule, pieces, candidates);
+            AddComboCandidates(rule, pieces, promotions, candidates);
 
         // Per stuk de voordeligste korting; bij gelijke korting de regel die eerst kwam.
         var best = candidates.Select(c => c.OrderByDescending(x => x.Amount).FirstOrDefault()).ToList();
@@ -92,18 +96,40 @@ public static class PriceCalculator
     private static decimal DayPercentage(PriceLine line, DateOnly day, IReadOnlyList<PricingRule> rules) => 0;
 
     /// <summary>
-    /// Een combinatiekorting: de stuks in het bereik van de regel van goedkoop naar duur; elke volledige groep van het
-    /// minimum aantal geeft zijn goedkoopste stuk de korting, dus de goedkoopste (aantal / minimum) stuks.
+    /// Per stuk de hoogste actie die geldt: op de reservatiedatum binnen haar reservatiedata, de huurperiode binnen haar
+    /// huurperiodebereik, en het stuk in haar bereik. Bij gelijke korting de actie die eerst kwam.
     /// </summary>
-    private static void AddComboCandidates(PricingRule rule, IReadOnlyList<Piece> pieces, List<Candidate>[] candidates)
+    private static Candidate?[] BestPromotions(IReadOnlyList<Piece> pieces, PriceRequest request, IReadOnlyList<PricingRule> rules)
+    {
+        var promotions = rules.Where(r => r.IsPromotionOn(request.ReservationDate) && r.AllowsRentalPeriod(request.Period)).ToList();
+        return pieces
+            .Select(p => promotions
+                .Where(r => r.Covers(p.Line.Entry, p.Line.CategoryId))
+                .Select(r => new Candidate(r, Percent(p.Price, r.Percentage)))
+                .OrderByDescending(c => c.Amount)
+                .FirstOrDefault())
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Een combinatiekorting: de stuks in het bereik van de regel van goedkoop naar duur; elke volledige groep van het
+    /// minimum aantal geeft zijn goedkoopste stuk de korting, dus de goedkoopste (aantal / minimum) stuks. Een stuk met
+    /// een actie die minstens even goed is, houdt zijn actie: het telt mee voor de groepen, maar niet als goedkoopste,
+    /// en de korting gaat naar het volgende goedkoopste stuk.
+    /// </summary>
+    private static void AddComboCandidates(PricingRule rule, IReadOnlyList<Piece> pieces, Candidate?[] promotions, List<Candidate>[] candidates)
     {
         if (rule.MinimumQuantity is not { } minimum || minimum < 2) return;
         var inScope = pieces.Select((p, i) => (Piece: p, Index: i))
             .Where(x => rule.Covers(x.Piece.Line.Entry, x.Piece.Line.CategoryId))
             .OrderBy(x => x.Piece.Price) // stabiel: bij gelijke prijs de volgorde van de lijnen
             .ToList();
-        foreach (var (piece, index) in inScope.Take(inScope.Count / minimum))
-            candidates[index].Add(new Candidate(rule, Percent(piece.Price, rule.Percentage)));
+        var receivers = inScope
+            .Select(x => (x.Index, Discount: Percent(x.Piece.Price, rule.Percentage)))
+            .Where(x => (promotions[x.Index]?.Amount ?? 0) < x.Discount)
+            .Take(inScope.Count / minimum);
+        foreach (var (index, discount) in receivers)
+            candidates[index].Add(new Candidate(rule, discount));
     }
 
     private static decimal Percent(decimal price, decimal percentage) => Round(price * percentage / 100);
