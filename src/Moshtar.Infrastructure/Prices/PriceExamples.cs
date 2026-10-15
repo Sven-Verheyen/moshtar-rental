@@ -46,5 +46,6 @@ internal sealed class PriceExamples(IDbContextFactory<AppDbContext> contexts, IT
     /// <summary>De naam van de regel in de standaardtaal; een periodeprijs heeft een naam alleen voor het back office.</summary>
     private string NameOf(PricingRule rule) => rule.NameIn(Culture, Culture);
 
+    // Met de hand op de eigen context: ICatalogService uit DI deelt de scoped context, en een nieuwe DI-scope kent de verhuurder niet.
     private CatalogService Catalog(AppDbContext db) => new(db, tenantContext, new WebsiteTextAdministration(db, tenantContext, clock));
 }
