@@ -138,6 +138,8 @@
     private readonly List<ChosenLine> _lines = [];
     private PriceExampleResult? _result;
     private IReadOnlyList<string>? _problems;
+    // Elke berekening krijgt een volgnummer: een oudere die later terugkomt, overschrijft de nieuwere niet.
+    private int _calculation;
 
     protected override async Task OnInitializedAsync()
     {
@@ -166,6 +168,7 @@
 
     private async Task CalculateAsync()
     {
+        var calculation = ++_calculation;
         _problems = null;
         _result = null;
         if (_lines.Count == 0 || _from is not { } from || _reservationDate is not { } reservationDate) return;
@@ -176,8 +179,9 @@
             _problems = ["Het einde van de huurperiode ligt voor het begin."];
             return;
         }
-        _result = await Examples.CalculateAsync(new PriceExample(new Moshtar.Domain.Common.DateRange(start, end), DateOnly.FromDateTime(reservationDate),
+        var result = await Examples.CalculateAsync(new PriceExample(new Moshtar.Domain.Common.DateRange(start, end), DateOnly.FromDateTime(reservationDate),
             _lines.Select(l => new PriceExampleLine(l.Entry.Ref(), l.Quantity)).ToList()));
+        if (calculation == _calculation) _result = result;
     }
 
     private static string Euro(decimal amount) => amount.ToString("C", Money);
