@@ -247,7 +247,7 @@
     /// </summary>
     private System.Text.Json.Nodes.JsonObject Purchase(Reservation reservation)
     {
-        var data = AnalyticsItems.Event(reservation.TotalPrice, reservation.Lines.Where(l => l.RentalItemId is not null || l.BundleId is not null).Select(l =>
+        var data = AnalyticsItems.Event(reservation.TotalPrice, reservation.Lines.Where(l => !l.IsPriceOnly).Select(l =>
         {
             var entry = _cart?.Lines.FirstOrDefault(c => c.Ref == new CatalogRef(l.RentalItemId, l.BundleId))?.Entry;
             return AnalyticsItems.Item(entry?.Slug ?? l.Description, entry?.Name ?? l.Description, l.Quantity, l.UnitPrice);

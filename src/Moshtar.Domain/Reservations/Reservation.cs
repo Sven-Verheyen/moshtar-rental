@@ -165,7 +165,10 @@ public class Reservation : TenantEntity
     public bool OccupiesStock => StockOccupyingStatuses.Contains(Status);
 }
 
-/// <summary>Een lijn is ofwel een los artikel, ofwel een pakket.</summary>
+/// <summary>
+/// Een lijn is een los artikel, een pakket, of een prijslijn zonder artikel of pakket: een meerprijs bij het vervangen
+/// (positieve prijs) of een korting van een prijsregel (negatieve prijs, zie <see cref="IsDiscount"/>).
+/// </summary>
 public class ReservationLine
 {
     public Guid Id { get; set; } = Guid.NewGuid();
@@ -175,6 +178,18 @@ public class ReservationLine
     public string Description { get; set; } = "";
     public decimal UnitPrice { get; set; }
     public decimal LineTotal => UnitPrice * Quantity;
+
+    /// <summary>
+    /// Een prijslijn zonder artikel of pakket (meerprijs of korting): er gaat niets mee naar de klant, dus ze staat
+    /// niet in de Planning of op de Leverlijst.
+    /// </summary>
+    public bool IsPriceOnly => RentalItemId is null && BundleId is null;
+
+    /// <summary>
+    /// Een kortingslijn: wat een prijsregel (combinatiekorting, actie) van het totaal aftrekt, met de naam van de regel
+    /// als omschrijving. Zonder artikel of pakket, aantal 1 en een negatieve prijs.
+    /// </summary>
+    public bool IsDiscount => IsPriceOnly && UnitPrice < 0;
 
     /// <summary>Op een pakketlijn: de artikelen van het pakket die voor deze reservatie door een ander vervangen zijn.</summary>
     public List<BundleItemReplacement> Replacements { get; set; } = [];

@@ -116,7 +116,7 @@ public sealed partial class PromotionTests(MoshtarApp app) : IClassFixture<Mosht
         await using (var scope = await app.TenantScopeAsync("actie-lijnen"))
         {
             var reservation = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.AsNoTracking().SingleAsync();
-            var discount = Assert.Single(reservation.Lines, l => l.RentalItemId is null && l.BundleId is null);
+            var discount = Assert.Single(reservation.Lines, l => l.IsDiscount);
             Assert.Equal(("Herfstactie", -22m), (discount.Description, discount.LineTotal));
             Assert.Equal(198m, reservation.TotalPrice);
         }

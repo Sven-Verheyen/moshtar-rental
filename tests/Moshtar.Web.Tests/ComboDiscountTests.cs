@@ -5,9 +5,11 @@ using Moshtar.Application.Carts;
 using Moshtar.Application.Prices;
 using Moshtar.Application.Tenancy;
 using Moshtar.Application.Reservations;
+using Moshtar.Application.Schedule;
 using Moshtar.Domain.Catalog;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Rounds;
 using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Mail;
 using Moshtar.Infrastructure.Persistence;
@@ -53,7 +55,7 @@ public sealed class ComboDiscountTests(MoshtarApp app) : IClassFixture<MoshtarAp
         response.EnsureSuccessStatusCode();
 
         var reservation = await SingleReservationAsync("combo-website");
-        var discount = Assert.Single(reservation.Lines, l => l.RentalItemId is null && l.BundleId is null);
+        var discount = Assert.Single(reservation.Lines, l => l.IsDiscount);
         Assert.Equal(("2e château gonflable -40%", 1, -40m), (discount.Description, discount.Quantity, discount.UnitPrice));
         Assert.Equal(180m, reservation.TotalPrice);
         Assert.Equal(reservation.Lines.Sum(l => l.LineTotal), reservation.TotalPrice);
@@ -76,7 +78,7 @@ public sealed class ComboDiscountTests(MoshtarApp app) : IClassFixture<MoshtarAp
         // Twee dagen: prinses 120 + 60 = 180, piraat 2 × 200, molen 60. Drie springkastelen: één volledige groep, het
         // goedkoopste springkasteel (de prinses van 180) krijgt 40% korting; de goedkopere molen telt niet mee.
         var reservation = Assert.IsType<Reservation>(result.Reservation);
-        var discount = Assert.Single(reservation.Lines, l => l.RentalItemId is null && l.BundleId is null);
+        var discount = Assert.Single(reservation.Lines, l => l.IsDiscount);
         Assert.Equal(("2nd bouncy castle 40% off", -72m), (discount.Description, discount.LineTotal));
         Assert.Equal(568m, reservation.TotalPrice);
 
@@ -92,7 +94,28 @@ public sealed class ComboDiscountTests(MoshtarApp app) : IClassFixture<MoshtarAp
 
         var kept = await SingleReservationAsync("combo-backoffice");
         Assert.Equal(568m, kept.TotalPrice);
-        Assert.Equal(("2nd bouncy castle 40% off", -72m), kept.Lines.Where(l => l.RentalItemId is null).Select(l => (l.Description, l.LineTotal)).Single());
+        Assert.Equal(("2nd bouncy castle 40% off", -72m), kept.Lines.Where(l => l.IsDiscount).Select(l => (l.Description, l.LineTotal)).Single());
+    }
+
+    [Fact]
+    public async Task The_discount_line_is_nothing_to_load_in_the_planning_or_on_the_delivery_sheet()
+    {
+        var tenant = await NewTenantAsync("combo-planning");
+        var user = await app.CreateUserAsync("combo-planning", "medewerker@combo-planning.test", UserRole.Staff);
+        await using var scope = await app.TenantScopeAsync("combo-planning");
+        var day = TestReservations.FutureDay(40);
+        var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
+            new DateRange(day, day),
+            [new ReservationLineRequest(tenant.Princess, null, 1), new ReservationLineRequest(tenant.Pirate, null, 1)],
+            new ReservationCustomer("Paula", "Planning", "planning@example.test", "0470 12 34 56", new Address { Street = "Markt 1", PostalCode = "9000", City = "Gent" }),
+            DeliveryMethod.Delivery, null, null, "nl"), ReservationActor.User(user.Id));
+        Assert.Contains(result.Reservation!.Lines, l => l.IsDiscount);
+
+        var schedule = await scope.ServiceProvider.GetRequiredService<ISchedule>().GetDayAsync(day);
+
+        var stop = Assert.Single(schedule.Deliveries);
+        Assert.Equal(["Piratenkasteel", "Prinsessenkasteel"], stop.Lines.Select(l => l.Name).Order());
+        Assert.Equal(["Piratenkasteel", "Prinsessenkasteel"], DeliverySheet.For(schedule, RoundKind.Delivery).LoadingList.Select(i => i.Name));
     }
 
     [Fact]
