@@ -21,7 +21,7 @@ namespace Moshtar.Web.Tests;
 /// </summary>
 public sealed class PriceExampleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 {
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+    private static DateOnly Today => Belgium.Today(TimeProvider.System);
 
     [Fact]
     public async Task The_price_calculator_shows_what_the_cart_shows_for_the_same_choice()

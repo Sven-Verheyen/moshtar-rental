@@ -1,3 +1,4 @@
+using Moshtar.Domain.Common;
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Moshtar.Application.Catalog;
@@ -20,7 +21,7 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     {
         await using var scope = await NewTenantAsync("prijsregel-beheer");
         var castles = await Categories(scope).CreateAsync([new("nl", "Springkastelen")], Guid.Empty);
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Belgium.Today(TimeProvider.System);
 
         var id = await Rules(scope).CreateComboAsync(new ComboDiscountInput(
             [new("nl", " 2e springkasteel 40% korting "), new("fr", "2e château -40%"), new("en", "")],
@@ -72,7 +73,7 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     {
         await using var scope = await NewTenantAsync("actie-beheer");
         var castles = await Categories(scope).CreateAsync([new("nl", "Springkastelen")], Guid.Empty);
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Belgium.Today(TimeProvider.System);
 
         var id = await Rules(scope).CreatePromotionAsync(new PromotionInput(
             [new("nl", " Lenteactie "), new("fr", "Action printemps")], PricingTarget.Everything, Percentage: 10,
@@ -106,7 +107,7 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     public async Task An_invalid_promotion_is_refused()
     {
         await using var scope = await NewTenantAsync("actie-ongeldig");
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Belgium.Today(TimeProvider.System);
 
         var refused = await Assert.ThrowsAsync<PricingRuleException>(() => Rules(scope).CreatePromotionAsync(new PromotionInput(
             [new("nl", "")], PricingTarget.Chosen([], []), Percentage: 0, ReservedFrom: today, ReservedUntil: today.AddDays(-1),
@@ -129,7 +130,7 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     public async Task A_promotion_whose_end_date_is_past_is_listed_at_the_bottom()
     {
         await using var scope = await NewTenantAsync("actie-verlopen");
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Belgium.Today(TimeProvider.System);
 
         var expired = await Rules(scope).CreatePromotionAsync(new([new("nl", "A voorbij")], PricingTarget.Everything, 10, today.AddDays(-10), today.AddDays(-1)));
         var planned = await Rules(scope).CreatePromotionAsync(new([new("nl", "B gepland")], PricingTarget.Everything, 10, today.AddDays(5), today.AddDays(9)));
@@ -143,7 +144,7 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     public async Task Expired_rules_are_listed_at_the_bottom()
     {
         await using var scope = await NewTenantAsync("prijsregel-verlopen");
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Belgium.Today(TimeProvider.System);
         var target = PricingTarget.Categories(Guid.NewGuid());
 
         var expired = await Rules(scope).CreateComboAsync(new([new("nl", "A verlopen")], target, 2, 10, EndDate: today.AddDays(-1)));
@@ -187,7 +188,7 @@ public sealed class PricingRuleTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     public async Task Administrator_sees_the_promotions_on_their_tab()
     {
         var client = await app.LoggedInClientAsync("acties-beheerder@hopsakee.test", UserRole.Administrator);
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Belgium.Today(TimeProvider.System);
         await using (var scope = await app.TenantScopeAsync("hopsakee"))
             await Rules(scope).CreatePromotionAsync(new([new("nl", "Herfstactie op alles")], PricingTarget.Everything, 15, today, today.AddDays(7)));
 

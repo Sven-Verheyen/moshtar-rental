@@ -22,7 +22,7 @@ namespace Moshtar.Web.Tests;
 /// </summary>
 public sealed partial class PromotionTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 {
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+    private static DateOnly Today => Belgium.Today(TimeProvider.System);
 
     [Fact]
     public async Task The_card_shows_the_old_price_struck_through_and_the_promotion_label_without_a_date()

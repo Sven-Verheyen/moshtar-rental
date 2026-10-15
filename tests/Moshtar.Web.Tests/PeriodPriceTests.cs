@@ -28,7 +28,7 @@ public sealed class PeriodPriceTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     {
         await app.CreateTenantAsync("periode-beheer", "periode-beheer.test");
         await using var scope = await app.TenantScopeAsync("periode-beheer");
-        var today = DateOnly.FromDateTime(DateTime.Today);
+        var today = Belgium.Today(TimeProvider.System);
         var castles = Guid.NewGuid();
 
         var id = await Rules(scope).CreatePeriodPriceAsync(new PeriodPriceInput(
