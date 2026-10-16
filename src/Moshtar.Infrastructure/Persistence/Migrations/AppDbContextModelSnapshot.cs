@@ -350,6 +350,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<bool>("CreatedByImport")
+                        .HasColumnType("boolean");
+
                     b.Property<Guid?>("CreatedByUserId")
                         .HasColumnType("uuid");
 

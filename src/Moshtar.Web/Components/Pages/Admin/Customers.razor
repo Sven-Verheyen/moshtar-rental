@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @using Moshtar.Application.Customers
 @using Moshtar.Domain.Customers
+@using Moshtar.Web.Admin
 @inject ICustomerAdministration CustomerAdministration
 @inject NavigationManager Navigation
 
@@ -12,6 +13,13 @@
     <MudButton Href="admin/klanten/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" Class="mb-4">
         Nieuwe klant
     </MudButton>
+    <AuthorizeView Roles="@Roles.Administrator">
+        <MudButton Href="admin/klanten/importeren" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.UploadFile" Class="mb-4 ml-2">
+            Importeren
+        </MudButton>
+        <MudButton Href="@CustomersCsvEndpoints.ExportPath" data-enhance-nav="false" Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Download" Class="mb-4 ml-2">Exporteer als CSV</MudButton>
+    </AuthorizeView>
     <div class="d-flex flex-wrap gap-4 align-center mb-2">
         <MudTextField T="string" Value="_text" ValueChanged="SearchAsync" DebounceInterval="300" Immediate="true" Clearable="true"
                       Placeholder="Zoek op naam, bedrijfsnaam, e-mail, telefoon of gemeente" Adornment="Adornment.Start"

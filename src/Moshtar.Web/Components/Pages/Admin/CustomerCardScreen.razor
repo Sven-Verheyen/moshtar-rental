@@ -100,7 +100,7 @@
                         </MudText>
                         <MudText Typo="Typo.caption" Class="d-block mb-2">Alleen de klant zelf kan die toestemming geven, op je reservatiewebsite.</MudText>
                         <MudText>Reviewvragen: @(card.OptedOutOfReviewRequests ? "afgemeld, krijgt er geen meer" : "krijgt ze")</MudText>
-                        <MudText Typo="Typo.body2" Class="mt-3">Aangemaakt op @Local(c.CreatedAtUtc) door @By(card.CreatedBy)</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-3">Aangemaakt op @Local(c.CreatedAtUtc) @(c.CreatedByImport ? "via import door" : "door") @By(card.CreatedBy)</MudText>
                         <MudText Typo="Typo.body2">Laatst gewijzigd op @Local(c.UpdatedAtUtc) door @By(card.UpdatedBy)</MudText>
                     </MudPaper>
                 </MudItem>

@@ -80,6 +80,7 @@ public static class DependencyInjection
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
         services.AddScoped<ICustomerAdministration, CustomerAdministration>();
+        services.AddScoped<ICustomerTransfer, CustomerTransfer>();
         services.AddScoped<IVatRechecks, VatRechecks>();
         // Kort geduld: een klant of gebruiker wacht op het antwoord; te traag telt als onbereikbaar.
         services.AddHttpClient<IVatRegistry, ViesVatRegistry>(c =>

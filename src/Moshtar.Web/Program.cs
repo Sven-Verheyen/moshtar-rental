@@ -124,6 +124,7 @@ app.MapReviewQrCode();
 app.MapAnalyticsConsent();
 app.MapCartEndpoints();
 app.MapMarketingContactsExport();
+app.MapCustomersCsv();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

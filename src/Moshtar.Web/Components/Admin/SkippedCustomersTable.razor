@@ -1,0 +1,21 @@
+@using Moshtar.Application.Customers
+
+@* De rijen van een klantenimport die niet geïmporteerd worden, met de reden. *@
+<MudTable Items="Rows" Dense="true" Hover="true">
+    <HeaderContent>
+        <MudTh>Regel</MudTh>
+        <MudTh>Naam</MudTh>
+        <MudTh>E-mail</MudTh>
+        <MudTh>Reden</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.Line</MudTd>
+        <MudTd>@context.Name</MudTd>
+        <MudTd>@context.Email</MudTd>
+        <MudTd>@context.Reason</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<SkippedCustomer> Rows { get; set; } = [];
+}

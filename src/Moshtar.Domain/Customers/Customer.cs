@@ -39,6 +39,8 @@ public class Customer : TenantEntity
     public DateTime CreatedAtUtc { get; set; }
     /// <summary>De gebruiker die de klant aanmaakte; null als hij "via website" klant werd.</summary>
     public Guid? CreatedByUserId { get; set; }
+    /// <summary>Kwam de klant binnen via een import (door <see cref="CreatedByUserId"/>), in plaats van manueel of via de website?</summary>
+    public bool CreatedByImport { get; set; }
     public DateTime UpdatedAtUtc { get; set; }
     /// <summary>De gebruiker die de klant het laatst wijzigde; null als dat "via website" gebeurde.</summary>
     public Guid? UpdatedByUserId { get; set; }
