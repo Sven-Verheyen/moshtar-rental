@@ -57,4 +57,26 @@ public class BusinessDetailsTests
         Assert.Equal(7, problems.Count);
         Assert.Contains("De link naar je Google-bedrijfsprofiel moet een volledig adres zijn dat begint met https://.", problems);
     }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData(" ", false)]
+    [InlineData("https://g.page/r/abc/review", false)]
+    [InlineData("https://g.page/r/abc/review", true)]
+    public void A_full_https_review_link_or_none_is_fine_as_long_as_review_requests_are_off(string? link, bool send) =>
+        Assert.Null(BusinessDetails.ReviewLinkProblem(link, send));
+
+    [Theory]
+    [InlineData("g.page/r/abc/review", false)]
+    [InlineData("http://g.page/r/abc/review", true)]
+    public void A_review_link_must_be_a_full_https_address(string link, bool send) =>
+        Assert.Equal("De Google-reviewlink moet een volledig adres zijn dat begint met https://, zoals Google het geeft bij \"Vraag om reviews\".",
+            BusinessDetails.ReviewLinkProblem(link, send));
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(" ")]
+    public void Review_requests_cannot_be_turned_on_without_a_review_link(string? link) =>
+        Assert.Equal("Vul eerst je Google-reviewlink in: zonder link kunnen er geen reviewvragen vertrekken.",
+            BusinessDetails.ReviewLinkProblem(link, sendReviewRequests: true));
 }

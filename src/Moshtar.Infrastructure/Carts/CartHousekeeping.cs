@@ -27,8 +27,7 @@ internal sealed class CartHousekeeping(
             .ToListAsync(ct);
         if (due.Count == 0) return new CartHousekeepingResult(0, deleted);
 
-        var host = await db.TenantHosts.AsNoTracking().Where(h => h.TenantId == tenant.Id)
-            .OrderByDescending(h => h.IsPrimary).Select(h => h.Hostname).FirstOrDefaultAsync(ct);
+        var host = await db.PrimaryHostAsync(tenant.Id, ct);
         if (host is null)
         {
             logger.LogWarning("Verhuurder {Tenant} heeft geen domein: geen herinneringsmails voor winkelkarren.", tenant.Slug);

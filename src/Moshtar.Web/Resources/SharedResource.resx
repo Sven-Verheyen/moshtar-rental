@@ -136,4 +136,12 @@
   <data name="CartHasGoneItems" xml:space="preserve"><value>Iets in je winkelkar is niet meer te huren. Verwijder het en reserveer dan.</value></data>
   <data name="CartCannotReserve" xml:space="preserve"><value>Deze reservatie kan niet. Kijk de huurperiode na of neem contact met ons op.</value></data>
   <data name="ReservationThanks" xml:space="preserve"><value>Bedankt voor je reservatie</value></data>
+  <data name="PrivacyReviewTitle" xml:space="preserve"><value>Reviewvragen</value></data>
+  <data name="PrivacyReviewText" xml:space="preserve"><value>De dag na je huurperiode sturen we je één mail met de vraag of je een review over {0} wilt schrijven op Google. Die vraag kunnen we je ook via WhatsApp sturen, naar het telefoonnummer uit je reservatie. Daarvoor gebruiken we je naam, e-mailadres en telefoonnummer uit je reservatie. Iedereen krijgt dezelfde vraag, zonder beloning, en je bent niet verplicht een review te schrijven. Wil je geen reviewvragen meer, klik dan onderaan die mail op ‘Ik wil geen reviewvragen meer’ of laat het ons weten; we bewaren dan je e-mailadres en wanneer je je afmeldde, zodat je er geen meer krijgt, per mail noch via WhatsApp. Je reservatiemails krijg je wel nog.</value></data>
+  <data name="ReviewOptOutTitle" xml:space="preserve"><value>Geen reviewvragen meer</value></data>
+  <data name="ReviewOptOutIntro" xml:space="preserve"><value>Wil je van {0} geen mails meer met de vraag om een review te schrijven?</value></data>
+  <data name="ReviewOptOutButton" xml:space="preserve"><value>Ik wil geen reviewvragen meer</value></data>
+  <data name="ReviewOptOutDone" xml:space="preserve"><value>Je krijgt van {0} geen reviewvragen meer.</value></data>
+  <data name="ReviewOptOutOtherMails" xml:space="preserve"><value>Mails over je reservaties krijg je wel nog, en je keuze over nieuws en acties blijft dezelfde.</value></data>
+  <data name="ReviewOptOutInvalid" xml:space="preserve"><value>Deze link werkt niet. Kopieer de volledige link uit de mail, of neem contact met ons op.</value></data>
 </root>

@@ -3,7 +3,9 @@
 @rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Infrastructure.Persistence
+@using Moshtar.Domain.Reviews
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject Moshtar.Application.Reviews.IReviewOptOuts ReviewOptOuts
 @inject IReservationService ReservationService
 @inject IReservationAlternatives ReservationAlternatives
 @inject ISnackbar Snackbar
@@ -31,7 +33,13 @@
         </HeaderContent>
         <RowTemplate>
             <MudTd>@context.Number</MudTd>
-            <MudTd>@context.Customer?.FirstName @context.Customer?.LastName<br /><small>@context.Customer?.Email</small></MudTd>
+            <MudTd>
+                @context.Customer?.FirstName @context.Customer?.LastName<br /><small>@context.Customer?.Email</small>
+                @if (context.Customer is { } customer && _optedOut.Contains(ReviewOptOut.Normalize(customer.Email)))
+                {
+                    <br /><small class="mud-text-secondary">Afgemeld voor reviewvragen</small>
+                }
+            </MudTd>
             <MudTd>@context.StartDate.ToString("dd/MM/yyyy") – @context.EndDate.ToString("dd/MM/yyyy")</MudTd>
             <MudTd>@string.Join(", ", context.Lines.Select(LineText))</MudTd>
             <MudTd>@(context.DeliveryMethod == DeliveryMethod.Delivery ? "Leveren" : "Afhalen")</MudTd>
@@ -111,7 +119,7 @@
                                     <tr>
                                         <td>@LocalTime(entry.OccurredAtUtc)</td>
                                         <td>@EventLabel(entry)</td>
-                                        <td>@(entry.UserEmail ?? "via website")</td>
+                                        <td>@(entry.UserEmail ?? (entry.Automatic ? "automatisch" : "via website"))</td>
                                     </tr>
                                 }
                             </tbody>
@@ -128,6 +136,8 @@
     private static readonly System.Globalization.CultureInfo Money = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
     private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
     private List<Reservation>? _reservations;
+    /// <summary>De klanten in de lijst die zich afmeldden voor reviewvragen, zodat je ziet waarom ze er geen kregen.</summary>
+    private IReadOnlySet<string> _optedOut = new HashSet<string>();
     private readonly Dictionary<Guid, IReadOnlyList<ReservationHistoryEntry>> _history = [];
     private readonly Dictionary<Guid, ReplaceState> _replace = [];
 
@@ -154,6 +164,7 @@
             .Where(r => string.IsNullOrEmpty(number) || r.Number == number)
             .OrderByDescending(r => r.StartDate).ThenBy(r => r.Number)
             .Take(200).ToListAsync();
+        _optedOut = await ReviewOptOuts.OptedOutAmongAsync(_reservations.Where(r => r.Customer is not null).Select(r => r.Customer!.Email));
     }
 
     private static readonly ReservationStatus[] NextStatuses =
@@ -225,6 +236,8 @@
         ReservationEventKind.AddressCorrected => "Leveradres verbeterd",
         ReservationEventKind.PointConfirmed => "Speld op de kaart bevestigd",
         ReservationEventKind.ExpectedTimeMailed => "Verwacht tijdsvenster gemaild",
+        ReservationEventKind.ReviewRequestMailed => "Reviewvraag gemaild",
+        ReservationEventKind.ReviewRequestWhatsApp => "Reviewvraag via WhatsApp",
         ReservationEventKind.AlternativesMailed => entry.Note is { } note ? $"Alternatieven gemaild: {note}" : "Alternatieven gemaild",
         ReservationEventKind.ItemReplaced => entry.Note is { } replaced ? $"Artikel vervangen: {replaced}" : "Artikel vervangen",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",

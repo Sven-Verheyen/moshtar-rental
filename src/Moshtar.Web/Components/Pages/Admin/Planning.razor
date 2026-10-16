@@ -8,6 +8,7 @@
 @inject ISchedule Schedule
 @inject IRoundPlanner Rounds
 @inject IRoundMessages RoundMessages
+@inject Moshtar.Application.Reviews.IReviewWhatsApp ReviewWhatsApp
 @inject IReservationService ReservationService
 @inject TimeProvider Clock
 @inject NavigationManager Navigation
@@ -119,6 +120,40 @@
             </section>
         }
     }
+    @if (View == PlanningView.Day && _reviews is { Count: > 0 } reviews)
+    {
+        <section id="reviewvragen" class="planning-round">
+            <MudText Typo="Typo.h6">Reviewvragen</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                Klanten van wie de huurperiode onlangs eindigde. De WhatsApp-knop opent WhatsApp met het bericht al ingevuld; je verstuurt het zelf.
+            </MudText>
+            @foreach (var review in reviews)
+            {
+                <MudPaper Class="planning-stop pa-3 mb-2" Outlined="true" data-reservation="@review.Number">
+                    <div class="d-flex flex-wrap align-center gap-2">
+                        <MudText Typo="Typo.subtitle1"><b>@review.CustomerName</b></MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">@string.Join(", ", review.Numbers)</MudText>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">einde @review.EndDate.ToString("d MMMM", Belgium.Dutch)</MudText>
+                        <MudSpacer />
+                        @if (review.WhatsAppAt is { } whatsAppAt)
+                        {
+                            <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined" Icon="@Icons.Custom.Brands.WhatsApp">WhatsApp op @Belgium.Local(whatsAppAt).ToString("HH:mm")</MudChip>
+                        }
+                        else if (review.WhatsAppLink is { } whatsAppLink)
+                        {
+                            @* Opent WhatsApp met het ingevulde bericht; de gebruiker verstuurt het zelf. De klik wordt onthouden. *@
+                            <MudButton Href="@whatsAppLink" Target="_blank" Rel="noopener" Size="Size.Small" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Custom.Brands.WhatsApp" data-action="review-whatsapp" OnClick="() => ReviewWhatsAppAsync(review)">WhatsApp</MudButton>
+                        }
+                        else
+                        {
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">Geen gsm-nummer</MudText>
+                        }
+                    </div>
+                </MudPaper>
+            }
+        </section>
+    }
     <p class="mt-6"><MudLink Href="admin/reservaties">Alle reservaties</MudLink></p>
 </AdminShell>
 
@@ -132,6 +167,9 @@
     [SupplyParameterFromQuery(Name = "weergave")] private string? Weergave { get; set; }
 
     private ScheduleDay? _day;
+
+    /// <summary>Het blok "Reviewvragen" van de dag; leeg als de schakelaar uit staat of het een toekomstige dag is.</summary>
+    private IReadOnlyList<Moshtar.Application.Reviews.ReviewWhatsAppRequest>? _reviews;
 
     /// <summary>De dagen van de week of maand.</summary>
     private IReadOnlyList<ScheduleDay>? _days;
@@ -175,13 +213,18 @@
         _day = null;
         _pinFor = null;
         _days = null;
+        _reviews = null;
         if (View == PlanningView.Week) _days = await Schedule.GetDaysAsync(Monday, Monday.AddDays(6));
         else if (View == PlanningView.Month)
         {
             var first = new DateOnly(Day.Year, Day.Month, 1);
             _days = await Schedule.GetDaysAsync(first, first.AddMonths(1).AddDays(-1));
         }
-        else _day = await Schedule.GetDayAsync(Day);
+        else
+        {
+            _day = await Schedule.GetDayAsync(Day);
+            _reviews = await ReviewWhatsApp.ForDayAsync(Day);
+        }
     }
 
     private static string Url(PlanningView view, DateOnly day) => PlanningViews.Url(view, day);
@@ -279,6 +322,21 @@
             Snackbar.Add(NotSaved(kind), Severity.Error);
         }
         _day = await Schedule.GetDayAsync(Day);
+    }
+
+    /// <summary>De WhatsApp-knop van een reviewvraag opent WhatsApp in een nieuw tabblad; hier wordt de klik onthouden.</summary>
+    private async Task ReviewWhatsAppAsync(Moshtar.Application.Reviews.ReviewWhatsAppRequest review)
+    {
+        try
+        {
+            var actor = (await AuthenticationState).User.AsReservationActor();
+            await ReviewWhatsApp.RecordAsync(Day, review.ReservationId, actor);
+        }
+        catch (InvalidOperationException e)
+        {
+            Snackbar.Add(e.Message, Severity.Error);
+        }
+        _reviews = await ReviewWhatsApp.ForDayAsync(Day);
     }
 
     private Task MoveAsync(RoundKind kind, (ScheduleStop Stop, int Position) move) =>

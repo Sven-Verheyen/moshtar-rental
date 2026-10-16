@@ -20,6 +20,7 @@ public sealed class ReservationHistoryTests(MoshtarApp app) : IClassFixture<Mosh
         var created = Assert.Single(history);
         Assert.Equal(ReservationEventKind.Created, created.Kind);
         Assert.Null(created.UserEmail);
+        Assert.False(created.Automatic);
         Assert.InRange(created.OccurredAtUtc, before, DateTime.UtcNow);
     }
 

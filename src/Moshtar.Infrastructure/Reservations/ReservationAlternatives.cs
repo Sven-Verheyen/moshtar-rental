@@ -61,8 +61,7 @@ internal sealed class ReservationAlternatives(
 
         var reservation = found.Reservation;
         var language = ReservationConfirmation.LanguageOf(reservation, tenant);
-        var host = await db.TenantHosts.AsNoTracking().Where(h => h.TenantId == tenant.Id)
-            .OrderByDescending(h => h.IsPrimary).Select(h => h.Hostname).FirstOrDefaultAsync(ct)
+        var host = await db.PrimaryHostAsync(tenant.Id, ct)
             ?? throw new InvalidOperationException("Je hebt nog geen domein: de links naar de artikelpagina's kunnen nergens heen.");
         var surcharges = chosen.ToDictionary(c => c.RentalItemId, c => c.Surcharge is > 0 ? c.Surcharge : null);
         var mailed = chosen.Select(c => free[c.RentalItemId]).Select(a => new MailedAlternative(

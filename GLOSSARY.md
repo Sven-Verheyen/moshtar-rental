@@ -97,7 +97,7 @@ Een reservatie aanmaken, door een klant op de website of door een gebruiker in h
 _Avoid_: boeken, bestellen
 
 **Historiek** (`History`):
-De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd, alternatieven gemaild of een artikel vervangen, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
+De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd, alternatieven gemaild, een artikel vervangen, reviewvraag gemaild of reviewvraag via WhatsApp, telkens met tijdstip en wie het deed: een gebruiker, "via website" als de klant het zelf deed, of "automatisch" als Moshtar het zelf deed, zoals de reviewvraag mailen.
 _Avoid_: audit log, logboek, geschiedenis
 
 **Huurperiode** (`DateRange`):
@@ -198,6 +198,10 @@ _Avoid_: reviewverzoek, feedbackmail, enquête
 **Reviewlink** (`ReviewLink`):
 De link van Google waarmee een klant meteen een review over de verhuurder schrijft, ook als QR-code. Hij hoort bij de bedrijfsgegevens en is iets anders dan de link naar het Google-bedrijfsprofiel.
 _Avoid_: Google-link, reviewpagina
+
+**Afgemeld voor reviewvragen** (`ReviewOptOut`):
+Een e-mailadres dat via de link onderaan een reviewvraag liet weten geen reviewvragen meer te willen. Het krijgt bij die verhuurder geen reviewvraag meer, per mail noch via WhatsApp; reservatiemails en een toestemming als marketingcontact blijven ongewijzigd.
+_Avoid_: uitgeschreven, opt-out, blacklist
 
 **Huisstijl** (`Branding`):
 Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office.

@@ -1,0 +1,59 @@
+@* "geen-reviewvragen", "plus-de-demandes-d-avis" en "no-review-requests" (ADR 0004). *@
+@page "/geen-reviewvragen"
+@page "/plus-de-demandes-d-avis"
+@page "/no-review-requests"
+@using Moshtar.Application.Reviews
+@inject ITenantContext TenantContext
+@inject ReviewOptOutLinks OptOutLinks
+@inject IReviewOptOuts OptOuts
+@inject SiteLinks Links
+@inject IStringLocalizer<SharedResource> L
+
+<SiteHead Title="@L["ReviewOptOutTitle"]" NoIndex="true" />
+
+@* De link uit de reviewvraag opent deze pagina; pas de knop meldt af, zodat een virusscanner die de link opent
+   niemand afmeldt. *@
+<div class="page review-opt-out">
+    <h1>@L["ReviewOptOutTitle"]</h1>
+    @if (_email is null)
+    {
+        <p class="lead">@L["ReviewOptOutInvalid"]</p>
+        <p><a href="@Links.Href(SiteRoute.Contact)">@L["Contact"]</a></p>
+    }
+    else if (_done)
+    {
+        <p class="lead" role="status">@L["ReviewOptOutDone", TenantName]</p>
+        <p>@L["ReviewOptOutOtherMails"]</p>
+    }
+    else
+    {
+        <p class="lead">@L["ReviewOptOutIntro", TenantName]</p>
+        <form method="post" @formname="afmelden" @onsubmit="OptOutAsync">
+            <AntiforgeryToken />
+            <button type="submit" class="button">@L["ReviewOptOutButton"]</button>
+        </form>
+        <p>@L["ReviewOptOutOtherMails"]</p>
+    }
+</div>
+
+@code {
+    private string? _email;
+    private bool _done;
+
+    [SupplyParameterFromQuery(Name = ReviewOptOutLinks.TokenKey)] private string? Token { get; set; }
+
+    private string TenantName => TenantContext.Tenant?.Name ?? "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _email = OptOutLinks.EmailFrom(Token);
+        if (_email is not null) _done = await OptOuts.IsOptedOutAsync(_email);
+    }
+
+    private async Task OptOutAsync()
+    {
+        if (_email is null) return;
+        await OptOuts.OptOutAsync(_email);
+        _done = true;
+    }
+}

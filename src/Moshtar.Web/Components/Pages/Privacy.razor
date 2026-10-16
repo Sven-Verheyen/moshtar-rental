@@ -43,6 +43,12 @@
     <h2>@L["PrivacyMarketingTitle"]</h2>
     <p>@L["PrivacyMarketingText", Tenant?.Name ?? ""]</p>
 
+    @if (Tenant?.ReviewRequestsSince is not null)
+    {
+        <h2>@L["PrivacyReviewTitle"]</h2>
+        <p>@L["PrivacyReviewText", Tenant.Name]</p>
+    }
+
     <h2>@L["PrivacyCookiesTitle"]</h2>
     <p>@L["PrivacyCookiesText"]</p>
 

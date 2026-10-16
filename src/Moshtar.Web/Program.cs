@@ -1,5 +1,6 @@
 using Moshtar.Web.Admin;
 using System.Globalization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,11 @@ builder.Services.AddMudServices();
 builder.Services.AddInfrastructure(builder.Configuration,
     sendRealMail: !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"),
     useAzureMaps: !builder.Environment.IsEnvironment("Testing"));
+// De sleutels voor logincookies, antiforgery en de afmeldlink van de reviewvraag in de databank, onder een vaste naam:
+// zo blijven ze geldig na een herstart, een nieuwe versie en op elke server.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Moshtar")
+    .PersistKeysToDbContext<AppDbContext>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<HostTenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HostTenantContext>());
@@ -32,9 +38,14 @@ builder.Services.AddBackOfficeIdentity();
 builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
 builder.Services.AddScoped<SiteLinks>();
 builder.Services.AddScoped<CartCount>();
+builder.Services.AddScoped<ReviewOptOutLinks>();
+builder.Services.AddScoped<Moshtar.Application.Reviews.IReviewOptOutLinks>(sp => sp.GetRequiredService<ReviewOptOutLinks>());
 // In de tests loopt het onderhoud alleen als een test het zelf start, met zijn eigen klok.
 if (!builder.Environment.IsEnvironment("Testing"))
+{
     builder.Services.AddHostedService<CartHousekeepingWorker>();
+    builder.Services.AddHostedService<ReviewRequestWorker>();
+}
 // Eén antiforgery-cookie voor de hele site, ook als de eerste pagina onder /fr of /en lag.
 builder.Services.Configure<Microsoft.AspNetCore.Antiforgery.AntiforgeryOptions>(o => o.Cookie.Path = "/");
 
@@ -108,6 +119,7 @@ app.MapPost(IdentitySetup.LogoutPath, async (SignInManager<User> signInManager, 
 
 app.MapStaticAssets();
 app.MapSiteFiles();
+app.MapReviewQrCode();
 app.MapAnalyticsConsent();
 app.MapCartEndpoints();
 app.MapMarketingContactsExport();

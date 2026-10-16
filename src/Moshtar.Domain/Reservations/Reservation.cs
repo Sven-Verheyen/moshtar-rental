@@ -48,6 +48,18 @@ public class Reservation : TenantEntity
     /// <summary>Wanneer de klant het laatst een mail met alternatieven kreeg, of null.</summary>
     public DateTime? AlternativesMailedAtUtc { get; set; }
 
+    /// <summary>
+    /// Wanneer de reviewvraag voor deze reservatie vertrok, of null. Een reservatie krijgt er één: dit tijdstip wordt
+    /// gezet zodra de mail vertrokken is, en wat het heeft, wordt niet opnieuw gemaild.
+    /// </summary>
+    public DateTime? ReviewRequestMailedAtUtc { get; set; }
+
+    /// <summary>
+    /// Wanneer een gebruiker in de Planning op de WhatsApp-knop van de reviewvraag drukte, of null. Moshtar verstuurt
+    /// zelf niets: de gebruiker verstuurt het ingevulde bericht vanaf het nummer van de verhuurder.
+    /// </summary>
+    public DateTime? ReviewRequestWhatsAppAtUtc { get; set; }
+
     public List<ReservationLine> Lines { get; set; } = [];
 
     /// <summary>Wie wat deed met deze reservatie, en wanneer.</summary>
@@ -150,10 +162,24 @@ public class Reservation : TenantEntity
     public void RecordExpectedTimeMailed(ReservationActor actor, DateTime atUtc) =>
         Record(ReservationEventKind.ExpectedTimeMailed, actor, atUtc);
 
+    /// <summary>Noteert op de reservatie en in de historiek dat de klant de reviewvraag gemaild kreeg.</summary>
+    public void RecordReviewRequestMailed(DateTime atUtc)
+    {
+        ReviewRequestMailedAtUtc = atUtc;
+        Record(ReservationEventKind.ReviewRequestMailed, ReservationActor.Automatic, atUtc);
+    }
+
+    /// <summary>Noteert op de reservatie en in de historiek dat een gebruiker de reviewvraag via WhatsApp stuurde.</summary>
+    public void RecordReviewRequestWhatsApp(ReservationActor actor, DateTime atUtc)
+    {
+        ReviewRequestWhatsAppAtUtc = atUtc;
+        Record(ReservationEventKind.ReviewRequestWhatsApp, actor, atUtc);
+    }
+
     private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc, string? note = null) =>
         History.Add(new ReservationEvent
         {
-            ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId,
+            ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId, Automatic = actor.IsAutomatic,
             Note = note is { Length: > ReservationEvent.MaxNoteLength } ? note[..(ReservationEvent.MaxNoteLength - 1)] + "…" : note,
         });
 

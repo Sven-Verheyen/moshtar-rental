@@ -220,7 +220,7 @@ internal sealed class ReservationService(
                join u in db.Users on e.UserId equals u.Id into users
                from u in users.DefaultIfEmpty()
                orderby e.OccurredAtUtc descending, e.Kind descending
-               select new ReservationHistoryEntry(e.OccurredAtUtc, e.Kind, e.Status, u.Email, e.Note))
+               select new ReservationHistoryEntry(e.OccurredAtUtc, e.Kind, e.Status, u.Email, e.Note, e.Automatic))
             .ToListAsync(ct);
     }
 

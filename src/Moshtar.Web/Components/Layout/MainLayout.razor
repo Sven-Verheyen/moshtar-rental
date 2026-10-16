@@ -28,7 +28,7 @@
         <nav class="languages" aria-label="@L["ChooseLanguage"]">
             @foreach (var culture in Links.Cultures)
             {
-                <a href="@Links.Href(Links.Current ?? SiteRoute.Home, culture)" hreflang="@culture" lang="@culture"
+                <a href="@LanguageHref(culture)" hreflang="@culture" lang="@culture"
                    title="@CultureInfo.GetCultureInfo(culture).NativeName"
                    aria-current="@(culture == Links.Culture ? "page" : null)">@culture.ToUpperInvariant()</a>
             }
@@ -117,6 +117,17 @@
             .Where(s => BusinessDetails.Link(s.Item2) is not null)
             .Select(s => (s.Item1, BusinessDetails.Link(s.Item2)!))
             .ToList();
+
+    /// <summary>
+    /// Dezelfde pagina in een andere taal. De afmeldpagina voor reviewvragen houdt haar code: zonder is de link ongeldig.
+    /// </summary>
+    private string LanguageHref(string culture)
+    {
+        var href = Links.Href(Links.Current ?? SiteRoute.Home, culture);
+        return Links.Current is ReviewOptOutRoute && HttpContext?.Request.Query[ReviewOptOutLinks.TokenKey].ToString() is { Length: > 0 } code
+            ? $"{href}?{ReviewOptOutLinks.TokenKey}={Uri.EscapeDataString(code)}"
+            : href;
+    }
 
     private string OfferHref => Links.Href(SiteRoute.Home) + "#aanbod";
 

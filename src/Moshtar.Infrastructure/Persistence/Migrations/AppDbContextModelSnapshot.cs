@@ -23,6 +23,25 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("FriendlyName")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Xml")
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataProtectionKeys");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<System.Guid>", b =>
                 {
                     b.Property<int>("Id")
@@ -640,6 +659,12 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateTime?>("ReviewRequestMailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ReviewRequestWhatsAppAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
@@ -672,6 +697,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("Automatic")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("Kind")
                         .HasColumnType("integer");
 
@@ -703,6 +731,33 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.HasIndex("ReservationId", "OccurredAtUtc");
 
                     b.ToTable("ReservationEvents", (string)null);
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Reviews.ReviewOptOut", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTime>("OptedOutAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique();
+
+                    b.ToTable("ReviewOptOuts");
                 });
 
             modelBuilder.Entity("Moshtar.Domain.Rounds.Round", b =>
@@ -814,6 +869,13 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("PrimaryColor")
                         .HasColumnType("text");
+
+                    b.Property<string>("ReviewLink")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("ReviewRequestsSince")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("SenderEmail")
                         .HasMaxLength(254)

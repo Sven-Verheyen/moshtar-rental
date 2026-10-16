@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Tenancy;
@@ -10,6 +11,7 @@ using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Prices;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Reviews;
 using Moshtar.Domain.Rounds;
 using Moshtar.Domain.Tenants;
 using Moshtar.Domain.Website;
@@ -17,8 +19,14 @@ using Moshtar.Infrastructure.Identity;
 
 namespace Moshtar.Infrastructure.Persistence;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : IdentityUserContext<User, Guid>(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : IdentityUserContext<User, Guid>(options), IDataProtectionKeyContext
 {
+    /// <summary>
+    /// De sleutels van ASP.NET Core Data Protection (logincookies, antiforgery, de afmeldlink van de reviewvraag), voor
+    /// alle verhuurders samen: zo blijven ze geldig na een herstart en op elke server.
+    /// </summary>
+    public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
+
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<TenantHost> TenantHosts => Set<TenantHost>();
     public DbSet<Category> Categories => Set<Category>();
@@ -34,6 +42,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<WebsiteTextCustomization> WebsiteTextCustomizations => Set<WebsiteTextCustomization>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<MarketingContact> MarketingContacts => Set<MarketingContact>();
+    public DbSet<ReviewOptOut> ReviewOptOuts => Set<ReviewOptOut>();
     public DbSet<OldSlug> OldSlugs => Set<OldSlug>();
     public DbSet<PricingRule> PricingRules => Set<PricingRule>();
 
