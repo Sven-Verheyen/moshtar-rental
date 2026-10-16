@@ -25,7 +25,7 @@ Een gebruiker die reservaties opvolgt, maar geen prijzen, voorraad, instellingen
 _Avoid_: personeel, operator
 
 **Bedrijfsgegevens** (`BusinessDetails`):
-Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien, en het meet-ID van zijn Google Analytics.
+Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien, het meet-ID van zijn Google Analytics en zijn reviewlink.
 _Avoid_: profiel, contactgegevens
 
 **Toestemming** (`AnalyticsConsent`):
@@ -190,6 +190,14 @@ _Avoid_: template, e-mailtekst, mailtemplate
 **Websitetekst** (`WebsiteText`):
 Een tekst van de reservatiewebsite die een verhuurder per taal kan aanpassen: titel en ondertitel van de home, naam, slug en inleiding van een categorie, en de veelgestelde vragen. Zolang de verhuurder niets aanpast, geldt de standaardtekst van Moshtar, met zijn naam en werkgebied ingevuld.
 _Avoid_: content, pagina-inhoud, copy
+
+**Reviewvraag** (`ReviewRequest`):
+Het bericht dat een verhuurder een klant de dag na de einddag van elke reservatie stuurt, per mail en via WhatsApp, met de vraag een Google-review te plaatsen. Elke klant krijgt dezelfde vraag, zonder beloning; wie zich afmeldt, krijgt er geen meer.
+_Avoid_: reviewverzoek, feedbackmail, enquête
+
+**Reviewlink** (`ReviewLink`):
+De link van Google waarmee een klant meteen een review over de verhuurder schrijft, ook als QR-code. Hij hoort bij de bedrijfsgegevens en is iets anders dan de link naar het Google-bedrijfsprofiel.
+_Avoid_: Google-link, reviewpagina
 
 **Huisstijl** (`Branding`):
 Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office.
