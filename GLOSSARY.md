@@ -69,7 +69,7 @@ Het adres van een klant waarop hij gefactureerd wordt. Standaard is het hetzelfd
 _Avoid_: facturatieadres, betaaladres
 
 **Btw-databank** (`VatRegistry`):
-De databank van de Europese Unie (VIES) die zegt of een btw-nummer bestaat, en voor veel landen op welke naam en welk adres. Een btw-nummer dat de btw-databank niet kent, is ongeldig; is ze onbereikbaar, dan is het nummer nog niet gecontroleerd.
+De databank van de Europese Unie (VIES) die zegt of een btw-nummer uit een EU-land bestaat, en voor veel landen op welke naam en welk adres. Een EU-btw-nummer dat de btw-databank na controle niet kent, is ongeldig. Is ze onbereikbaar, dan is het nummer nog niet gecontroleerd. Een btw-nummer van buiten de EU is niet te controleren.
 _Avoid_: VIES (in gesprekken), btw-register, KBO
 
 **Anonimiseren** (`Anonymize`):
