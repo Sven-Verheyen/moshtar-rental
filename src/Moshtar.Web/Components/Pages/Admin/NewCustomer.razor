@@ -1,0 +1,24 @@
+@page "/admin/klanten/nieuw"
+@layout AdminLayout
+@rendermode InteractiveServer
+@inject ITenantContext TenantContext
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Nieuwe klant</PageTitle>
+
+<AdminShell Title="Nieuwe klant">
+    <CustomerEditor Form="_form" OnSaved="Saved" OnCancel="@(() => Navigation.NavigateTo("admin/klanten"))" />
+</AdminShell>
+
+@code {
+    private CustomerForm _form = new();
+
+    protected override void OnInitialized() => _form = new CustomerForm { Culture = TenantContext.Tenant?.DefaultCulture ?? "nl" };
+
+    private void Saved(Guid id)
+    {
+        Snackbar.Add("De klant is toegevoegd.", Severity.Success);
+        Navigation.NavigateTo($"admin/klanten/{id}");
+    }
+}

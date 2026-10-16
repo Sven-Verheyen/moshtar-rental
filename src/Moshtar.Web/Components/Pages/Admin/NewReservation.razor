@@ -4,12 +4,15 @@
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Domain.Availability
 @using Moshtar.Domain.Common
+@using Moshtar.Domain.Customers
+@using Moshtar.Application.Customers
 @using Moshtar.Infrastructure.Persistence
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject IReservationService ReservationService
 @inject ITenantContext TenantContext
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject ICustomerAdministration Customers
 
 <PageTitle>Nieuwe reservatie</PageTitle>
 
@@ -48,12 +51,45 @@
                             <MudRadio Value="DeliveryMethod.Pickup">Afhalen</MudRadio>
                         </MudRadioGroup>
                     }
+                    @if (_form.DeliveryMethod == DeliveryMethod.Delivery)
+                    {
+                        <MudCheckBox @bind-Value="_form.DeliverToCustomerAddress" Label="Leveren op het adres van de klant" Color="Color.Primary" />
+                        @if (!_form.DeliverToCustomerAddress)
+                        {
+                            <MudTextField @bind-Value="_form.DeliveryStreet" Label="Leveradres: straat en huisnummer" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
+                            <div class="d-flex gap-2">
+                                <MudTextField @bind-Value="_form.DeliveryPostalCode" Label="Postcode" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 8rem" MaxLength="10" />
+                                <MudTextField @bind-Value="_form.DeliveryCity" Label="Gemeente" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" />
+                            </div>
+                        }
+                    }
                     <MudTextField @bind-Value="_form.Notes" Label="Opmerkingen" Lines="3" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.Notes" />
                 </MudPaper>
             </MudItem>
             <MudItem xs="12" md="5">
                 <MudPaper Class="pa-4 mb-4">
                     <MudText Typo="Typo.h6" Class="mb-2">Klant</MudText>
+                    <MudAutocomplete T="CustomerListItem" Label="Bestaande klant zoeken" Placeholder="Naam, bedrijfsnaam, e-mail, telefoon of gemeente"
+                                     SearchFunc="SearchCustomersAsync" ToStringFunc="CustomerLabel" ValueChanged="ChooseCustomerAsync"
+                                     DebounceInterval="300" Clearable="true" Variant="Variant.Outlined" Margin="Margin.Dense"
+                                     AdornmentIcon="@Icons.Material.Filled.Search" Class="mb-2" />
+                    @if (_form.CustomerId is { } customerId)
+                    {
+                        <MudText Typo="Typo.body2" Class="mb-2">
+                            Bestaande klant · <MudLink Href="@($"admin/klanten/{customerId}")">klantfiche</MudLink>.
+                            Wat je hier wijzigt, komt ook op de klantfiche.
+                        </MudText>
+                    }
+                    <MudRadioGroup T="CustomerKind" @bind-Value="_form.Kind">
+                        <MudRadio Value="CustomerKind.Private">Particulier</MudRadio>
+                        <MudRadio Value="CustomerKind.Business">Bedrijf of organisatie</MudRadio>
+                    </MudRadioGroup>
+                    @if (_form.Kind == CustomerKind.Business)
+                    {
+                        <MudTextField @bind-Value="_form.CompanyName" Label="Bedrijfsnaam" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
+                        <VatNumberField Form="_form" OnFilled="StateHasChanged" />
+                        <MudText Typo="Typo.subtitle2" Class="mt-2">Contactpersoon</MudText>
+                    }
                     <div class="d-flex gap-2">
                         <MudTextField @bind-Value="_form.FirstName" Label="Voornaam" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.FirstName" />
                         <MudTextField @bind-Value="_form.LastName" Label="Achternaam" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.LastName" />
@@ -65,6 +101,16 @@
                         <MudTextField @bind-Value="_form.PostalCode" Label="Postcode" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.PostalCode" Style="max-width: 8rem" />
                         <MudTextField @bind-Value="_form.City" Label="Gemeente" Variant="Variant.Outlined" Margin="Margin.Dense" For="() => _form.City" />
                     </div>
+                    <MudCheckBox @bind-Value="_form.SameBillingAddress" Label="Factuuradres is hetzelfde" Color="Color.Primary" />
+                    @if (!_form.SameBillingAddress)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mt-2">Factuuradres</MudText>
+                        <MudTextField @bind-Value="_form.BillingStreet" Label="Straat en huisnummer" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
+                        <div class="d-flex gap-2">
+                            <MudTextField @bind-Value="_form.BillingPostalCode" Label="Postcode" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 8rem" MaxLength="10" />
+                            <MudTextField @bind-Value="_form.BillingCity" Label="Gemeente" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" />
+                        </div>
+                    }
                     <MudSelect T="string" @bind-Value="_form.Culture" Label="Taal van de klant" Variant="Variant.Outlined" Margin="Margin.Dense">
                         @foreach (var culture in TenantContext.Tenant?.Cultures ?? ["nl"])
                         {
@@ -101,9 +147,14 @@
 
     [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
+    /// <summary>De klant voor wie de reservatie start, vanaf zijn klantfiche.</summary>
+    [SupplyParameterFromQuery(Name = "klant")] public Guid? CustomerId { get; set; }
+
     protected override async Task OnInitializedAsync()
     {
         _form.Culture = TenantContext.Tenant?.DefaultCulture ?? "nl";
+        if (CustomerId is { } customerId && await Customers.GetAsync(customerId) is { } card)
+            _form.Fill(card.Customer);
         await using var db = await DbFactory.CreateDbContextAsync();
         var items = await db.RentalItems.AsNoTracking().ToListAsync();
         var active = items.Where(i => i.IsActive).Select(i => i.Id).ToHashSet();
@@ -125,13 +176,12 @@
         _busy = true;
         try
         {
-            var address = new Address { Street = _form.Street, PostalCode = _form.PostalCode, City = _form.City };
             var result = await ReservationService.ReserveAsync(new ReservationRequest(
                 new Moshtar.Domain.Common.DateRange(DateOnly.FromDateTime(_form.StartDate!.Value), DateOnly.FromDateTime(_form.EndDate!.Value)),
                 _form.Lines.Select(ToRequest).ToList(),
-                new ReservationCustomer(_form.FirstName, _form.LastName, _form.Email, _form.Phone, address),
+                _form.Customer(),
                 _form.DeliveryMethod,
-                address,
+                _form.DeliveryAddress,
                 _form.Notes,
                 _form.Culture),
                 (await AuthenticationState).User.AsReservationActor());
@@ -163,8 +213,25 @@
             errors.Add("Het aantal moet minstens 1 zijn.");
         if (_form.EndDate < _form.StartDate)
             errors.Add("De einddatum ligt voor de begindatum.");
+        if (_form.DeliveryMethod == DeliveryMethod.Delivery && !_form.DeliverToCustomerAddress &&
+            (string.IsNullOrWhiteSpace(_form.DeliveryStreet) || string.IsNullOrWhiteSpace(_form.DeliveryPostalCode) || string.IsNullOrWhiteSpace(_form.DeliveryCity)))
+            errors.Add("Vul de straat met huisnummer, de postcode en de gemeente van het leveradres in.");
         return errors;
     }
+
+    private async Task<IEnumerable<CustomerListItem>> SearchCustomersAsync(string? text, CancellationToken ct) =>
+        string.IsNullOrWhiteSpace(text) ? [] : (await Customers.SearchAsync(new CustomerSearch(text, PageSize: 10), ct)).Items;
+
+    /// <summary>Een gekozen klant vult zijn gegevens in; het leveradres wordt dan weer zijn adres.</summary>
+    private async Task ChooseCustomerAsync(CustomerListItem? item)
+    {
+        if (item is null || await Customers.GetAsync(item.Id) is not { } card) return;
+        _form.Fill(card.Customer);
+        _form.DeliverToCustomerAddress = true;
+    }
+
+    private static string CustomerLabel(CustomerListItem? c) => c is null ? "" :
+        (c.Kind == CustomerKind.Business ? $"{c.CompanyName} ({c.FirstName} {c.LastName})" : $"{c.FirstName} {c.LastName}") + $" · {c.Email}";
 
     private static ReservationLineRequest ToRequest(ManualReservationLine line)
     {

@@ -1,5 +1,6 @@
 using Moshtar.Domain.Availability;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Customers;
 using Moshtar.Domain.Reservations;
 
 namespace Moshtar.Application.Reservations;
@@ -65,12 +66,21 @@ public record ReservationHistoryEntry(DateTime OccurredAtUtc, ReservationEventKi
 
 public record ReservationLineRequest(Guid? RentalItemId, Guid? BundleId, int Quantity);
 
+/// <summary>
+/// De klant zoals hij bij het reserveren ingevuld werd. Voor een zakelijke klant zijn voornaam en achternaam die van de
+/// contactpersoon; een particuliere klant heeft geen bedrijfsnaam of btw-nummer, ook als die toch meegestuurd worden.
+/// <see cref="BillingAddress"/> null betekent "Factuuradres is hetzelfde".
+/// </summary>
 public record ReservationCustomer(
     string FirstName,
     string LastName,
     string Email,
     string? Phone,
-    Address Address);
+    Address Address,
+    CustomerKind Kind = CustomerKind.Private,
+    string? CompanyName = null,
+    string? VatNumber = null,
+    Address? BillingAddress = null);
 
 public record ReservationRequest(
     DateRange Period,

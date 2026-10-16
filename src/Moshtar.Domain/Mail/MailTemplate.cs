@@ -105,6 +105,12 @@ public static class MailKinds
     /// <summary>De dag van de levering of ophaling, voluit.</summary>
     public const string ExpectedDate = "expectedDate";
     public const string DeliveryAddress = "deliveryAddress";
+    /// <summary>De bedrijfsnaam van een zakelijke klant; leeg voor een particuliere klant. {companyName} is die van de verhuurder.</summary>
+    public const string CustomerCompanyName = "customerCompanyName";
+    /// <summary>Het btw-nummer van de klant; leeg als hij er geen heeft.</summary>
+    public const string CustomerVatNumber = "customerVatNumber";
+    /// <summary>Het factuuradres van de klant, of zijn adres als het factuuradres hetzelfde is.</summary>
+    public const string BillingAddress = "billingAddress";
     public const string Alternatives = "alternatives";
     /// <summary>De knop "Schrijf een review" naar de reviewlink; in het WhatsApp-bericht de link zelf.</summary>
     public const string ReviewLink = "reviewLink";
@@ -126,7 +132,7 @@ public static class MailKinds
     public static readonly MailKindDefinition ReservationConfirmation = new(
         MailKind.ReservationConfirmation,
         "Reservatiebevestiging",
-        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", ReservationDetails],
+        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", CustomerCompanyName, CustomerVatNumber, BillingAddress, ReservationDetails],
         requiredInBody: [ReservationDetails],
         blocks: [ReservationDetails],
         standardByCulture: new Dictionary<string, MailTemplateText>
@@ -228,7 +234,7 @@ public static class MailKinds
         });
 
     private static readonly string[] ExpectedTimePlaceholders =
-        ["firstName", "lastName", "reservationNumber", "rentalPeriod", ExpectedDate, ExpectedWindow, DeliveryAddress, "companyName", "contactEmail", "phone"];
+        ["firstName", "lastName", "reservationNumber", "rentalPeriod", ExpectedDate, ExpectedWindow, DeliveryAddress, "companyName", "contactEmail", "phone", CustomerCompanyName, CustomerVatNumber, BillingAddress];
 
     public static readonly MailKindDefinition ExpectedDeliveryTime = new(
         MailKind.ExpectedDeliveryTime,
@@ -337,7 +343,7 @@ public static class MailKinds
     public static readonly MailKindDefinition ReservationAlternatives = new(
         MailKind.ReservationAlternatives,
         "Alternatieven bij een tekort",
-        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", "unavailableItem", ReservationDetails, Alternatives],
+        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", CustomerCompanyName, CustomerVatNumber, BillingAddress, "unavailableItem", ReservationDetails, Alternatives],
         requiredInBody: [Alternatives],
         blocks: [ReservationDetails, Alternatives],
         standardByCulture: new Dictionary<string, MailTemplateText>
@@ -390,7 +396,7 @@ public static class MailKinds
     public static readonly MailKindDefinition ReviewRequest = new(
         MailKind.ReviewRequest,
         "Reviewvraag",
-        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", ReviewLink, ReviewQrCode],
+        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", CustomerCompanyName, CustomerVatNumber, BillingAddress, ReviewLink, ReviewQrCode],
         requiredInBody: [ReviewLink],
         blocks: [ReviewLink, ReviewQrCode],
         standardByCulture: new Dictionary<string, MailTemplateText>

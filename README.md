@@ -77,6 +77,31 @@ aan andere verhuurbedrijven aangeboden te worden.
   prijs; in een pakket wordt enkel het artikel binnen het pakket vervangen, als notitie op de pakketlijn ("Jungle
   vervangen door Piraat") in het back office en de mails, en de pakketprijs blijft. Een meerprijs wordt een aparte lijn.
   Het komt in de historiek en de klant krijgt een bijgewerkte bevestiging (`IReservationService.ReplaceItemAsync`).
+  Het **klantenbestand** (`/admin/klanten`, voor Beheerder en Medewerker): zoeken op naam, bedrijfsnaam, e-mail,
+  telefoon of gemeente, filteren op particulier of zakelijk, met per klant het aantal reservaties en de laatste
+  huurperiode (zonder geannuleerde). De klantfiche toont de gegevens, alle reservaties (ook geannuleerde), of de klant
+  marketingcontact is (alleen tonen) en of hij afgemeld is voor reviewvragen, en wanneer en door wie (een gebruiker of
+  "via website") hij aangemaakt en laatst gewijzigd werd. Klanten manueel toevoegen en wijzigen (`/admin/klanten/nieuw`):
+  particulier of zakelijk (bedrijfsnaam verplicht, btw-nummer optioneel), een apart factuuradres als "Factuuradres is
+  hetzelfde" uit staat, en een interne notitie. Het e-mailadres is uniek per verhuurder (`ICustomerAdministration`);
+  reserveren werkt de klant bij, maar nooit de notitie. Alleen de Beheerder verwijdert op de klantfiche een klant
+  zonder reservaties, of **anonimiseert** een klant met reservaties die geen meer lopen: naam, bedrijfsnaam, btw-nummer,
+  e-mail (een uniek adres op `geanonimiseerd.invalid`), telefoon, adressen en notitie worden gewist, net als de straat
+  en de opmerking van zijn reservaties en zijn marketingcontact; de reservaties en een afmelding voor reviewvragen
+  blijven, en een geanonimiseerde klant krijgt geen reviewvraag meer.
+  Bij het reserveren (stap 2 van de winkelkar, zonder JavaScript: "Bijwerken" toont de juiste velden) kiest de klant
+  "Particulier" of "Bedrijf of organisatie" en kan hij een apart factuuradres opgeven; een btw-nummer krijgt een
+  formaatcontrole per EU-land (`VatNumberFormat`). In het back office zoekt Nieuwe reservatie een bestaande klant, of
+  start je vanaf de klantfiche (`/admin/reservaties/nieuw?klant=…`); het leveradres is standaard het adres van de klant.
+  Mailsjablonen kennen `{customerCompanyName}`, `{customerVatNumber}` en `{billingAddress}` (valt terug op het adres).
+  Een EU-btw-nummer wordt daarna gecontroleerd bij de **btw-databank** (`IVatRegistry`, VIES REST API, 5 s timeout):
+  geldig, ongeldig, nog niet gecontroleerd (databank onbereikbaar) of niet te controleren (buiten de EU, niet
+  opgevraagd). Ongeldig weigert het bewaren van de klant en het reserveren (op de website met een melding in NL/FR/EN);
+  onbereikbaar wordt aanvaard. In het klantformulier vult een geldig nummer meteen bedrijfsnaam en factuuradres in (nog
+  aan te passen); de officiële naam en het adres staan apart op de klantfiche ("Volgens btw-databank") en overschrijven
+  nooit wat de klant invulde. De klantfiche toont de laatste controle met "Opnieuw controleren", de klantenlijst markeert
+  een ongeldig nummer. `VatRecheckWorker` controleert elk kwartier per verhuurder de nog niet gecontroleerde nummers
+  opnieuw (elke klant hoogstens één keer per uur, 50 per run; `IVatRechecks`). Tests gebruiken een nagebootste databank.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

@@ -14,6 +14,8 @@ using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Mail;
 using Moshtar.Application.Marketing;
 using Moshtar.Infrastructure.Marketing;
+using Moshtar.Application.Customers;
+using Moshtar.Infrastructure.Customers;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Tenancy;
 using Moshtar.Application.Website;
@@ -77,6 +79,15 @@ public static class DependencyInjection
         services.AddScoped<Application.Reviews.IReviewWhatsApp, Reviews.ReviewWhatsApp>();
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
+        services.AddScoped<ICustomerAdministration, CustomerAdministration>();
+        services.AddScoped<ICustomerTransfer, CustomerTransfer>();
+        services.AddScoped<IVatRechecks, VatRechecks>();
+        // Kort geduld: een klant of gebruiker wacht op het antwoord; te traag telt als onbereikbaar.
+        services.AddHttpClient<IVatRegistry, ViesVatRegistry>(c =>
+        {
+            c.BaseAddress = new Uri(ViesVatRegistry.BaseAddress);
+            c.Timeout = TimeSpan.FromSeconds(5);
+        });
         services.AddScoped<IPricingRuleAdministration, PricingRuleAdministration>();
         services.AddScoped<IPriceQuotes, PriceQuotes>();
         services.AddScoped<IPriceExamples, PriceExamples>();

@@ -95,6 +95,8 @@
   <data name="PrivacyCartText" xml:space="preserve"><value>Wat je in je winkelkar legt, bewaren we op onze server. In je browser staat alleen een functionele cookie met een willekeurige sleutel, zodat we je winkelkar terugvinden. Bij de eerste stap van het reserveren vragen we je e-mailadres. Vink je aan dat je een herinnering wilt, dan sturen we je één mail als je je reservatie een dag later nog niet afrondde. Een winkelkar die 7 dagen niet gewijzigd en niet gereserveerd werd, wissen we, samen met je e-mailadres, tenzij je vroeg om nieuws en acties.</value></data>
   <data name="PrivacyMarketingTitle" xml:space="preserve"><value>Nieuws en acties</value></data>
   <data name="PrivacyMarketingText" xml:space="preserve"><value>Vink je bij het reserveren aan dat je nieuws en acties van {0} wilt ontvangen, dan bewaren we je e-mailadres, je taal en wanneer je die toestemming gaf, ook als je winkelkar gewist wordt. We gebruiken dat adres alleen om je nieuws en acties van {0} te sturen. Wil je dat niet meer, laat het ons weten en we wissen je adres.</value></data>
+  <data name="PrivacyCustomersTitle" xml:space="preserve"><value>Klantenbestand</value></data>
+  <data name="PrivacyCustomersText" xml:space="preserve"><value>Als je reserveert, of als we je zelf als klant toevoegen, bewaart {0} je gegevens in zijn klantenbestand: je naam, e-mailadres, telefoonnummer, adres en taal, en voor een bedrijf of organisatie ook de bedrijfsnaam, het btw-nummer en een eventueel factuuradres, samen met je reservaties. Zo herkennen we je als je opnieuw reserveert. Geef je een btw-nummer op, dan controleren we het bij de btw-databank van de Europese Unie (VIES). Die bevestigt of het nummer bestaat en kan ons de officiële naam en het adres geven die erbij horen. Je kunt altijd vragen om je gegevens te wissen. Dan wissen we je naam, bedrijfsnaam, btw-nummer, contactgegevens en adressen, en je toestemming voor nieuws en acties. Je reservaties houden we bij zonder te tonen van wie ze waren, omdat we ze nodig hebben voor onze boekhouding. Meldde je je af voor reviewvragen, dan houden we die afmelding bij, zodat je er nooit meer een krijgt.</value></data>
   <data name="PrivacyCookiesTitle" xml:space="preserve"><value>Cookies</value></data>
   <data name="PrivacyCookiesText" xml:space="preserve"><value>Deze website gebruikt cookies die nodig zijn om te werken, bijvoorbeeld om het reservatieformulier veilig te verzenden en om je keuze over statistieken te onthouden. Daarvoor is geen toestemming nodig.</value></data>
   <data name="PrivacyAnalyticsText" xml:space="preserve"><value>Met je toestemming gebruiken we Google Analytics om te zien hoe bezoekers de website gebruiken, bijvoorbeeld welke artikelen populair zijn en hoeveel reservaties via de website binnenkomen. Google plaatst daarvoor cookies en verwerkt je IP-adres en gegevens over je toestel en je bezoek. We sturen nooit je naam, e-mailadres of andere contactgegevens naar Google. Zonder je toestemming laden we Google Analytics niet. Je keuze bewaren we zes maanden; je kunt ze altijd wijzigen via ‘Cookie-instellingen’ onderaan elke pagina.</value></data>
@@ -144,4 +146,16 @@
   <data name="ReviewOptOutDone" xml:space="preserve"><value>Je krijgt van {0} geen reviewvragen meer.</value></data>
   <data name="ReviewOptOutOtherMails" xml:space="preserve"><value>Mails over je reservaties krijg je wel nog, en je keuze over nieuws en acties blijft dezelfde.</value></data>
   <data name="ReviewOptOutInvalid" xml:space="preserve"><value>Deze link werkt niet. Kopieer de volledige link uit de mail, of neem contact met ons op.</value></data>
+  <data name="CustomerKind" xml:space="preserve"><value>Je reserveert als</value></data>
+  <data name="CustomerPrivate" xml:space="preserve"><value>Particulier</value></data>
+  <data name="CustomerBusiness" xml:space="preserve"><value>Bedrijf of organisatie</value></data>
+  <data name="CompanyName" xml:space="preserve"><value>Naam van je bedrijf of organisatie</value></data>
+  <data name="VatNumberOptional" xml:space="preserve"><value>Btw-nummer (optioneel)</value></data>
+  <data name="ContactPerson" xml:space="preserve"><value>Je naam als contactpersoon:</value></data>
+  <data name="SameBillingAddress" xml:space="preserve"><value>Factuuradres is hetzelfde</value></data>
+  <data name="BillingAddress" xml:space="preserve"><value>Factuuradres</value></data>
+  <data name="CartCompanyRequired" xml:space="preserve"><value>Vul de naam van je bedrijf of organisatie in.</value></data>
+  <data name="CartVatInvalid" xml:space="preserve"><value>Dit is geen geldig btw-nummer. Begin met de landcode, zoals BE0123456789, of laat het leeg.</value></data>
+  <data name="CartVatUnknown" xml:space="preserve"><value>Dit btw-nummer is ongeldig volgens de btw-databank van de EU. Verbeter het of laat het leeg.</value></data>
+  <data name="CartBillingAddressIncomplete" xml:space="preserve"><value>Vul de straat met huisnummer, de postcode en de gemeente van je factuuradres in.</value></data>
 </root>

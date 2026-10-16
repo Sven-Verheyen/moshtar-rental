@@ -1,0 +1,286 @@
+@page "/admin/klanten/{Id:guid}"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Moshtar.Application.Customers
+@using Moshtar.Domain.Common
+@using Moshtar.Domain.Customers
+@inject ICustomerAdministration CustomerAdministration
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
+
+<PageTitle>Klantfiche</PageTitle>
+
+<AdminShell Title="@Title">
+    <MudLink Href="admin/klanten" Class="d-block mb-4">← Alle klanten</MudLink>
+    @if (_loaded && _card is null)
+    {
+        <MudAlert Severity="Severity.Warning">Deze klant bestaat niet (meer).</MudAlert>
+    }
+    else if (_card is { } card)
+    {
+        var c = card.Customer;
+        @if (_editing)
+        {
+            <CustomerEditor Form="_form" CustomerId="c.Id" OnSaved="SavedAsync" OnCancel="() => _editing = false" />
+        }
+        else if (c.IsAnonymized)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                Deze klant is geanonimiseerd op @Local(c.UpdatedAtUtc) door @By(card.UpdatedBy). Zijn persoonsgegevens zijn gewist;
+                zijn reservaties blijven voor de cijfers.
+            </MudAlert>
+        }
+        else
+        {
+            <MudGrid>
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4 mb-4">
+                        <MudText Typo="Typo.h6">@(c.Kind == CustomerKind.Business ? "Zakelijke klant" : "Particuliere klant")</MudText>
+                        @if (c.Kind == CustomerKind.Business)
+                        {
+                            <MudText><b>@c.CompanyName</b></MudText>
+                            @if (!string.IsNullOrEmpty(c.VatNumber))
+                            {
+                                <MudText>
+                                    Btw-nummer: @c.VatNumber
+                                    <MudChip T="string" Size="Size.Small" Color="@VatColor(c.VatCheck)">@VatLabel(c.VatCheck)</MudChip>
+                                </MudText>
+                                @if (c.VatCheckedAtUtc is { } checkedAt)
+                                {
+                                    <MudText Typo="Typo.body2">
+                                        @(c.VatCheck == VatCheckStatus.NotChecked ? "Laatste poging" : "Laatst gecontroleerd") op @Local(checkedAt)
+                                    </MudText>
+                                }
+                                @if (c.VatRegistryName is not null || c.VatRegistryAddress is not null)
+                                {
+                                    <MudText Typo="Typo.subtitle2" Class="mt-2">Volgens btw-databank</MudText>
+                                    @if (c.VatRegistryName is { } officialName)
+                                    {
+                                        <MudText>@officialName</MudText>
+                                    }
+                                    @if (c.VatRegistryAddress is { } officialAddress)
+                                    {
+                                        <MudText Style="white-space: pre-line">@officialAddress</MudText>
+                                    }
+                                }
+                                @if (c.VatCheck != VatCheckStatus.NotCheckable)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Refresh" Class="mt-1"
+                                               OnClick="RecheckVatAsync" Disabled="_checkingVat">Opnieuw controleren</MudButton>
+                                }
+                            }
+                            <MudText Class="mt-2">Contactpersoon: @c.FirstName @c.LastName</MudText>
+                        }
+                        else
+                        {
+                            <MudText><b>@c.FirstName @c.LastName</b></MudText>
+                        }
+                        <MudText><MudLink Href="@($"mailto:{c.Email}")">@c.Email</MudLink></MudText>
+                        @if (c.Phone is { } phone)
+                        {
+                            <MudText><MudLink Href="@($"tel:{phone}")">@phone</MudLink></MudText>
+                        }
+                        <MudText>Taal: @LanguageName(c.PreferredCulture)</MudText>
+                        <MudText Typo="Typo.subtitle2" Class="mt-3">Adres</MudText>
+                        <MudText>@AddressLine(c.Address)</MudText>
+                        <MudText Typo="Typo.subtitle2" Class="mt-3">Factuuradres</MudText>
+                        <MudText>@(c.BillingAddress is { } billing ? AddressLine(billing) : "Hetzelfde als het adres")</MudText>
+                    </MudPaper>
+                </MudItem>
+                <MudItem xs="12" md="6">
+                    <MudPaper Class="pa-4 mb-4">
+                        <MudText Typo="Typo.subtitle2">Interne notitie</MudText>
+                        <MudText Style="white-space: pre-line">@(c.Notes ?? "Geen notitie.")</MudText>
+                        <MudText Typo="Typo.caption">De klant ziet dit nooit.</MudText>
+                    </MudPaper>
+                    <MudPaper Class="pa-4 mb-4">
+                        <MudText>
+                            Marketingcontact: @(card.IsMarketingContact ? "ja, de klant gaf toestemming voor nieuws en acties" : "nee")
+                        </MudText>
+                        <MudText Typo="Typo.caption" Class="d-block mb-2">Alleen de klant zelf kan die toestemming geven, op je reservatiewebsite.</MudText>
+                        <MudText>Reviewvragen: @(card.OptedOutOfReviewRequests ? "afgemeld, krijgt er geen meer" : "krijgt ze")</MudText>
+                        <MudText Typo="Typo.body2" Class="mt-3">Aangemaakt op @Local(c.CreatedAtUtc) @(c.CreatedByImport ? "via import door" : "door") @By(card.CreatedBy)</MudText>
+                        <MudText Typo="Typo.body2">Laatst gewijzigd op @Local(c.UpdatedAtUtc) door @By(card.UpdatedBy)</MudText>
+                    </MudPaper>
+                </MudItem>
+            </MudGrid>
+            <div class="d-flex flex-wrap gap-2 mb-6">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="Edit">Wijzigen</MudButton>
+                <MudButton Href="@($"admin/reservaties/nieuw?klant={c.Id}")" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Nieuwe reservatie</MudButton>
+                @* De dienst weigert het ook voor een medewerker; de knoppen tonen we hem niet. *@
+                <AuthorizeView Roles="@Roles.Administrator">
+                    @if (card.Reservations.Count == 0)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteAsync">Klant verwijderen</MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.PersonOff" OnClick="AnonymizeAsync">Anonimiseren</MudButton>
+                    }
+                </AuthorizeView>
+            </div>
+            @if (_errors.Count > 0)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @foreach (var error in _errors)
+                    {
+                        <div>@error</div>
+                    }
+                </MudAlert>
+            }
+        }
+
+        <MudText Typo="Typo.h6" Class="mb-2">Reservaties</MudText>
+        <MudTable Items="card.Reservations" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Nummer</MudTh>
+                <MudTh>Huurperiode</MudTh>
+                <MudTh>Totaal</MudTh>
+                <MudTh>Status</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd><MudLink Href="@($"admin/reservaties?nummer={context.Number}")">@context.Number</MudLink></MudTd>
+                <MudTd>@context.Period.Start.ToString("dd/MM/yyyy") – @context.Period.End.ToString("dd/MM/yyyy")</MudTd>
+                <MudTd>@context.TotalPrice.ToString("C", Belgium.Dutch)</MudTd>
+                <MudTd>
+                    <MudChip T="string" Size="Size.Small" Color="@(context.Status == ReservationStatus.Cancelled ? Color.Error : Color.Default)">@StatusLabel(context.Status)</MudChip>
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>Nog geen reservaties.</NoRecordsContent>
+        </MudTable>
+    }
+</AdminShell>
+
+@code {
+    private CustomerCard? _card;
+    private bool _loaded;
+    private bool _editing;
+    private CustomerForm _form = new();
+    private IReadOnlyList<string> _errors = [];
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    [Parameter] public Guid Id { get; set; }
+
+    private string Title => _card?.Customer is { } c
+        ? c.IsAnonymized ? "Geanonimiseerde klant"
+        : c.Kind == CustomerKind.Business && c.CompanyName is { } company ? company : $"{c.FirstName} {c.LastName}"
+        : "Klantfiche";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _editing = false;
+        _errors = [];
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _card = await CustomerAdministration.GetAsync(Id);
+        _loaded = true;
+    }
+
+    private void Edit()
+    {
+        _form = CustomerForm.From(_card!.Customer);
+        _editing = true;
+    }
+
+    private async Task SavedAsync(Guid _)
+    {
+        Snackbar.Add("De klant is bewaard.", Severity.Success);
+        _editing = false;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Klant verwijderen",
+            $"Wil je {Title} verwijderen? Dat kan niet ongedaan gemaakt worden.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        var result = await CustomerAdministration.DeleteAsync(Id, (await AuthenticationState).User.Id());
+        _errors = result.Errors;
+        if (!result.Succeeded) return;
+        Snackbar.Add("De klant is verwijderd.", Severity.Success);
+        Navigation.NavigateTo("admin/klanten");
+    }
+
+    private async Task AnonymizeAsync()
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Klant anonimiseren",
+            $"Wil je de persoonsgegevens van {Title} wissen? Naam, bedrijfsnaam, btw-nummer, e-mailadres, telefoon, adressen en notitie " +
+            "worden gewist, net als de straat en de opmerking van zijn reservaties en zijn toestemming voor nieuws en acties. " +
+            "Zijn reservaties blijven voor de cijfers. Dat kan niet ongedaan gemaakt worden.",
+            yesText: "Anonimiseren", cancelText: "Annuleren");
+        if (sure != true) return;
+        var result = await CustomerAdministration.AnonymizeAsync(Id, (await AuthenticationState).User.Id());
+        _errors = result.Errors;
+        if (!result.Succeeded) return;
+        Snackbar.Add("De klant is geanonimiseerd.", Severity.Success);
+        await LoadAsync();
+    }
+
+    private bool _checkingVat;
+
+    private async Task RecheckVatAsync()
+    {
+        _checkingVat = true;
+        try
+        {
+            var result = await CustomerAdministration.RecheckVatNumberAsync(Id);
+            await LoadAsync();
+            if (result.Message is { } message)
+                Snackbar.Add(message, Severity.Warning);
+            else
+                Snackbar.Add($"Btw-nummer gecontroleerd: {VatLabel(result.Status)}.", result.Status == VatCheckStatus.Invalid ? Severity.Error : Severity.Success);
+        }
+        finally
+        {
+            _checkingVat = false;
+        }
+    }
+
+    private static string VatLabel(VatCheckStatus? status) => status switch
+    {
+        VatCheckStatus.Valid => "geldig",
+        VatCheckStatus.Invalid => "ongeldig",
+        VatCheckStatus.NotCheckable => "niet te controleren",
+        _ => "nog niet gecontroleerd",
+    };
+
+    private static Color VatColor(VatCheckStatus? status) => status switch
+    {
+        VatCheckStatus.Valid => Color.Success,
+        VatCheckStatus.Invalid => Color.Error,
+        VatCheckStatus.NotChecked => Color.Warning,
+        _ => Color.Default,
+    };
+
+    private static string AddressLine(Address a) =>
+        $"{a.Street}, {a.PostalCode} {a.City}" + (a.Country is "BE" or "" ? "" : $" ({a.Country})");
+
+    private static string Local(DateTime utc) =>
+        utc == default ? "onbekend" : Belgium.Local(new DateTimeOffset(utc, TimeSpan.Zero)).ToString("dd/MM/yyyy HH:mm", Belgium.Dutch);
+
+    private static string By(string? userEmail) => userEmail ?? "via website";
+
+    private static string StatusLabel(ReservationStatus s) => s switch
+    {
+        ReservationStatus.Confirmed => "Bevestigd",
+        ReservationStatus.Delivered => "Geleverd",
+        ReservationStatus.Returned => "Teruggebracht",
+        ReservationStatus.Completed => "Afgerond",
+        ReservationStatus.Cancelled => "Geannuleerd",
+        _ => s.ToString(),
+    };
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+}

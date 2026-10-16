@@ -1,6 +1,7 @@
 using Moshtar.Application.Catalog;
 using Moshtar.Domain.Carts;
 using Moshtar.Domain.Common;
+using Moshtar.Domain.Customers;
 using Moshtar.Domain.Reservations;
 
 namespace Moshtar.Application.Carts;
@@ -47,7 +48,10 @@ public interface ICartService
 
 public record CartReminderTarget(string Key, string? Culture);
 
-/// <summary>De gegevens van stap 2; het e-mailadres staat al op de winkelkar.</summary>
+/// <summary>
+/// De gegevens van stap 2; het e-mailadres staat al op de winkelkar. Voor een zakelijke klant zijn voornaam en
+/// achternaam die van de contactpersoon. <see cref="BillingAddress"/> null betekent "Factuuradres is hetzelfde".
+/// </summary>
 public record CartCustomerDetails(
     string FirstName,
     string LastName,
@@ -55,12 +59,17 @@ public record CartCustomerDetails(
     Address Address,
     DeliveryMethod DeliveryMethod,
     string? Notes,
-    string Culture);
+    string Culture,
+    CustomerKind Kind = CustomerKind.Private,
+    string? CompanyName = null,
+    string? VatNumber = null,
+    Address? BillingAddress = null);
 
 /// <summary>
 /// De reservatie als het lukte. Anders de artikelen waarvan intussen te weinig vrij is, of de resourcesleutel van
-/// een andere melding (geen winkelkar, geen e-mailadres, geen of een ongeldig telefoonnummer, iets wat niet meer te
-/// huren is, een datum in het verleden).
+/// een andere melding (geen winkelkar, geen e-mailadres, geen of een ongeldig telefoonnummer, geen bedrijfsnaam of een
+/// ongeldig btw-nummer voor een zakelijke klant, een onvolledig factuuradres, iets wat niet meer te huren is, een datum
+/// in het verleden).
 /// </summary>
 public record CartReservationResult(Reservation? Reservation, IReadOnlySet<Guid> UnavailableItemIds, string? Problem)
 {

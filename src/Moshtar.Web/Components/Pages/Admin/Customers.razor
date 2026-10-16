@@ -1,0 +1,102 @@
+@page "/admin/klanten"
+@layout AdminLayout
+@rendermode InteractiveServer
+@using Moshtar.Application.Customers
+@using Moshtar.Domain.Customers
+@using Moshtar.Web.Admin
+@inject ICustomerAdministration CustomerAdministration
+@inject NavigationManager Navigation
+
+<PageTitle>Klanten</PageTitle>
+
+<AdminShell Title="Klanten">
+    <MudButton Href="admin/klanten/nieuw" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd" Class="mb-4">
+        Nieuwe klant
+    </MudButton>
+    <AuthorizeView Roles="@Roles.Administrator">
+        <MudButton Href="admin/klanten/importeren" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.UploadFile" Class="mb-4 ml-2">
+            Importeren
+        </MudButton>
+        <MudButton Href="@CustomersCsvEndpoints.ExportPath" data-enhance-nav="false" Variant="Variant.Outlined" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Download" Class="mb-4 ml-2">Exporteer als CSV</MudButton>
+    </AuthorizeView>
+    <div class="d-flex flex-wrap gap-4 align-center mb-2">
+        <MudTextField T="string" Value="_text" ValueChanged="SearchAsync" DebounceInterval="300" Immediate="true" Clearable="true"
+                      Placeholder="Zoek op naam, bedrijfsnaam, e-mail, telefoon of gemeente" Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined" Margin="Margin.Dense" Style="min-width: 20rem" />
+        <MudSelect T="string" Value="_kind" ValueChanged="FilterAsync" Label="Type" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 12rem">
+            <MudSelectItem Value="@All">Alle klanten</MudSelectItem>
+            <MudSelectItem Value="@nameof(CustomerKind.Private)">Particulier</MudSelectItem>
+            <MudSelectItem Value="@nameof(CustomerKind.Business)">Zakelijk</MudSelectItem>
+        </MudSelect>
+    </div>
+    <MudTable T="CustomerListItem" @ref="_table" ServerData="LoadAsync" Hover="true" Dense="true" RowsPerPage="25"
+              OnRowClick="@(e => Navigation.NavigateTo($"admin/klanten/{e.Item!.Id}"))" RowStyle="cursor: pointer">
+        <HeaderContent>
+            <MudTh>Klant</MudTh>
+            <MudTh>E-mailadres</MudTh>
+            <MudTh>Telefoon</MudTh>
+            <MudTh>Gemeente</MudTh>
+            <MudTh>Reservaties</MudTh>
+            <MudTh>Laatste huurperiode</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <MudLink Href="@($"admin/klanten/{context.Id}")">
+                    @(context.IsAnonymized ? "Geanonimiseerde klant" : context.Kind == CustomerKind.Business ? context.CompanyName : $"{context.FirstName} {context.LastName}")
+                </MudLink>
+                @if (context.Kind == CustomerKind.Business && !context.IsAnonymized)
+                {
+                    <br /><small>@context.FirstName @context.LastName · zakelijk</small>
+                }
+                @if (context.VatCheck == VatCheckStatus.Invalid)
+                {
+                    <br /><MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Warning">Btw-nummer ongeldig</MudChip>
+                }
+            </MudTd>
+            <MudTd>@context.Email</MudTd>
+            <MudTd>@context.Phone</MudTd>
+            <MudTd>@context.City</MudTd>
+            <MudTd>@context.ReservationCount</MudTd>
+            <MudTd>@(context.LastPeriod is { } p ? $"{p.Start:dd/MM/yyyy} – {p.End:dd/MM/yyyy}" : "")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText>@(string.IsNullOrWhiteSpace(_text) && _kind == All ? "Nog geen klanten. Wie reserveert, wordt automatisch klant." : "Geen klanten gevonden.")</MudText>
+        </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="@(new[] { 25, 50, 100 })" RowsPerPageString="Klanten per pagina:" InfoFormat="{first_item}–{last_item} van {all_items}" />
+        </PagerContent>
+    </MudTable>
+</AdminShell>
+
+@code {
+    private MudTable<CustomerListItem>? _table;
+    private string? _text;
+    private const string All = "alle";
+    private string _kind = All;
+
+    private async Task<TableData<CustomerListItem>> LoadAsync(TableState state, CancellationToken ct)
+    {
+        var page = await CustomerAdministration.SearchAsync(new CustomerSearch(_text, Enum.TryParse<CustomerKind>(_kind, out var kind) ? kind : null, state.Page, state.PageSize), ct);
+        return new TableData<CustomerListItem> { Items = page.Items, TotalItems = page.TotalCount };
+    }
+
+    private async Task SearchAsync(string? text)
+    {
+        _text = text;
+        await ReloadFromFirstPageAsync();
+    }
+
+    private async Task ReloadFromFirstPageAsync()
+    {
+        if (_table is null) return;
+        _table.NavigateTo(Page.First);
+        await _table.ReloadServerData();
+    }
+
+    private async Task FilterAsync(string kind)
+    {
+        _kind = kind;
+        await ReloadFromFirstPageAsync();
+    }
+}

@@ -60,7 +60,11 @@ internal static class ReservationConfirmation
             DeliveryAddress = new Address { Street = "Kerkstraat 1", PostalCode = "9000", City = "Gent" },
             Notes = e.Notes,
             TotalPrice = 225,
-            Customer = new Customer { FirstName = e.FirstName, LastName = e.LastName, Email = "klant@example.com" },
+            Customer = new Customer
+            {
+                FirstName = e.FirstName, LastName = e.LastName, Email = "klant@example.com",
+                Address = new Address { Street = "Kerkstraat 1", PostalCode = "9000", City = "Gent" },
+            },
             Lines = [new ReservationLine { Quantity = 1, Description = e.Item, UnitPrice = 225 }],
         };
     }
@@ -82,7 +86,7 @@ internal static class ReservationConfirmation
         return new MailMessage(customer.Email, MailKindDefinition.Fill(template.Subject, name => values.GetValueOrDefault(name)), html, text);
     }
 
-    /// <summary>De gewone reservatieplaatshouders (klant, nummer, huurperiode, verhuurder), in de taal van <see cref="LanguageOf"/>.</summary>
+    /// <summary>De gewone reservatieplaatshouders (klant met bedrijf, btw-nummer en factuuradres, nummer, huurperiode, verhuurder), in de taal van <see cref="LanguageOf"/>.</summary>
     public static Dictionary<string, string> Values(Reservation reservation, Tenant tenant)
     {
         var customer = reservation.Customer ?? throw new InvalidOperationException("Reservatie zonder klant.");
@@ -95,8 +99,14 @@ internal static class ReservationConfirmation
             ["companyName"] = tenant.Name,
             ["contactEmail"] = tenant.ContactEmail ?? "",
             ["phone"] = tenant.ContactPhone ?? "",
+            [MailKinds.CustomerCompanyName] = customer.CompanyName ?? "",
+            [MailKinds.CustomerVatNumber] = customer.VatNumber ?? "",
+            [MailKinds.BillingAddress] = AddressLine(customer.BillingAddressOrAddress),
         };
     }
+
+    /// <summary>Een adres op één regel, zoals in het overzicht van de reservatie: "Kerkstraat 1, 9000 Gent".</summary>
+    private static string AddressLine(Address a) => $"{a.Street}, {a.PostalCode} {a.City}";
 
     private static CultureInfo CultureOf(Reservation reservation, Tenant tenant) =>
         CultureInfo.GetCultureInfo(ByCulture[LanguageOf(reservation, tenant)].CultureName);
@@ -130,7 +140,7 @@ internal static class ReservationConfirmation
 
         var lines = reservation.Lines.Select(l => LineText(l, t, culture)).ToList();
         var delivery = reservation.DeliveryMethod == DeliveryMethod.Delivery && reservation.DeliveryAddress is { } a
-            ? string.Format(t.DeliveryAt, $"{a.Street}, {a.PostalCode} {a.City}")
+            ? string.Format(t.DeliveryAt, AddressLine(a))
             : t.Pickup;
         var facts = new List<(string Label, string Value)> { (t.Number, reservation.Number), (t.Period, period) };
 

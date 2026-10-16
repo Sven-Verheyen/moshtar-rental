@@ -1,0 +1,161 @@
+@page "/admin/klanten/importeren"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using System.Text
+@using Moshtar.Application.Customers
+@using Moshtar.Web.Admin
+@inject ICustomerTransfer Transfer
+@inject ISnackbar Snackbar
+
+<PageTitle>Klanten importeren</PageTitle>
+
+<AdminShell Title="Klanten importeren">
+    <MudLink Href="admin/klanten" Class="d-block mb-4">← Alle klanten</MudLink>
+
+    @if (_report is { } report)
+    {
+        <MudAlert Severity="@(report.Skipped.Count == 0 ? Severity.Success : Severity.Warning)" Class="mb-4">
+            @Count(report.Count) geïmporteerd. @(report.Skipped.Count == 0 ? "Alle rijen werden geïmporteerd." : $"{Rows(report.Skipped.Count)} niet geïmporteerd.")
+            Btw-nummers uit de EU worden in de achtergrond gecontroleerd; een ongeldig nummer zie je daarna in de klantenlijst.
+        </MudAlert>
+        @if (report.Skipped.Count > 0)
+        {
+            <MudButton Href="@ReportHref(report)" download="klanten-niet-geimporteerd.csv" data-enhance-nav="false" Variant="Variant.Outlined"
+                       Color="Color.Primary" StartIcon="@Icons.Material.Filled.Download" Class="mb-4">Verslag downloaden als CSV</MudButton>
+            <SkippedCustomersTable Rows="report.Skipped" />
+        }
+        <div class="d-flex gap-2 mt-4">
+            <MudButton Href="admin/klanten" Variant="Variant.Filled" Color="Color.Primary">Naar de klanten</MudButton>
+            <MudButton Variant="Variant.Outlined" OnClick="Restart">Nog een bestand importeren</MudButton>
+        </div>
+    }
+    else if (_preview is { } preview)
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">Voorbeeld van @_fileName</MudText>
+        <MudAlert Severity="@(preview.Count == 0 ? Severity.Warning : Severity.Info)" Class="mb-4">
+            @(preview.Count == 0 ? "Geen enkele klant kan geïmporteerd worden." : $"{Count(preview.Count)} zal worden toegevoegd.")
+            @(preview.Skipped.Count == 0 ? "" : $"{Rows(preview.Skipped.Count)} niet: ze staan hieronder met de reden.")
+            Bestaande klantfiches worden nooit overschreven.
+        </MudAlert>
+        @if (preview.Skipped.Count > 0)
+        {
+            <SkippedCustomersTable Rows="preview.Skipped" />
+        }
+        <div class="d-flex gap-2 mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Upload" Disabled="@(_busy || preview.Count == 0)"
+                       OnClick="ImportAsync">@(preview.Count == 1 ? "1 klant importeren" : $"{preview.Count} klanten importeren")</MudButton>
+            <MudButton Variant="Variant.Outlined" Disabled="_busy" OnClick="Restart">Annuleren</MudButton>
+        </div>
+    }
+    else
+    {
+        <MudText Typo="Typo.body1" Class="mb-2">
+            Laad een CSV-bestand op met dezelfde kolommen als de export: @string.Join(", ", CustomerCsv.Columns).
+            Je ziet eerst een voorbeeld; pas als je bevestigt, worden de klanten toegevoegd.
+        </MudText>
+        <MudText Typo="Typo.body2" Class="mb-4">
+            Een rij met een e-mailadres dat al klant is of hoger in het bestand al voorkomt, een ontbrekend verplicht veld of een
+            ongeldige waarde wordt overgeslagen. Hoogstens @ICustomerTransfer.MaxRows klanten en @(ICustomerTransfer.MaxFileSize / 1024 / 1024) MB per bestand.
+        </MudText>
+        <div class="d-flex flex-wrap gap-2 mb-4">
+            <InputFile id="klanten-csv" accept=".csv,text/csv" style="display: none" OnChange="UploadAsync" />
+            <MudButton HtmlTag="label" for="klanten-csv" Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.UploadFile"
+                       Disabled="_busy">CSV-bestand kiezen</MudButton>
+            <MudButton Href="@CustomersCsvEndpoints.SamplePath" data-enhance-nav="false" Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Download">Voorbeeldbestand downloaden</MudButton>
+        </div>
+        @if (_busy)
+        {
+            <MudProgressLinear Indeterminate="true" Class="mb-4" />
+        }
+    }
+    @if (_errors.Count > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            @foreach (var error in _errors)
+            {
+                <div>@error</div>
+            }
+        </MudAlert>
+    }
+</AdminShell>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    private string? _csv;
+    private string? _fileName;
+    private CustomerImportResult? _preview;
+    private CustomerImportResult? _report;
+    private IReadOnlyList<string> _errors = [];
+    private bool _busy;
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        _errors = [];
+        if (e.File.Size > ICustomerTransfer.MaxFileSize)
+        {
+            _errors = [$"Het bestand is te groot: hoogstens {ICustomerTransfer.MaxFileSize / 1024 / 1024} MB."];
+            return;
+        }
+        _busy = true;
+        try
+        {
+            await using var stream = e.File.OpenReadStream(ICustomerTransfer.MaxFileSize);
+            using var memory = new MemoryStream();
+            await stream.CopyToAsync(memory);
+            var csv = Decode(memory.ToArray());
+            var preview = await Transfer.PreviewAsync(csv);
+            if (preview.Errors.Count > 0)
+            {
+                _errors = preview.Errors;
+                return;
+            }
+            (_csv, _fileName, _preview) = (csv, e.File.Name, preview);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ImportAsync()
+    {
+        _busy = true;
+        try
+        {
+            var report = await Transfer.ImportAsync(_csv!, (await AuthenticationState).User.Id());
+            _errors = report.Errors;
+            if (report.Errors.Count > 0) return;
+            (_report, _preview, _csv) = (report, null, null);
+            Snackbar.Add($"{Count(report.Count)} geïmporteerd.", Severity.Success);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void Restart() => (_csv, _fileName, _preview, _report, _errors) = (null, null, null, null, []);
+
+    /// <summary>UTF-8, met of zonder BOM; anders zoals Excel een CSV zonder UTF-8 bewaart (Windows-1252, hier Latin-1).</summary>
+    private static string Decode(byte[] bytes)
+    {
+        try
+        {
+            return new UTF8Encoding(false, throwOnInvalidBytes: true).GetString(bytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return Encoding.Latin1.GetString(bytes);
+        }
+    }
+
+    private static string ReportHref(CustomerImportResult report) =>
+        "data:text/csv;charset=utf-8;base64," + Convert.ToBase64String(CustomerCsv.Bytes(CustomerCsv.SkippedReport(report.Skipped)));
+
+    private static string Count(int count) => count == 1 ? "1 klant" : $"{count} klanten";
+
+    private static string Rows(int count) => count == 1 ? "1 rij" : $"{count} rijen";
+}

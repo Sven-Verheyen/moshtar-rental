@@ -36,12 +36,12 @@ public static class ReviewRequestRule
 
     /// <summary>
     /// De reservaties die samen één reviewvraag krijgen, per klant (e-mailadres zoals <see cref="ReviewOptOut.Normalize"/>
-    /// het schrijft) en einddag, in de volgorde van <paramref name="reservations"/>. Zonder geannuleerde reservaties en
-    /// reservaties zonder klant.
+    /// het schrijft) en einddag, in de volgorde van <paramref name="reservations"/>. Zonder geannuleerde reservaties,
+    /// reservaties zonder klant en reservaties van een geanonimiseerde klant.
     /// </summary>
     public static IEnumerable<IGrouping<(string Email, DateOnly EndDate), Reservation>> PerCustomer(IEnumerable<Reservation> reservations) =>
         reservations
-            .Where(r => r.Status != ReservationStatus.Cancelled && r.Customer is not null)
+            .Where(r => r.Status != ReservationStatus.Cancelled && r.Customer is { IsAnonymized: false })
             .GroupBy(r => (ReviewOptOut.Normalize(r.Customer!.Email), r.EndDate));
 
     private static DateRange? Range(DateOnly first, DateOnly last, DateTimeOffset since)

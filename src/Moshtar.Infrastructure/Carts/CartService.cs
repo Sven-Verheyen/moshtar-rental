@@ -148,6 +148,15 @@ internal sealed class CartService(
             return CartReservationResult.Refused("CartPhoneRequired");
         if (PhoneNumber.International(details.Phone) is null)
             return CartReservationResult.Refused("CartPhoneInvalid");
+        var business = details.Kind == CustomerKind.Business;
+        if (business && string.IsNullOrWhiteSpace(details.CompanyName))
+            return CartReservationResult.Refused("CartCompanyRequired");
+        // Eerst het formaat, zodat een tikfout meteen opvalt; de btw-databank vraagt het reserveren zelf.
+        if (business && !string.IsNullOrWhiteSpace(details.VatNumber) && !VatNumberFormat.IsWellFormed(details.VatNumber))
+            return CartReservationResult.Refused("CartVatInvalid");
+        if (details.BillingAddress is { } billing &&
+            (string.IsNullOrWhiteSpace(billing.Street) || string.IsNullOrWhiteSpace(billing.PostalCode) || string.IsNullOrWhiteSpace(billing.City)))
+            return CartReservationResult.Refused("CartBillingAddressIncomplete");
         // Wat niet meer op de reservatiewebsite staat, kan niet gereserveerd worden: de klant verwijdert het eerst.
         var entries = (await catalog.GetCatalogAsync(details.Culture, ct)).Select(Ref).ToHashSet();
         if (cart.Lines.Any(l => !entries.Contains(l.Entry)))
@@ -159,12 +168,17 @@ internal sealed class CartService(
             result = await reservations.ReserveAsync(new ReservationRequest(
                 cart.Period,
                 cart.Lines.Select(l => new ReservationLineRequest(l.RentalItemId, l.BundleId, l.Quantity)).ToList(),
-                new ReservationCustomer(details.FirstName, details.LastName, cart.Email, details.Phone, details.Address),
+                new ReservationCustomer(details.FirstName, details.LastName, cart.Email, details.Phone, details.Address,
+                    details.Kind, business ? details.CompanyName : null, business ? details.VatNumber : null, details.BillingAddress),
                 details.DeliveryMethod,
                 details.Address,
                 details.Notes,
                 details.Culture),
                 ReservationActor.Website, ct);
+        }
+        catch (UnknownVatNumberException)
+        {
+            return CartReservationResult.Refused("CartVatUnknown");
         }
         catch (ArgumentException)
         {

@@ -109,8 +109,17 @@ internal class CustomerConfiguration : IEntityTypeConfiguration<Customer>
     public void Configure(EntityTypeBuilder<Customer> b)
     {
         b.Property(c => c.Email).HasMaxLength(320);
-        b.HasIndex(c => new { c.TenantId, c.Email });
+        // Eén klant per e-mailadres per verhuurder; het adres staat altijd genormaliseerd (Customer.NormalizeEmail).
+        b.HasIndex(c => new { c.TenantId, c.Email }).IsUnique();
+        b.Property(c => c.Kind).HasConversion<string>().HasMaxLength(20);
+        b.Property(c => c.Notes).HasMaxLength(4000);
+        b.Property(c => c.VatCheck).HasConversion<string>().HasMaxLength(20);
+        b.Property(c => c.VatRegistryName).HasMaxLength(500);
+        b.Property(c => c.VatRegistryAddress).HasMaxLength(1000);
+        b.Ignore(c => c.AwaitsVatCheck);
+        b.Ignore(c => c.BillingAddressOrAddress);
         b.OwnsOne(c => c.Address);
+        b.OwnsOne(c => c.BillingAddress);
     }
 }
 

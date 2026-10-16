@@ -4,6 +4,7 @@
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Infrastructure.Persistence
 @using Moshtar.Domain.Reviews
+@using Moshtar.Domain.Customers
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject Moshtar.Application.Reviews.IReviewOptOuts ReviewOptOuts
 @inject IReservationService ReservationService
@@ -34,10 +35,20 @@
         <RowTemplate>
             <MudTd>@context.Number</MudTd>
             <MudTd>
-                @context.Customer?.FirstName @context.Customer?.LastName<br /><small>@context.Customer?.Email</small>
-                @if (context.Customer is { } customer && _optedOut.Contains(ReviewOptOut.Normalize(customer.Email)))
+                @if (context.Customer is { } c)
                 {
-                    <br /><small class="mud-text-secondary">Afgemeld voor reviewvragen</small>
+                    <MudLink Href="@($"admin/klanten/{c.Id}")">@c.FirstName @c.LastName</MudLink><br /><small>@c.Email</small>
+                    @if (_optedOut.Contains(ReviewOptOut.Normalize(c.Email)))
+                    {
+                        <br /><small class="mud-text-secondary">Afgemeld voor reviewvragen</small>
+                    }
+                    @* Zoals de klantfiche nu is: type, bedrijf, btw-nummer en factuuradres horen bij de klant, het leveradres bij de reservatie. *@
+                    <br /><small>@(c.Kind == CustomerKind.Business ? $"Zakelijke klant: {c.CompanyName}" : "Particuliere klant")</small>
+                    @if (c.Kind == CustomerKind.Business && !string.IsNullOrEmpty(c.VatNumber))
+                    {
+                        <br /><small>Btw-nummer: @c.VatNumber</small>
+                    }
+                    <br /><small>Factuuradres: @(c.BillingAddress is { } billing ? $"{billing.Street}, {billing.PostalCode} {billing.City}" : "hetzelfde als het adres")</small>
                 }
             </MudTd>
             <MudTd>@context.StartDate.ToString("dd/MM/yyyy") – @context.EndDate.ToString("dd/MM/yyyy")</MudTd>
