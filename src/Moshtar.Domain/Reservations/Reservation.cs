@@ -54,6 +54,12 @@ public class Reservation : TenantEntity
     /// </summary>
     public DateTime? ReviewRequestMailedAtUtc { get; set; }
 
+    /// <summary>
+    /// Wanneer een gebruiker in de Planning op de WhatsApp-knop van de reviewvraag drukte, of null. Moshtar verstuurt
+    /// zelf niets: de gebruiker verstuurt het ingevulde bericht vanaf het nummer van de verhuurder.
+    /// </summary>
+    public DateTime? ReviewRequestWhatsAppAtUtc { get; set; }
+
     public List<ReservationLine> Lines { get; set; } = [];
 
     /// <summary>Wie wat deed met deze reservatie, en wanneer.</summary>
@@ -161,6 +167,13 @@ public class Reservation : TenantEntity
     {
         ReviewRequestMailedAtUtc = atUtc;
         Record(ReservationEventKind.ReviewRequestMailed, ReservationActor.Website, atUtc);
+    }
+
+    /// <summary>Noteert op de reservatie en in de historiek dat een gebruiker de reviewvraag via WhatsApp stuurde.</summary>
+    public void RecordReviewRequestWhatsApp(ReservationActor actor, DateTime atUtc)
+    {
+        ReviewRequestWhatsAppAtUtc = atUtc;
+        Record(ReservationEventKind.ReviewRequestWhatsApp, actor, atUtc);
     }
 
     private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc, string? note = null) =>

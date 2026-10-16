@@ -643,6 +643,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("ReviewRequestMailedAtUtc")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("ReviewRequestWhatsAppAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 

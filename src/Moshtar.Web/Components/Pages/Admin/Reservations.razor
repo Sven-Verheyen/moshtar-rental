@@ -237,6 +237,7 @@
         ReservationEventKind.PointConfirmed => "Speld op de kaart bevestigd",
         ReservationEventKind.ExpectedTimeMailed => "Verwacht tijdsvenster gemaild",
         ReservationEventKind.ReviewRequestMailed => "Reviewvraag gemaild",
+        ReservationEventKind.ReviewRequestWhatsApp => "Reviewvraag via WhatsApp",
         ReservationEventKind.AlternativesMailed => entry.Note is { } note ? $"Alternatieven gemaild: {note}" : "Alternatieven gemaild",
         ReservationEventKind.ItemReplaced => entry.Note is { } replaced ? $"Artikel vervangen: {replaced}" : "Artikel vervangen",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",

@@ -19,6 +19,8 @@ public enum ReservationEventKind
     ExpectedTimeMailed = 8,
     /// <summary>De klant kreeg de reviewvraag gemaild, de dag na de einddag.</summary>
     ReviewRequestMailed = 9,
+    /// <summary>Een gebruiker drukte in de Planning op de WhatsApp-knop van de reviewvraag.</summary>
+    ReviewRequestWhatsApp = 10,
 }
 
 /// <summary>Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, of de klant via de reservatiewebsite.</summary>
