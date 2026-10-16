@@ -324,6 +324,10 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; }
 .cart-reserve { margin-top: 2rem; }
 .reservation label.check { flex-direction: row; align-items: flex-start; gap: .6rem; font-weight: normal; }
 .reservation label.check input { min-height: auto; width: 1.25rem; height: 1.25rem; margin-top: .15rem; flex: none; }
+/* Stap 2: de knop "Bijwerken" naast de keuze van het type klant en het vinkje voor het factuuradres. */
+.reservation .billing-same, .reservation .customer-kind { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; }
+.reservation .customer-kind legend { width: 100%; }
+.reservation .billing-same label.check { flex: 0 1 auto; }
 .button-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--line); min-height: 2.75rem; padding: .45rem 1rem; }
 .link-button { font: inherit; background: none; border: 0; padding: .5rem .25rem; color: var(--muted); text-decoration: underline; cursor: pointer; min-height: 2.75rem; }
 @media (max-width: 40rem) {

@@ -2,6 +2,7 @@
 @page "/winkelkar"
 @page "/panier"
 @page "/cart"
+@using Moshtar.Domain.Customers
 @inject ICartService Carts
 @inject SiteLinks Links
 @inject IStringLocalizer<SharedResource> L
@@ -145,9 +146,25 @@
                 {
                     <p class="alert error" role="alert">@_error</p>
                 }
-                <EditForm Model="Form" FormName="reservation" OnValidSubmit="ReserveAsync" action="#reserveren">
+                @* Zonder JavaScript: een andere keuze voor het type klant of het factuuradres toont de juiste velden na
+                   "Bijwerken", een gewone formulierpost die alles onthoudt wat al ingevuld was en niet reserveert. *@
+                <EditForm Model="Form" FormName="reservation" OnSubmit="SubmitAsync" action="#reserveren">
                     <DataAnnotationsValidator />
                     <ValidationSummary />
+                    <fieldset class="customer-kind">
+                        <legend>@L["CustomerKind"]</legend>
+                        <InputRadioGroup @bind-Value="Form!.Kind">
+                            <label class="check"><InputRadio Value="CustomerKind.Private" /> @L["CustomerPrivate"]</label>
+                            <label class="check"><InputRadio Value="CustomerKind.Business" /> @L["CustomerBusiness"]</label>
+                        </InputRadioGroup>
+                        <button type="submit" class="button button-secondary" name="Form.Refresh" value="@CartEndpoints.Checked" formnovalidate>@L["Update"]</button>
+                    </fieldset>
+                    @if (Form!.Kind == CustomerKind.Business)
+                    {
+                        <label>@L["CompanyName"] <InputText @bind-Value="Form!.CompanyName" autocomplete="organization" required /></label>
+                        <label>@L["VatNumberOptional"] <InputText @bind-Value="Form!.VatNumber" placeholder="BE0123456789" /></label>
+                        <p class="muted">@L["ContactPerson"]</p>
+                    }
                     <div class="row">
                         <label>@L["FirstName"] <InputText @bind-Value="Form!.FirstName" autocomplete="given-name" /></label>
                         <label>@L["LastName"] <InputText @bind-Value="Form!.LastName" autocomplete="family-name" /></label>
@@ -158,6 +175,21 @@
                         <label>@L["PostalCode"] <InputText @bind-Value="Form!.PostalCode" autocomplete="postal-code" /></label>
                         <label>@L["City"] <InputText @bind-Value="Form!.City" autocomplete="address-level2" /></label>
                     </div>
+                    <div class="billing-same">
+                        <label class="check"><InputCheckbox @bind-Value="Form!.SameBillingAddress" /> @L["SameBillingAddress"]</label>
+                        <button type="submit" class="button button-secondary" name="Form.Refresh" value="@CartEndpoints.Checked" formnovalidate>@L["Update"]</button>
+                    </div>
+                    @if (!Form!.SameBillingAddress)
+                    {
+                        <div class="billing-address" role="group" aria-labelledby="factuuradres">
+                            <p id="factuuradres"><strong>@L["BillingAddress"]</strong></p>
+                            <label>@L["Street"] <InputText @bind-Value="Form!.BillingStreet" autocomplete="billing street-address" required /></label>
+                            <div class="row">
+                                <label>@L["PostalCode"] <InputText @bind-Value="Form!.BillingPostalCode" autocomplete="billing postal-code" required /></label>
+                                <label>@L["City"] <InputText @bind-Value="Form!.BillingCity" autocomplete="billing address-level2" required /></label>
+                            </div>
+                        </div>
+                    }
                     @if (OffersPickup)
                     {
                         <fieldset>
@@ -210,7 +242,14 @@
     {
         _today = ChosenPeriod.Today(Clock);
         _cart = await Carts.GetAsync(CartEndpoints.Key(HttpContext), Culture);
-        Form ??= new();
+        Form ??= CartReservationForm.New();
+    }
+
+    /// <summary>"Bijwerken" toont alleen de juiste velden; "Reserveren" controleert het formulier en reserveert.</summary>
+    private async Task SubmitAsync(EditContext context)
+    {
+        if (Form?.Refresh is not null || !context.Validate()) return;
+        await ReserveAsync();
     }
 
     private async Task ReserveAsync()
@@ -220,7 +259,8 @@
         var result = await Carts.ReserveAsync(CartEndpoints.Key(HttpContext), new CartCustomerDetails(
             Form.FirstName, Form.LastName, Form.Phone, address,
             // Zonder afhalen levert de verhuurder altijd, ook als iemand toch "afhalen" meestuurt.
-            OffersPickup ? Form.DeliveryMethod : DeliveryMethod.Delivery, Form.Notes, Culture));
+            OffersPickup ? Form.DeliveryMethod : DeliveryMethod.Delivery, Form.Notes, Culture,
+            Form.Kind, Form.CompanyName, Form.VatNumber, Form.BillingAddress));
         if (result.Reservation is { } reservation)
         {
             _reservation = reservation;

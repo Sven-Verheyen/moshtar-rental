@@ -70,7 +70,10 @@
                     </MudPaper>
                 </MudItem>
             </MudGrid>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="Edit" Class="mb-6">Wijzigen</MudButton>
+            <div class="d-flex flex-wrap gap-2 mb-6">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="Edit">Wijzigen</MudButton>
+                <MudButton Href="@($"admin/reservaties/nieuw?klant={c.Id}")" Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add">Nieuwe reservatie</MudButton>
+            </div>
         }
 
         <MudText Typo="Typo.h6" Class="mb-2">Reservaties</MudText>

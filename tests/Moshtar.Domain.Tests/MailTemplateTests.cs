@@ -14,6 +14,25 @@ public class MailTemplateTests
         Assert.Empty(Confirmation.Problems(Confirmation.Standard(culture)));
 
     [Theory]
+    [InlineData(MailKind.ReservationConfirmation)]
+    [InlineData(MailKind.ExpectedDeliveryTime)]
+    [InlineData(MailKind.ExpectedCollectionTime)]
+    [InlineData(MailKind.ReservationAlternatives)]
+    [InlineData(MailKind.ReviewRequest)]
+    public void Every_mail_about_a_reservation_knows_the_company_vat_number_and_billing_address_of_the_customer(MailKind kind)
+    {
+        var definition = MailKinds.For(kind);
+        var standard = definition.Standard("nl");
+
+        Assert.Empty(definition.Problems(standard with { Subject = standard.Subject + " {customerCompanyName}", Body = standard.Body + "\n\n{customerVatNumber}, {billingAddress}" }));
+    }
+
+    [Fact]
+    public void A_cart_reminder_has_no_customer_yet() =>
+        Assert.Equal(["Onbekende plaatshouder {customerCompanyName}."],
+            MailKinds.CartReminder.Problems(MailKinds.CartReminder.Standard("nl") with { Subject = "{customerCompanyName}" }));
+
+    [Theory]
     [InlineData(MailKind.ExpectedDeliveryTime, "nl")]
     [InlineData(MailKind.ExpectedDeliveryTime, "fr")]
     [InlineData(MailKind.ExpectedDeliveryTime, "en")]

@@ -203,6 +203,42 @@ public sealed class ReservationConfirmationMailTests(MoshtarApp app) : IClassFix
 
     private static readonly DateOnly Day = TestReservations.FutureDay(310);
 
+    [Fact]
+    public async Task A_customized_template_fills_in_company_vat_number_and_billing_address_of_the_customer()
+    {
+        await app.CreateTenantAsync("mail-zakelijk", "mail-zakelijk.test");
+        var admin = await app.CreateUserAsync("mail-zakelijk", "beheerder@mail-zakelijk.test");
+        var item = await CreateItemAsync("mail-zakelijk", "mail-zakelijk", stock: 5, name: "Zakelijk kasteel");
+        await using (var scope = await app.TenantScopeAsync("mail-zakelijk"))
+            await scope.ServiceProvider.GetRequiredService<Moshtar.Application.Mail.IMailTemplateAdministration>().SaveAsync(
+                Moshtar.Domain.Mail.MailKind.ReservationConfirmation, "nl",
+                new("Reservatie voor {customerCompanyName}", "Btw: {customerVatNumber}\n\nFactuur naar {billingAddress}\n\n{reservationDetails}"), admin.Id);
+        var school = new Address { Street = "Schoolstraat 3", PostalCode = "9050", City = "Gentbrugge" };
+
+        await ReserveAsync("mail-zakelijk", new ReservationCustomer("Els", "Peeters", "school@example.test", "0470 12 34 56", Gent,
+            Moshtar.Domain.Customers.CustomerKind.Business, "Basisschool De Linde", "BE0123456789", school), item);
+        await ReserveAsync("mail-zakelijk", new ReservationCustomer("Piet", "Peeters", "piet@example.test", "0470 12 34 56", Gent), item);
+
+        var business = Assert.Single(Outbox.Sent, m => m.To == "school@example.test");
+        Assert.Equal("Reservatie voor Basisschool De Linde", business.Subject);
+        Assert.Contains("Btw: BE0123456789", business.TextBody);
+        Assert.Contains("Factuur naar Schoolstraat 3, 9050 Gentbrugge", business.TextBody);
+        var person = Assert.Single(Outbox.Sent, m => m.To == "piet@example.test");
+        Assert.Equal("Reservatie voor", person.Subject.Trim());
+        Assert.Contains("Factuur naar Markt 1, 9000 Gent", person.TextBody);
+    }
+
+    private static readonly Address Gent = new() { Street = "Markt 1", PostalCode = "9000", City = "Gent" };
+
+    private async Task ReserveAsync(string tenant, ReservationCustomer customer, Guid item)
+    {
+        await using var scope = await app.TenantScopeAsync(tenant);
+        var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
+            new DateRange(Day, Day), [new ReservationLineRequest(item, null, 1)], customer, DeliveryMethod.Pickup, null, null, "nl"),
+            ReservationActor.Website);
+        Assert.True(result.Succeeded);
+    }
+
     private Task<ReservationResult> ReserveAsync(string tenant, string email, string culture, ReservationActor actor,
         DeliveryMethod delivery, params ReservationLineRequest[] lines) =>
         ReserveAsync(tenant, email, culture, actor, delivery, lines, "Klant", null);

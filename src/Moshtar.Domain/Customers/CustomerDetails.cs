@@ -20,12 +20,16 @@ public sealed record CustomerDetails(
     Address? BillingAddress = null,
     string? Notes = null)
 {
+    public const string InvalidVatNumber = "Dit is geen geldig btw-nummer. Begin met de landcode, bv. BE0123456789.";
+
     /// <summary>Wat er ontbreekt of niet klopt, in de volgorde van het formulier; leeg als alles in orde is.</summary>
     public IReadOnlyList<string> Errors()
     {
         var errors = new List<string>();
         if (Kind == CustomerKind.Business && string.IsNullOrWhiteSpace(CompanyName))
             errors.Add("De bedrijfsnaam is verplicht voor een zakelijke klant.");
+        if (!string.IsNullOrWhiteSpace(VatNumber) && !VatNumberFormat.IsWellFormed(VatNumber))
+            errors.Add(InvalidVatNumber);
         if (string.IsNullOrWhiteSpace(FirstName)) errors.Add("De voornaam is verplicht.");
         if (string.IsNullOrWhiteSpace(LastName)) errors.Add("De achternaam is verplicht.");
         if (string.IsNullOrWhiteSpace(Email)) errors.Add("Het e-mailadres is verplicht.");

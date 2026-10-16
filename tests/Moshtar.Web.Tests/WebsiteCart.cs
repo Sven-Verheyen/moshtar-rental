@@ -37,8 +37,9 @@ internal static class WebsiteCart
     }
 
     /// <summary>Stap 2 op de winkelkarpagina: de rest van de gegevens en "Reserveren".</summary>
+    /// <param name="extra">Andere velden van het formulier, bv. Form.Kind en Form.CompanyName voor een zakelijke klant; null laat een veld weg.</param>
     public static async Task<HttpResponseMessage> ReserveAsync(HttpClient client, string firstName, string cartPath = "/winkelkar",
-        string delivery = "Delivery", string? phone = "0470 12 34 56", string street = "Kerkstraat 1")
+        string delivery = "Delivery", string? phone = "0470 12 34 56", string street = "Kerkstraat 1", Dictionary<string, string?>? extra = null)
     {
         var page = await PageAsync(client, cartPath);
         var fields = new Dictionary<string, string>
@@ -52,6 +53,11 @@ internal static class WebsiteCart
             ["Form.DeliveryMethod"] = delivery,
         };
         if (phone is not null) fields["Form.Phone"] = phone;
+        // "Factuuradres is hetzelfde" staat standaard aan; een vinkje dat uit staat, wordt niet meegestuurd.
+        fields["Form.SameBillingAddress"] = "True";
+        foreach (var (name, value) in extra ?? [])
+            if (value is null) fields.Remove(name);
+            else fields[name] = value;
         return await PostAsync(client, cartPath, page, fields);
     }
 

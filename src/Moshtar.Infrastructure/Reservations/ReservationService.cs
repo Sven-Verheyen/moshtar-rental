@@ -325,7 +325,7 @@ internal sealed class ReservationService(
 
     /// <summary>
     /// Wie reserveert, wordt klant, of zijn klantfiche neemt de laatst ingevulde gegevens over. De interne notitie blijft
-    /// altijd staan. Aangemaakt of gewijzigd door de gebruiker die reserveerde, of "via website".
+    /// altijd staan: type, bedrijfsnaam, btw-nummer, adres en factuuradres zijn die van deze reservatie. Aangemaakt of gewijzigd door de gebruiker die reserveerde, of "via website".
     /// </summary>
     private async Task<Customer> UpsertCustomerAsync(AppDbContext db, ReservationRequest request, ReservationActor actor, CancellationToken ct)
     {
@@ -340,6 +340,11 @@ internal sealed class ReservationService(
         customer.LastName = request.Customer.LastName;
         customer.Phone = PhoneNumber.International(request.Customer.Phone);
         customer.Address = request.Customer.Address;
+        var business = request.Customer.Kind == CustomerKind.Business;
+        customer.Kind = request.Customer.Kind;
+        customer.CompanyName = business ? request.Customer.CompanyName!.Trim() : null;
+        customer.VatNumber = business ? VatNumberFormat.Normalize(request.Customer.VatNumber) : null;
+        customer.BillingAddress = request.Customer.BillingAddress;
         customer.PreferredCulture = request.Culture;
         customer.RecordChange(actor.UserId, clock.GetUtcNow().UtcDateTime);
         return customer;
@@ -376,5 +381,13 @@ internal sealed class ReservationService(
             throw new ArgumentException("Het telefoonnummer is verplicht.");
         if (PhoneNumber.International(request.Customer.Phone) is null)
             throw new ArgumentException("Dit is geen geldig telefoonnummer, bv. 0470 12 34 56 of +32 470 12 34 56.");
+        var customer = request.Customer;
+        if (customer.Kind == CustomerKind.Business && string.IsNullOrWhiteSpace(customer.CompanyName))
+            throw new ArgumentException("De bedrijfsnaam is verplicht voor een zakelijke klant.");
+        if (customer.Kind == CustomerKind.Business && !string.IsNullOrWhiteSpace(customer.VatNumber) && !VatNumberFormat.IsWellFormed(customer.VatNumber))
+            throw new ArgumentException(CustomerDetails.InvalidVatNumber);
+        if (customer.BillingAddress is { } billing &&
+            (string.IsNullOrWhiteSpace(billing.Street) || string.IsNullOrWhiteSpace(billing.PostalCode) || string.IsNullOrWhiteSpace(billing.City)))
+            throw new ArgumentException("Vul de straat met huisnummer, de postcode en de gemeente van het factuuradres in.");
     }
 }

@@ -54,6 +54,16 @@ public class CustomerDetailsTests
     }
 
     [Fact]
+    public void A_vat_number_with_a_typo_is_refused_but_one_from_outside_the_eu_is_accepted()
+    {
+        var business = Private() with { Kind = CustomerKind.Business, CompanyName = "Basisschool De Linde" };
+
+        Assert.Equal(["Dit is geen geldig btw-nummer. Begin met de landcode, bv. BE0123456789."], (business with { VatNumber = "BE 123.456.789" }).Errors());
+        Assert.Empty((business with { VatNumber = "BE 0123.456.789" }).Errors());
+        Assert.Empty((business with { VatNumber = "CHE-123.456.789" }).Errors());
+    }
+
+    [Fact]
     public void A_separate_billing_address_must_be_complete()
     {
         var incomplete = Private() with { BillingAddress = new Address { Street = "Schoolstraat 3" } };

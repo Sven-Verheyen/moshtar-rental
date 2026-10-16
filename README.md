@@ -85,6 +85,11 @@ aan andere verhuurbedrijven aangeboden te worden.
   particulier of zakelijk (bedrijfsnaam verplicht, btw-nummer optioneel), een apart factuuradres als "Factuuradres is
   hetzelfde" uit staat, en een interne notitie. Het e-mailadres is uniek per verhuurder (`ICustomerAdministration`);
   reserveren werkt de klant bij, maar nooit de notitie.
+  Bij het reserveren (stap 2 van de winkelkar, zonder JavaScript: "Bijwerken" toont de juiste velden) kiest de klant
+  "Particulier" of "Bedrijf of organisatie" en kan hij een apart factuuradres opgeven; een btw-nummer krijgt een
+  formaatcontrole per EU-land (`VatNumberFormat`). In het back office zoekt Nieuwe reservatie een bestaande klant, of
+  start je vanaf de klantfiche (`/admin/reservaties/nieuw?klant=…`); het leveradres is standaard het adres van de klant.
+  Mailsjablonen kennen `{customerCompanyName}`, `{customerVatNumber}` en `{billingAddress}` (valt terug op het adres).
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

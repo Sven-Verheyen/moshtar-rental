@@ -144,4 +144,15 @@
   <data name="ReviewOptOutDone" xml:space="preserve"><value>You will no longer get review requests from {0}.</value></data>
   <data name="ReviewOptOutOtherMails" xml:space="preserve"><value>You will still receive the emails about your reservations, and your choice about news and offers stays the same.</value></data>
   <data name="ReviewOptOutInvalid" xml:space="preserve"><value>This link doesn't work. Copy the full link from the email, or contact us.</value></data>
+  <data name="CustomerKind" xml:space="preserve"><value>You are reserving as</value></data>
+  <data name="CustomerPrivate" xml:space="preserve"><value>Private person</value></data>
+  <data name="CustomerBusiness" xml:space="preserve"><value>Company or organisation</value></data>
+  <data name="CompanyName" xml:space="preserve"><value>Name of your company or organisation</value></data>
+  <data name="VatNumberOptional" xml:space="preserve"><value>VAT number (optional)</value></data>
+  <data name="ContactPerson" xml:space="preserve"><value>Your name as the contact person:</value></data>
+  <data name="SameBillingAddress" xml:space="preserve"><value>Billing address is the same</value></data>
+  <data name="BillingAddress" xml:space="preserve"><value>Billing address</value></data>
+  <data name="CartCompanyRequired" xml:space="preserve"><value>Please enter the name of your company or organisation.</value></data>
+  <data name="CartVatInvalid" xml:space="preserve"><value>This is not a valid VAT number. Start with the country code, like BE0123456789, or leave it empty.</value></data>
+  <data name="CartBillingAddressIncomplete" xml:space="preserve"><value>Please enter the street and number, postal code and city of your billing address.</value></data>
 </root>

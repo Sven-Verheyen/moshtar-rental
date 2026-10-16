@@ -46,7 +46,7 @@ public class Customer : TenantEntity
         Email = NormalizeEmail(details.Email);
         Phone = PhoneNumber.International(details.Phone);
         CompanyName = Blank(details.CompanyName);
-        VatNumber = Blank(details.VatNumber)?.ToUpperInvariant().Replace(" ", "").Replace(".", "");
+        VatNumber = VatNumberFormat.Normalize(details.VatNumber);
         Address = Trimmed(details.Address);
         BillingAddress = details.BillingAddress is null ? null : Trimmed(details.BillingAddress);
         PreferredCulture = details.Culture;

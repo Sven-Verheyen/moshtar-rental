@@ -144,4 +144,15 @@
   <data name="ReviewOptOutDone" xml:space="preserve"><value>Vous ne recevrez plus de demandes d'avis de {0}.</value></data>
   <data name="ReviewOptOutOtherMails" xml:space="preserve"><value>Vous recevez toujours les e-mails concernant vos réservations, et votre choix concernant les actualités et promotions reste le même.</value></data>
   <data name="ReviewOptOutInvalid" xml:space="preserve"><value>Ce lien ne fonctionne pas. Copiez le lien complet de l'e-mail, ou contactez-nous.</value></data>
+  <data name="CustomerKind" xml:space="preserve"><value>Vous réservez en tant que</value></data>
+  <data name="CustomerPrivate" xml:space="preserve"><value>Particulier</value></data>
+  <data name="CustomerBusiness" xml:space="preserve"><value>Entreprise ou organisation</value></data>
+  <data name="CompanyName" xml:space="preserve"><value>Nom de votre entreprise ou organisation</value></data>
+  <data name="VatNumberOptional" xml:space="preserve"><value>Numéro de TVA (facultatif)</value></data>
+  <data name="ContactPerson" xml:space="preserve"><value>Votre nom en tant que personne de contact :</value></data>
+  <data name="SameBillingAddress" xml:space="preserve"><value>L'adresse de facturation est la même</value></data>
+  <data name="BillingAddress" xml:space="preserve"><value>Adresse de facturation</value></data>
+  <data name="CartCompanyRequired" xml:space="preserve"><value>Indiquez le nom de votre entreprise ou organisation.</value></data>
+  <data name="CartVatInvalid" xml:space="preserve"><value>Ce n'est pas un numéro de TVA valide. Commencez par le code pays, comme BE0123456789, ou laissez-le vide.</value></data>
+  <data name="CartBillingAddressIncomplete" xml:space="preserve"><value>Indiquez la rue et le numéro, le code postal et la commune de votre adresse de facturation.</value></data>
 </root>

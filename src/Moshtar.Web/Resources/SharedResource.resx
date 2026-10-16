@@ -144,4 +144,15 @@
   <data name="ReviewOptOutDone" xml:space="preserve"><value>Je krijgt van {0} geen reviewvragen meer.</value></data>
   <data name="ReviewOptOutOtherMails" xml:space="preserve"><value>Mails over je reservaties krijg je wel nog, en je keuze over nieuws en acties blijft dezelfde.</value></data>
   <data name="ReviewOptOutInvalid" xml:space="preserve"><value>Deze link werkt niet. Kopieer de volledige link uit de mail, of neem contact met ons op.</value></data>
+  <data name="CustomerKind" xml:space="preserve"><value>Je reserveert als</value></data>
+  <data name="CustomerPrivate" xml:space="preserve"><value>Particulier</value></data>
+  <data name="CustomerBusiness" xml:space="preserve"><value>Bedrijf of organisatie</value></data>
+  <data name="CompanyName" xml:space="preserve"><value>Naam van je bedrijf of organisatie</value></data>
+  <data name="VatNumberOptional" xml:space="preserve"><value>Btw-nummer (optioneel)</value></data>
+  <data name="ContactPerson" xml:space="preserve"><value>Je naam als contactpersoon:</value></data>
+  <data name="SameBillingAddress" xml:space="preserve"><value>Factuuradres is hetzelfde</value></data>
+  <data name="BillingAddress" xml:space="preserve"><value>Factuuradres</value></data>
+  <data name="CartCompanyRequired" xml:space="preserve"><value>Vul de naam van je bedrijf of organisatie in.</value></data>
+  <data name="CartVatInvalid" xml:space="preserve"><value>Dit is geen geldig btw-nummer. Begin met de landcode, zoals BE0123456789, of laat het leeg.</value></data>
+  <data name="CartBillingAddressIncomplete" xml:space="preserve"><value>Vul de straat met huisnummer, de postcode en de gemeente van je factuuradres in.</value></data>
 </root>
