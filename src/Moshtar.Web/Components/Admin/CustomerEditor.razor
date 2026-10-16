@@ -1,0 +1,122 @@
+@using Moshtar.Application.Customers
+@using Moshtar.Domain.Customers
+@inject ICustomerAdministration Customers
+@inject ITenantContext TenantContext
+
+@* Toevoegen of wijzigen van een klant: dezelfde velden en regels, met een link naar de bestaande klant bij een dubbel e-mailadres. *@
+<EditForm Model="Form" OnSubmit="SaveAsync">
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 mb-4">
+                <MudRadioGroup T="CustomerKind" @bind-Value="Form.Kind" Class="mb-2">
+                    <MudRadio Value="CustomerKind.Private">Particulier</MudRadio>
+                    <MudRadio Value="CustomerKind.Business">Bedrijf of organisatie</MudRadio>
+                </MudRadioGroup>
+                @if (Form.Kind == CustomerKind.Business)
+                {
+                    <MudTextField @bind-Value="Form.CompanyName" Label="Bedrijfsnaam" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
+                    <MudTextField @bind-Value="Form.VatNumber" Label="Btw-nummer (optioneel)" HelperText="Bv. BE0123456789" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="30" />
+                    <MudText Typo="Typo.subtitle2" Class="mt-3">Contactpersoon</MudText>
+                }
+                <div class="d-flex gap-2">
+                    <MudTextField @bind-Value="Form.FirstName" Label="Voornaam" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" />
+                    <MudTextField @bind-Value="Form.LastName" Label="Achternaam" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" />
+                </div>
+                <MudTextField @bind-Value="Form.Email" Label="E-mailadres" Required="true" InputType="InputType.Email" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="320" />
+                <MudTextField @bind-Value="Form.Phone" Label="Telefoon" Required="true" HelperText="Bv. 0470 12 34 56 of +32 470 12 34 56" InputType="InputType.Telephone" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="30" />
+                <MudSelect T="string" @bind-Value="Form.Culture" Label="Taal van de klant" Variant="Variant.Outlined" Margin="Margin.Dense">
+                    @foreach (var culture in TenantContext.Tenant?.Cultures ?? ["nl"])
+                    {
+                        <MudSelectItem Value="@culture">@LanguageName(culture)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Class="pa-4 mb-4">
+                <MudText Typo="Typo.h6" Class="mb-2">Adres</MudText>
+                <MudTextField @bind-Value="Form.Street" Label="Straat en huisnummer" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
+                <div class="d-flex gap-2">
+                    <MudTextField @bind-Value="Form.PostalCode" Label="Postcode" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 8rem" MaxLength="10" />
+                    <MudTextField @bind-Value="Form.City" Label="Gemeente" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" />
+                    <MudTextField @bind-Value="Form.Country" Label="Land" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 5rem" MaxLength="2" />
+                </div>
+                <MudCheckBox @bind-Value="Form.SameBillingAddress" Label="Factuuradres is hetzelfde" Color="Color.Primary" />
+                @if (!Form.SameBillingAddress)
+                {
+                    <MudText Typo="Typo.subtitle2" Class="mt-2">Factuuradres</MudText>
+                    <MudTextField @bind-Value="Form.BillingStreet" Label="Straat en huisnummer" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
+                    <div class="d-flex gap-2">
+                        <MudTextField @bind-Value="Form.BillingPostalCode" Label="Postcode" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 8rem" MaxLength="10" />
+                        <MudTextField @bind-Value="Form.BillingCity" Label="Gemeente" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="100" />
+                        <MudTextField @bind-Value="Form.BillingCountry" Label="Land" Variant="Variant.Outlined" Margin="Margin.Dense" Style="max-width: 5rem" MaxLength="2" />
+                    </div>
+                }
+            </MudPaper>
+            <MudPaper Class="pa-4 mb-4">
+                <MudTextField @bind-Value="Form.Notes" Label="Interne notitie" HelperText="Alleen voor jou en je medewerkers; de klant ziet dit nooit." Lines="3" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="4000" />
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    @if (_errors.Count > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-4">
+            @foreach (var error in _errors)
+            {
+                <div>@error</div>
+            }
+            @if (_existing is { } existing)
+            {
+                <MudLink Href="@($"admin/klanten/{existing}")">Open de bestaande klant</MudLink>
+            }
+        </MudAlert>
+    }
+
+    <div class="d-flex gap-2">
+        <MudButton ButtonType="ButtonType.Submit" Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy">Bewaren</MudButton>
+        <MudButton OnClick="OnCancel" Variant="Variant.Text">Annuleren</MudButton>
+    </div>
+</EditForm>
+
+@code {
+    private List<string> _errors = [];
+    private Guid? _existing;
+    private bool _busy;
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
+
+    [Parameter, EditorRequired] public CustomerForm Form { get; set; } = default!;
+    /// <summary>De klant die gewijzigd wordt; null om een nieuwe klant toe te voegen.</summary>
+    [Parameter] public Guid? CustomerId { get; set; }
+    [Parameter] public EventCallback<Guid> OnSaved { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        try
+        {
+            var user = (await AuthenticationState).User.Id();
+            var result = CustomerId is { } id
+                ? await Customers.UpdateAsync(id, Form.ToDetails(), user)
+                : await Customers.AddAsync(Form.ToDetails(), user);
+            _errors = result.Errors.ToList();
+            _existing = result.ExistingCustomerId;
+            if (result.CustomerId is { } saved)
+                await OnSaved.InvokeAsync(saved);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string LanguageName(string culture) => culture switch
+    {
+        "nl" => "Nederlands",
+        "fr" => "Frans",
+        "en" => "Engels",
+        _ => culture,
+    };
+}

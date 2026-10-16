@@ -77,6 +77,14 @@ aan andere verhuurbedrijven aangeboden te worden.
   prijs; in een pakket wordt enkel het artikel binnen het pakket vervangen, als notitie op de pakketlijn ("Jungle
   vervangen door Piraat") in het back office en de mails, en de pakketprijs blijft. Een meerprijs wordt een aparte lijn.
   Het komt in de historiek en de klant krijgt een bijgewerkte bevestiging (`IReservationService.ReplaceItemAsync`).
+  Het **klantenbestand** (`/admin/klanten`, voor Beheerder en Medewerker): zoeken op naam, bedrijfsnaam, e-mail,
+  telefoon of gemeente, filteren op particulier of zakelijk, met per klant het aantal reservaties en de laatste
+  huurperiode (zonder geannuleerde). De klantfiche toont de gegevens, alle reservaties (ook geannuleerde), of de klant
+  marketingcontact is (alleen tonen) en of hij afgemeld is voor reviewvragen, en wanneer en door wie (een gebruiker of
+  "via website") hij aangemaakt en laatst gewijzigd werd. Klanten manueel toevoegen en wijzigen (`/admin/klanten/nieuw`):
+  particulier of zakelijk (bedrijfsnaam verplicht, btw-nummer optioneel), een apart factuuradres als "Factuuradres is
+  hetzelfde" uit staat, en een interne notitie. Het e-mailadres is uniek per verhuurder (`ICustomerAdministration`);
+  reserveren werkt de klant bij, maar nooit de notitie.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

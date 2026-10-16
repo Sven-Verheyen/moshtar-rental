@@ -347,6 +347,12 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<string>("CompanyName")
                         .HasColumnType("text");
 
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(320)
@@ -356,9 +362,18 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
                     b.Property<string>("LastName")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
 
                     b.Property<string>("Phone")
                         .HasColumnType("text");
@@ -370,6 +385,12 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("TenantId")
                         .HasColumnType("uuid");
 
+                    b.Property<DateTime>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("VatNumber")
                         .HasColumnType("text");
 
@@ -377,7 +398,8 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TenantId");
 
-                    b.HasIndex("TenantId", "Email");
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique();
 
                     b.ToTable("Customers");
                 });
@@ -1417,8 +1439,39 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                                 .HasForeignKey("CustomerId");
                         });
 
+                    b.OwnsOne("Moshtar.Domain.Common.Address", "BillingAddress", b1 =>
+                        {
+                            b1.Property<Guid>("CustomerId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("City")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("Country")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("PostalCode")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("Street")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.HasKey("CustomerId");
+
+                            b1.ToTable("Customers");
+
+                            b1.WithOwner()
+                                .HasForeignKey("CustomerId");
+                        });
+
                     b.Navigation("Address")
                         .IsRequired();
+
+                    b.Navigation("BillingAddress");
                 });
 
             modelBuilder.Entity("Moshtar.Domain.Mail.MailTemplateCustomization", b =>

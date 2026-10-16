@@ -53,7 +53,7 @@ internal sealed class ReservationService(
         if (shortages.Count > 0)
             return new ReservationResult(null, shortages);
 
-        var customer = await UpsertCustomerAsync(db, request, ct);
+        var customer = await UpsertCustomerAsync(db, request, actor, ct);
         // De prijsregels van vandaag, binnen dezelfde transactie: dezelfde berekening als de winkelkar.
         var quoter = await PriceQuotes.CurrentAsync(db, clock, ct);
         var priced = quoter.Quote(request.Period, request.Lines.Select(l => PriceLineOf(l, items, bundles)).ToList());
@@ -323,9 +323,13 @@ internal sealed class ReservationService(
         };
     }
 
-    private static async Task<Customer> UpsertCustomerAsync(AppDbContext db, ReservationRequest request, CancellationToken ct)
+    /// <summary>
+    /// Wie reserveert, wordt klant, of zijn klantfiche neemt de laatst ingevulde gegevens over. De interne notitie blijft
+    /// altijd staan. Aangemaakt of gewijzigd door de gebruiker die reserveerde, of "via website".
+    /// </summary>
+    private async Task<Customer> UpsertCustomerAsync(AppDbContext db, ReservationRequest request, ReservationActor actor, CancellationToken ct)
     {
-        var email = request.Customer.Email.Trim().ToLowerInvariant();
+        var email = Customer.NormalizeEmail(request.Customer.Email);
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Email == email, ct);
         if (customer is null)
         {
@@ -337,6 +341,7 @@ internal sealed class ReservationService(
         customer.Phone = PhoneNumber.International(request.Customer.Phone);
         customer.Address = request.Customer.Address;
         customer.PreferredCulture = request.Culture;
+        customer.RecordChange(actor.UserId, clock.GetUtcNow().UtcDateTime);
         return customer;
     }
 

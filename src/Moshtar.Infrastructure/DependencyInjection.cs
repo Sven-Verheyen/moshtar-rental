@@ -14,6 +14,8 @@ using Moshtar.Infrastructure.Catalog;
 using Moshtar.Infrastructure.Mail;
 using Moshtar.Application.Marketing;
 using Moshtar.Infrastructure.Marketing;
+using Moshtar.Application.Customers;
+using Moshtar.Infrastructure.Customers;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Tenancy;
 using Moshtar.Application.Website;
@@ -77,6 +79,7 @@ public static class DependencyInjection
         services.AddScoped<Application.Reviews.IReviewWhatsApp, Reviews.ReviewWhatsApp>();
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
+        services.AddScoped<ICustomerAdministration, CustomerAdministration>();
         services.AddScoped<IPricingRuleAdministration, PricingRuleAdministration>();
         services.AddScoped<IPriceQuotes, PriceQuotes>();
         services.AddScoped<IPriceExamples, PriceExamples>();
