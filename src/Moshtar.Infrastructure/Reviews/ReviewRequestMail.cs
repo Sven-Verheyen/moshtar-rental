@@ -45,7 +45,7 @@ internal static class ReviewRequestMail
         var customer = reservation.Customer ?? throw new InvalidOperationException("Reservatie zonder klant.");
         var t = ByLanguage[ReservationConfirmation.LanguageOf(reservation, tenant)];
         var values = ReservationConfirmation.Values(reservation, tenant);
-        var button = $"<p><a href=\"{E(reviewLink)}\" style=\"display:inline-block;padding:12px 20px;background-color:#1f2937;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold\">{E(t.Button)}</a></p>";
+        var button = MailBody.Button(reviewLink, t.Button);
         var qrCode = $"<p>{E(t.ScanQrCode)}<br><img src=\"{E(qrCodeUrl)}\" alt=\"{E(t.QrCodeAlt)}\" width=\"180\" height=\"180\" style=\"display:block;border:0;margin-top:8px\"></p>";
 
         var (html, text) = MailBody.Compose(tenant, logoUrl, template.Body, name => values.GetValueOrDefault(name),

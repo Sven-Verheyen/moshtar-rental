@@ -166,7 +166,7 @@ public class Reservation : TenantEntity
     public void RecordReviewRequestMailed(DateTime atUtc)
     {
         ReviewRequestMailedAtUtc = atUtc;
-        Record(ReservationEventKind.ReviewRequestMailed, ReservationActor.Website, atUtc);
+        Record(ReservationEventKind.ReviewRequestMailed, ReservationActor.Automatic, atUtc);
     }
 
     /// <summary>Noteert op de reservatie en in de historiek dat een gebruiker de reviewvraag via WhatsApp stuurde.</summary>
@@ -179,7 +179,7 @@ public class Reservation : TenantEntity
     private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc, string? note = null) =>
         History.Add(new ReservationEvent
         {
-            ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId,
+            ReservationId = Id, Kind = kind, Status = Status, OccurredAtUtc = atUtc, UserId = actor.UserId, Automatic = actor.IsAutomatic,
             Note = note is { Length: > ReservationEvent.MaxNoteLength } ? note[..(ReservationEvent.MaxNoteLength - 1)] + "…" : note,
         });
 

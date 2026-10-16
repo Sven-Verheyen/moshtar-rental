@@ -5,6 +5,7 @@
 @using Moshtar.Infrastructure.Persistence
 @using Moshtar.Domain.Reviews
 @inject IDbContextFactory<AppDbContext> DbFactory
+@inject Moshtar.Application.Reviews.IReviewOptOuts ReviewOptOuts
 @inject IReservationService ReservationService
 @inject IReservationAlternatives ReservationAlternatives
 @inject ISnackbar Snackbar
@@ -118,7 +119,7 @@
                                     <tr>
                                         <td>@LocalTime(entry.OccurredAtUtc)</td>
                                         <td>@EventLabel(entry)</td>
-                                        <td>@(entry.UserEmail ?? (entry.Kind == ReservationEventKind.ReviewRequestMailed ? "automatisch" : "via website"))</td>
+                                        <td>@(entry.UserEmail ?? (entry.Automatic ? "automatisch" : "via website"))</td>
                                     </tr>
                                 }
                             </tbody>
@@ -163,8 +164,7 @@
             .Where(r => string.IsNullOrEmpty(number) || r.Number == number)
             .OrderByDescending(r => r.StartDate).ThenBy(r => r.Number)
             .Take(200).ToListAsync();
-        var emails = _reservations.Where(r => r.Customer is not null).Select(r => ReviewOptOut.Normalize(r.Customer!.Email)).Distinct().ToList();
-        _optedOut = (await db.ReviewOptOuts.AsNoTracking().Where(o => emails.Contains(o.Email)).Select(o => o.Email).ToListAsync()).ToHashSet();
+        _optedOut = await ReviewOptOuts.OptedOutAmongAsync(_reservations.Where(r => r.Customer is not null).Select(r => r.Customer!.Email));
     }
 
     private static readonly ReservationStatus[] NextStatuses =

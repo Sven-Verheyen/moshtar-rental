@@ -1,3 +1,4 @@
+using Moshtar.Application.Reviews;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Tenants;
 using QRCoder;
@@ -11,14 +12,12 @@ namespace Moshtar.Web.Site;
 /// </summary>
 public static class ReviewQrCode
 {
-    public const string Path = Application.Reviews.ReviewQrCodePath.Path;
-
     /// <summary>Pixels per blokje: groot genoeg om scherp af te drukken op een sticker of flyer.</summary>
     private const int PixelsPerModule = 12;
 
     public static IEndpointRouteBuilder MapReviewQrCode(this IEndpointRouteBuilder app)
     {
-        app.MapGet(Path, (HttpContext context, ITenantContext tenantContext) =>
+        app.MapGet(ReviewQrCodePath.Path, (HttpContext context, ITenantContext tenantContext) =>
         {
             if (context.Request.PathBase.HasValue) return Results.NotFound();
             if (BusinessDetails.Link(tenantContext.Tenant?.ReviewLink) is not { } link) return Results.NotFound();

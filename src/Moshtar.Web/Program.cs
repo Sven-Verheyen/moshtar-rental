@@ -1,5 +1,6 @@
 using Moshtar.Web.Admin;
 using System.Globalization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -24,6 +25,11 @@ builder.Services.AddMudServices();
 builder.Services.AddInfrastructure(builder.Configuration,
     sendRealMail: !builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"),
     useAzureMaps: !builder.Environment.IsEnvironment("Testing"));
+// De sleutels voor logincookies, antiforgery en de afmeldlink van de reviewvraag in de databank, onder een vaste naam:
+// zo blijven ze geldig na een herstart, een nieuwe versie en op elke server.
+builder.Services.AddDataProtection()
+    .SetApplicationName("Moshtar")
+    .PersistKeysToDbContext<AppDbContext>();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<HostTenantContext>();
 builder.Services.AddScoped<ITenantContext>(sp => sp.GetRequiredService<HostTenantContext>());

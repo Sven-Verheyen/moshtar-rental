@@ -89,8 +89,7 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
     private async Task<MailMessage> PreviewAsync(MailKind kind, string culture, MailTemplateText text, string to, CancellationToken ct)
     {
         text = Checked(MailKinds.For(kind), culture, text);
-        var host = await db.TenantHosts.AsNoTracking().Where(h => h.TenantId == Tenant.Id)
-            .OrderByDescending(h => h.IsPrimary).Select(h => h.Hostname).FirstOrDefaultAsync(ct);
+        var host = await db.PrimaryHostAsync(Tenant.Id, ct);
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
         var mail = kind switch
         {

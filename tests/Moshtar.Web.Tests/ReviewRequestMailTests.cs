@@ -46,6 +46,8 @@ public sealed class ReviewRequestMailTests(MoshtarApp app) : IClassFixture<Mosht
 
         var mailed = Assert.Single(await HistoryAsync("review", reservation), e => e.Kind == ReservationEventKind.ReviewRequestMailed);
         Assert.Equal(At(end.AddDays(1), 10, 0).UtcDateTime, mailed.OccurredAtUtc);
+        // Moshtar deed het zelf: geen gebruiker, en ook niet de klant via de website.
+        Assert.Equal(((string?)null, true), (mailed.UserEmail, mailed.Automatic));
     }
 
     [Fact]
@@ -140,6 +142,23 @@ public sealed class ReviewRequestMailTests(MoshtarApp app) : IClassFixture<Mosht
         Assert.Single(await HistoryAsync("review-dubbel", later), e => e.Kind == ReservationEventKind.ReviewRequestMailed);
         // Geen herinnering: de volgende dagen vertrekt er niets meer.
         Assert.Equal(0, await RunAsync("review-dubbel", At(end.AddDays(12), 10, 0)));
+    }
+
+    [Fact]
+    public async Task A_reservation_added_later_with_the_same_customer_and_end_day_gets_no_second_mail_but_its_own_history_line()
+    {
+        await NewTenantAsync("review-nadien");
+        var end = TestReservations.FutureDay(9);
+        await ReserveAsync("review-nadien", "piet@example.test", "Piet", end);
+        Assert.Equal(1, await RunAsync("review-nadien", At(end.AddDays(1), 10, 0)));
+
+        var added = await ReserveAsync("review-nadien", "Piet@Example.test", "Piet", end);
+        Assert.Equal(0, await RunAsync("review-nadien", At(end.AddDays(1), 11, 0)));
+        Assert.Equal(0, await RunAsync("review-nadien", At(end.AddDays(1), 12, 0)));
+
+        Assert.Single(ReviewMails("piet@example.test"));
+        var line = Assert.Single(await HistoryAsync("review-nadien", added), e => e.Kind == ReservationEventKind.ReviewRequestMailed);
+        Assert.Equal(At(end.AddDays(1), 11, 0).UtcDateTime, line.OccurredAtUtc);
     }
 
     [Fact]

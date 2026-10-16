@@ -13,11 +13,9 @@ using Moshtar.Infrastructure.Reservations;
 namespace Moshtar.Infrastructure.Reviews;
 
 /// <summary>Met een eigen, kortlevende context per oproep, zoals de rest van de Planning.</summary>
-internal sealed class ReviewWhatsApp(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock) : IReviewWhatsApp
+internal sealed class ReviewWhatsApp(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, IReviewOptOuts optOuts, TimeProvider clock)
+    : IReviewWhatsApp
 {
-    /// <summary>Hoeveel dagen na de einddag een klant in het blok blijft, zoals de mail.</summary>
-    private const int LastDayAfterEnd = 3;
-
     private const string NotInBlock = "Deze klant staat niet (meer) bij de reviewvragen van deze dag. Laad de Planning opnieuw.";
 
     public async Task<IReadOnlyList<ReviewWhatsAppRequest>> ForDayAsync(DateOnly day, CancellationToken ct = default)
@@ -52,27 +50,20 @@ internal sealed class ReviewWhatsApp(IDbContextFactory<AppDbContext> contexts, I
         if (tenant?.ReviewRequestsSince is not { } since || BusinessDetails.Link(tenant.ReviewLink) is not { } reviewLink)
             return [];
 
-        var earliestEnd = day.AddDays(-LastDayAfterEnd);
-        // Alleen reservaties die eindigden op of na de dag van het aanzetten, zoals de mail.
-        var switchedOn = DateOnly.FromDateTime(Belgium.Local(since).DateTime);
-        if (switchedOn > earliestEnd) earliestEnd = switchedOn;
-        var latestEnd = day.AddDays(-1);
-        if (earliestEnd > latestEnd) return [];
+        if (ReviewRequestRule.EndDays(day, since) is not { } endDays) return [];
 
         var reservations = await db.Reservations.AsNoTracking().Include(r => r.Customer)
-            .Where(r => r.Status != ReservationStatus.Cancelled && r.Customer != null && r.EndDate >= earliestEnd && r.EndDate <= latestEnd)
+            .Where(r => r.Status != ReservationStatus.Cancelled && r.Customer != null && r.EndDate >= endDays.Start && r.EndDate <= endDays.End)
             .OrderBy(r => r.CreatedAtUtc).ThenBy(r => r.Number)
             .ToListAsync(ct);
         if (reservations.Count == 0) return [];
 
-        var emails = reservations.Select(r => ReviewOptOut.Normalize(r.Customer!.Email)).Distinct().ToList();
-        var optedOut = (await db.ReviewOptOuts.AsNoTracking().Where(o => emails.Contains(o.Email)).Select(o => o.Email).ToListAsync(ct)).ToHashSet();
+        var perCustomer = ReviewRequestRule.PerCustomer(reservations).ToList();
+        var optedOut = await optOuts.OptedOutAmongAsync(perCustomer.Select(g => g.Key.Email), ct);
         var customizations = await db.MailTemplateCustomizations.AsNoTracking().Where(t => t.Kind == MailKind.ReviewRequest).ToListAsync(ct);
 
         var groups = new List<Group>();
-        foreach (var group in reservations
-            .GroupBy(r => (Email: ReviewOptOut.Normalize(r.Customer!.Email), r.EndDate))
-            .Where(g => !optedOut.Contains(g.Key.Email)))
+        foreach (var group in perCustomer.Where(g => !optedOut.Contains(g.Key.Email)))
         {
             var clicked = group.Max(r => r.ReviewRequestWhatsAppAtUtc) is { } atUtc
                 ? new DateTimeOffset(DateTime.SpecifyKind(atUtc, DateTimeKind.Utc))

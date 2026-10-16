@@ -56,10 +56,12 @@ public interface IReservationService
 }
 
 /// <summary>
-/// Een gebeurtenis uit de historiek. Zonder e-mailadres deed de klant het zelf via de reservatiewebsite.
-/// <see cref="Note"/> zegt wat er precies gebeurde, bv. welke alternatieven gemaild werden, of is null.
+/// Een gebeurtenis uit de historiek. Zonder e-mailadres deed de klant het zelf via de reservatiewebsite, tenzij
+/// <see cref="Automatic"/>: dan deed Moshtar het zelf. <see cref="Note"/> zegt wat er precies gebeurde, bv. welke
+/// alternatieven gemaild werden, of is null.
 /// </summary>
-public record ReservationHistoryEntry(DateTime OccurredAtUtc, ReservationEventKind Kind, ReservationStatus Status, string? UserEmail, string? Note = null);
+public record ReservationHistoryEntry(DateTime OccurredAtUtc, ReservationEventKind Kind, ReservationStatus Status, string? UserEmail, string? Note = null,
+    bool Automatic = false);
 
 public record ReservationLineRequest(Guid? RentalItemId, Guid? BundleId, int Quantity);
 

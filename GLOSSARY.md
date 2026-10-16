@@ -97,7 +97,7 @@ Een reservatie aanmaken, door een klant op de website of door een gebruiker in h
 _Avoid_: boeken, bestellen
 
 **Historiek** (`History`):
-De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd, alternatieven gemaild of een artikel vervangen, telkens met tijdstip en wie het deed. Een gebruiker, of "via website" als de klant het zelf deed.
+De lijst van wat er met een reservatie gebeurde: aangemaakt, status gewijzigd, geannuleerd, alternatieven gemaild, een artikel vervangen, reviewvraag gemaild of reviewvraag via WhatsApp, telkens met tijdstip en wie het deed: een gebruiker, "via website" als de klant het zelf deed, of "automatisch" als Moshtar het zelf deed, zoals de reviewvraag mailen.
 _Avoid_: audit log, logboek, geschiedenis
 
 **Huurperiode** (`DateRange`):

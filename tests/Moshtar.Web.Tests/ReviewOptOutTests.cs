@@ -138,10 +138,10 @@ public sealed class ReviewOptOutTests(MoshtarApp app) : IClassFixture<MoshtarApp
     }
 
     [Theory]
-    [InlineData("/privacy", "<h2>Reviewvragen</h2>", "‘Ik wil geen reviewvragen meer’")]
-    [InlineData("/fr/confidentialite", "<h2>Demandes d'avis</h2>", "« Je ne veux plus de demandes d'avis »")]
-    [InlineData("/en/privacy", "<h2>Review requests</h2>", "‘I don't want review requests anymore’")]
-    public async Task The_privacy_statement_explains_review_requests_and_how_to_opt_out_when_they_are_switched_on(string path, string heading, string optOut)
+    [InlineData("/privacy", "<h2>Reviewvragen</h2>", "‘Ik wil geen reviewvragen meer’", "via WhatsApp sturen, naar het telefoonnummer")]
+    [InlineData("/fr/confidentialite", "<h2>Demandes d'avis</h2>", "« Je ne veux plus de demandes d'avis »", "par WhatsApp, au numéro de téléphone")]
+    [InlineData("/en/privacy", "<h2>Review requests</h2>", "‘I don't want review requests anymore’", "via WhatsApp, to the phone number")]
+    public async Task The_privacy_statement_explains_review_requests_and_how_to_opt_out_when_they_are_switched_on(string path, string heading, string optOut, string whatsApp)
     {
         var slug = "afmelden-privacy-" + path.Split('/')[1];
         await CreateAsync(app, slug);
@@ -152,8 +152,30 @@ public sealed class ReviewOptOutTests(MoshtarApp app) : IClassFixture<MoshtarApp
 
         Assert.Contains(heading, on);
         Assert.Contains(optOut, on);
+        Assert.Contains(whatsApp, on);
         Assert.Contains($"{slug} ", on[on.IndexOf(heading)..]);
         Assert.DoesNotContain(heading, off);
+    }
+
+    [Fact]
+    public async Task An_opt_out_link_keeps_working_after_a_restart_because_the_keys_are_in_the_database()
+    {
+        await CreateAsync(app, "afmelden-herstart");
+        var end = TestReservations.FutureDay(26);
+        await ReserveAsync(app, "afmelden-herstart", "herstart@example.test", "Hanne", end);
+        await RunAsync(app, "afmelden-herstart", At(end.AddDays(1), 10, 0));
+        var link = OptOutLink(Assert.Single(Mails(app, "herstart@example.test")).TextBody);
+
+        // Een nieuwe instantie van de app op dezelfde databank, zoals na een herstart of op een tweede server.
+        await using var restarted = app.WithWebHostBuilder(_ => { });
+        var client = restarted.CreateClient(new() { BaseAddress = new Uri("http://afmelden-herstart.test"), AllowAutoRedirect = false });
+        var path = new Uri(link).PathAndQuery;
+        var page = await WebsiteCart.PageAsync(client, path);
+        var response = await WebsiteCart.PostAsync(client, path, page, new() { ["_handler"] = "afmelden" });
+        Assert.Contains("Je krijgt van afmelden-herstart geen reviewvragen meer.", WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()));
+
+        await using var scope = app.Services.CreateAsyncScope();
+        Assert.True(await scope.ServiceProvider.GetRequiredService<AppDbContext>().DataProtectionKeys.AnyAsync());
     }
 
     /// <summary>De afmeldlink uit de tekstversie van de reviewvraag.</summary>

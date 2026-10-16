@@ -23,10 +23,14 @@ public enum ReservationEventKind
     ReviewRequestWhatsApp = 10,
 }
 
-/// <summary>Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, of de klant via de reservatiewebsite.</summary>
-public sealed record ReservationActor(Guid? UserId)
+/// <summary>
+/// Wie een reservatie aanmaakt of wijzigt: een gebruiker van het back office, de klant via de reservatiewebsite, of
+/// Moshtar zelf (automatisch, bv. de reviewvraag de dag na de einddag).
+/// </summary>
+public sealed record ReservationActor(Guid? UserId, bool IsAutomatic = false)
 {
     public static readonly ReservationActor Website = new((Guid?)null);
+    public static readonly ReservationActor Automatic = new(null, IsAutomatic: true);
     public static ReservationActor User(Guid userId) => new(userId);
 }
 
@@ -38,8 +42,10 @@ public class ReservationEvent : TenantEntity
     /// <summary>De status van de reservatie na deze gebeurtenis.</summary>
     public ReservationStatus Status { get; set; }
     public DateTime OccurredAtUtc { get; set; }
-    /// <summary>De gebruiker die het deed; leeg als de klant het zelf deed via de reservatiewebsite.</summary>
+    /// <summary>De gebruiker die het deed; leeg als de klant het zelf deed via de reservatiewebsite of als het automatisch gebeurde.</summary>
     public Guid? UserId { get; set; }
+    /// <summary>Moshtar deed het zelf, zonder gebruiker of klant, bv. de reviewvraag mailen.</summary>
+    public bool Automatic { get; set; }
     /// <summary>Wat er precies gebeurde, voor de historiek, bv. welke alternatieven gemaild werden; anders null.</summary>
     public string? Note { get; set; }
 

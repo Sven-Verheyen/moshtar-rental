@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using Moshtar.Domain.Mail;
@@ -14,6 +15,10 @@ internal sealed record MailBlock(string Html, string Text);
 /// </summary>
 internal static class MailBody
 {
+    /// <summary>Een knop naar een link, zoals "Schrijf een review" of "Naar je winkelkar", als HTML-blok.</summary>
+    public static string Button(string href, string label) =>
+        $"<p><a href=\"{WebUtility.HtmlEncode(href)}\" style=\"display:inline-block;padding:12px 20px;background-color:#1f2937;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold\">{WebUtility.HtmlEncode(label)}</a></p>";
+
     public static (string Html, string Text) Compose(
         Tenant tenant, string? logoUrl, string body, Func<string, string?> value, IReadOnlyDictionary<string, MailBlock> blocks)
     {

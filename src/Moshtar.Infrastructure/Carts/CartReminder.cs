@@ -83,7 +83,7 @@ internal static class CartReminder
         foreach (var line in lines) contentsHtml.Append($"<li>{E(line)}</li>");
         contentsHtml.Append($"</ul><p><strong>{E(t.Total)}: {E(Money(cart.Total))}</strong></p>");
 
-        var linkHtml = $"<p><a href=\"{E(link)}\" style=\"display:inline-block;padding:12px 20px;background-color:#1f2937;color:#ffffff;text-decoration:none;border-radius:6px;font-weight:bold\">{E(t.Link)}</a></p>";
+        var linkHtml = MailBody.Button(link, t.Link);
 
         var (html, text) = MailBody.Compose(tenant, logoUrl, template.Body, name => values.GetValueOrDefault(name),
             new Dictionary<string, MailBlock>

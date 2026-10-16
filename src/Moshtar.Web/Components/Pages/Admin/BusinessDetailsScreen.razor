@@ -129,8 +129,12 @@
     /// <summary>De ingevulde reviewlink om te testen, als ze een volledig https-adres is.</summary>
     private string? TestLink => Moshtar.Domain.Tenants.BusinessDetails.Link(_s.ReviewLink);
 
-    /// <summary>De QR-code van de bewaarde link; de link in het adres zorgt dat een gewijzigde link niet uit de cache komt.</summary>
-    private string QrCodeUrl => $"{Moshtar.Web.Site.ReviewQrCode.Path}?v={(uint)string.GetHashCode(_savedReviewLink, StringComparison.Ordinal):x}";
+    /// <summary>
+    /// De QR-code van de bewaarde link; een vaste vingerafdruk van de link in het adres zorgt dat een gewijzigde link
+    /// niet uit de cache komt, en dat dezelfde link op elke server en na een herstart hetzelfde adres houdt.
+    /// </summary>
+    private string QrCodeUrl =>
+        $"{Moshtar.Application.Reviews.ReviewQrCodePath.Path}?v={Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(_savedReviewLink ?? "")))[..12]}";
 
     /// <summary>Een uur uit een tijdveld (HH:mm); leeg of onleesbaar: de standaard.</summary>
     private static TimeOnly Time(string? value, TimeOnly fallback) =>
