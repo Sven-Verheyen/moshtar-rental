@@ -57,11 +57,15 @@ public static class StructuredData
         return data;
     }
 
+    /// <summary>De prijs voor een gekozen huurperiode van zoveel dagen, met periodeprijzen: wat de bezoeker ziet.</summary>
+    public sealed record PeriodPrice(int Days, decimal Price);
+
     /// <summary>
     /// Een artikel of pakket met zijn dagprijs, inclusief btw. Het is een verhuring (LeaseOut), geen verkoop; de prijs
-    /// geldt per dag (UN/CEFACT-code DAY).
+    /// geldt per dag (UN/CEFACT-code DAY). Met een gekozen huurperiode de prijs die de bezoeker ziet, voor zoveel dagen;
+    /// zonder <paramref name="dayPrice"/>: de dagprijs die de bezoeker ziet (met een actie), anders de gewone dagprijs.
     /// </summary>
-    public static JsonObject Product(CatalogEntry entry, SiteLinks links, IImageStore images)
+    public static JsonObject Product(CatalogEntry entry, SiteLinks links, IImageStore images, PeriodPrice? chosen = null, decimal? dayPrice = null)
     {
         var url = links.Absolute(new RentalRoute(entry.Slug), links.Culture);
         var data = Node("Product");
@@ -73,12 +77,14 @@ public static class StructuredData
         data["url"] = url;
         data["sku"] = entry.Slug;
 
-        var price = entry.DayPrice.ToString("0.00", CultureInfo.InvariantCulture);
+        var price = (chosen?.Price ?? dayPrice ?? entry.DayPrice).ToString("0.00", CultureInfo.InvariantCulture);
         var specification = Typed("UnitPriceSpecification");
         specification["price"] = price;
         specification["priceCurrency"] = "EUR";
         specification["unitCode"] = "DAY";
         specification["valueAddedTaxIncluded"] = true;
+        if (chosen is not null)
+            specification["referenceQuantity"] = new JsonObject { ["@type"] = "QuantitativeValue", ["value"] = chosen.Days, ["unitCode"] = "DAY" };
 
         var offer = Typed("Offer");
         offer["url"] = url;

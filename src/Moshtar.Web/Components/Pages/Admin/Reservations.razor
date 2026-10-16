@@ -204,8 +204,12 @@
             _history[id] = await ReservationService.GetHistoryAsync(id);
     }
 
-    /// <summary>Een lijn met de artikelen die binnen het pakket vervangen zijn, bv. "1 × Kinderfeest (Jungle vervangen door Piraat)".</summary>
+    /// <summary>
+    /// Een lijn met de artikelen die binnen het pakket vervangen zijn, bv. "1 × Kinderfeest (Jungle vervangen door Piraat)";
+    /// een kortingslijn met haar bedrag, bv. "2e springkasteel 40% korting: −€ 40,00".
+    /// </summary>
     private static string LineText(ReservationLine line) =>
+        line.IsDiscount ? $"{line.Description}: −{(-line.LineTotal).ToString("C", Money)}" :
         $"{line.Quantity} × {line.Description}" + (line.Replacements.Count == 0 ? ""
             : $" ({string.Join(", ", line.Replacements.Select(r => $"{r.RentalItemName} vervangen door {r.ReplacementName}"))})");
 

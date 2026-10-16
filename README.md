@@ -50,6 +50,22 @@ aan andere verhuurbedrijven aangeboden te worden.
   plaats van "Populair" (uitgezette artikelen en verborgen pakketten niet); is niets uitgelicht, dan de pakketten en het
   eerste artikel van elke categorie. Met een huurperiode staan de uitgelichte bovenaan, met hun beschikbaarheid, en
   daaronder het hele aanbod.
+  Prijsregels (`/admin/prijsregels`, alleen Beheerder), met eerst de combinatiekortingen: bij een minimum aantal stuks
+  uit een categorie of uit gekozen artikelen en pakketten krijgt het goedkoopste stuk van elke volledige groep een
+  kortingspercentage, met een naam per taal, aan/uit en een optionele einddatum. Eén prijsberekening
+  (`PriceCalculator`) voor de winkelkar, reserveren (website en back office), Open winkelkarren, de herinneringsmail en
+  GA4; een reservatie bewaart elke korting als eigen lijn met de naam van de regel, en houdt die als de regel later
+  wijzigt. De artikelpagina noemt de combinatiekorting waarin het artikel valt.
+  Periodeprijzen (tabblad op dezelfde pagina, `?tab=periodeprijzen`): elke dag van de huurperiode in bepaalde data en/of
+  op bepaalde weekdagen wordt −90% tot +200% duurder of goedkoper, voor alles of gekozen artikelen, pakketten en
+  categorieën; op één dag tellen de percentages op en kortingen rekenen daarna. Met een gekozen datum tonen kaarten,
+  artikelpagina, winkelkar, structured data en GA4 de prijs mét periodeprijs; zonder datum de gewone prijs.
+  Acties (`?tab=acties`): 1–100% korting voor reservaties gemaakt tussen een start- en einddatum, optioneel enkel voor
+  huurperiodes binnen bepaalde data, op alles of gekozen artikelen, pakketten en categorieën, met een naam per taal.
+  Elk stuk krijgt hoogstens één korting: de voordeligste van acties en combinatiekortingen (van twee acties de
+  hoogste); een stuk met een betere actie telt mee voor de groep van een combinatiekorting, maar de korting gaat naar
+  het volgende goedkoopste stuk. Kaart en artikelpagina tonen de oude prijs doorstreept met "Actie −10%"; zonder datum
+  alleen een actie die niet aan huurperiodes gebonden is. Structured data krijgt de actieprijs.
   De lijst Tekorten (`/admin/tekorten`, voor Beheerder en Medewerker, met een teller in het menu) toont per artikel de
   dagen vanaf vandaag met een tekort en elke getroffen reservatie, ook als het artikel in een gereserveerd pakket zit.
   Per getroffen reservatie staan er de alternatieven (artikelen uit dezelfde categorie, aan en vrij in de volledige

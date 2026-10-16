@@ -113,6 +113,8 @@ internal static class ReservationConfirmation
     /// <summary>Een lijn zoals de klant ze ziet, met de artikelen die binnen het pakket vervangen zijn.</summary>
     private static string LineText(ReservationLine line, DetailTexts t, CultureInfo culture)
     {
+        // Een kortingslijn zoals in de winkelkar en het back office: "2e springkasteel 40% korting: −€ 40,00".
+        if (line.IsDiscount) return $"{line.Description}: −{(-line.LineTotal).ToString("C", culture)}";
         var text = $"{line.Quantity} × {line.Description}";
         if (line.Replacements.Count > 0)
             text += $" ({string.Join(", ", line.Replacements.Select(r => string.Format(t.ReplacedBy, r.RentalItemName, r.ReplacementName)))})";

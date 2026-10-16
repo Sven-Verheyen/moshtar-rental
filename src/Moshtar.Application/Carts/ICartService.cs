@@ -72,13 +72,20 @@ public record CartReservationResult(Reservation? Reservation, IReadOnlySet<Guid>
 /// <summary>Het resultaat van een wijziging: de sleutel van de winkelkar (null als er geen is) en of het lukte.</summary>
 public record CartChange(string? Key, bool Succeeded);
 
-/// <summary>De winkelkar zoals de klant hem ziet.</summary>
-public record CartView(DateRange Period, IReadOnlyList<CartLineView> Lines, string? Email = null, bool WantsReminder = false, bool WantsNews = false)
+/// <summary>
+/// De winkelkar zoals de klant hem ziet, met de prijzen en kortingen volgens de prijsregels van vandaag
+/// (<see cref="Prices.IPriceQuotes"/>): elke korting is een eigen lijn met de naam van haar regel.
+/// </summary>
+public record CartView(DateRange Period, IReadOnlyList<CartLineView> Lines, string? Email = null, bool WantsReminder = false, bool WantsNews = false,
+    IReadOnlyList<CartDiscountView>? Discounts = null)
 {
     public int Count => Lines.Sum(l => l.Quantity);
 
-    /// <summary>Het totaal van wat nog te reserveren is: zonder lijnen die niet meer bestaan.</summary>
-    public decimal Total => Lines.Where(l => l.Entry is not null).Sum(l => l.LineTotal);
+    /// <summary>De kortingslijnen; leeg zonder korting.</summary>
+    public IReadOnlyList<CartDiscountView> DiscountLines => Discounts ?? [];
+
+    /// <summary>Het totaal van wat nog te reserveren is, met de kortingen: zonder lijnen die niet meer bestaan.</summary>
+    public decimal Total => Lines.Where(l => l.Entry is not null).Sum(l => l.LineTotal) - DiscountLines.Sum(d => d.Amount);
 
     public bool AllAvailable => Lines.All(l => l.Available);
 }
@@ -90,4 +97,10 @@ public record CartView(DateRange Period, IReadOnlyList<CartLineView> Lines, stri
 public record CartLineView(CatalogRef Ref, CatalogEntry? Entry, int Quantity, decimal UnitPrice, bool Available)
 {
     public decimal LineTotal => UnitPrice * Quantity;
+
+    /// <summary>Wat de kortingen van de stuks op deze lijn samen aftrekken (positief), uit de berekening per stuk; voor GA4.</summary>
+    public decimal Discount { get; init; }
 }
+
+/// <summary>Een kortingslijn in de winkelkar: de naam van de prijsregel in de taal van de klant en het bedrag (positief).</summary>
+public record CartDiscountView(string Name, decimal Amount);

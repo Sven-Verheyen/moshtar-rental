@@ -1,0 +1,40 @@
+@page "/admin/prijsregels"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+
+<PageTitle>Prijsregels</PageTitle>
+
+@*
+    Alle prijsregels op één plaats, per soort een tabblad; ?tab=periodeprijzen of ?tab=acties opent meteen dat tabblad.
+    Bovenaan de rekentool: dezelfde berekening als de winkelkar (PriceCalculator), zonder iets te bewaren. Na elke
+    wijziging in een tabblad rekent hij opnieuw, met zijn eigen context (de tabbladen zijn dan klaar met de gedeelde).
+*@
+<AdminShell Title="Prijsregels">
+    <PriceExampleTool @ref="_tool" />
+    <MudTabs Elevation="1" Rounded="true" TabPanelsClass="pt-4" @bind-ActivePanelIndex="_activeTab">
+        <MudTabPanel Text="Combinatiekortingen">
+            <ComboDiscountsEditor Changed="RecalculateAsync" />
+        </MudTabPanel>
+        <MudTabPanel Text="Periodeprijzen">
+            <PeriodPricesEditor Changed="RecalculateAsync" />
+        </MudTabPanel>
+        <MudTabPanel Text="Acties">
+            <PromotionsEditor Changed="RecalculateAsync" />
+        </MudTabPanel>
+    </MudTabs>
+</AdminShell>
+
+@code {
+    /// <summary>De tabbladen in volgorde, zoals in ?tab=.</summary>
+    private static readonly string[] Tabs = ["combinatiekortingen", "periodeprijzen", "acties"];
+
+    [SupplyParameterFromQuery(Name = "tab")] private string? Tab { get; set; }
+
+    private int _activeTab;
+    private PriceExampleTool? _tool;
+
+    protected override void OnInitialized() => _activeTab = Math.Max(0, Array.IndexOf(Tabs, Tab?.ToLowerInvariant()));
+
+    private Task RecalculateAsync() => _tool?.RecalculateAsync() ?? Task.CompletedTask;
+}

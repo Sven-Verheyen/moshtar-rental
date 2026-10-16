@@ -1,0 +1,198 @@
+@inject IPriceExamples Examples
+@*
+    De rekentool bovenaan de pagina Prijsregels: een voorbeeldreservatie doorrekenen met dezelfde berekening als de
+    winkelkar, met de prijsregels die aan staan en een gekozen reservatiedatum. Bewaart niets; beschikbaarheid telt niet.
+    Laadt met een eigen context (IPriceExamples), naast het tabblad dat de gedeelde context gebruikt.
+*@
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.h6">Rekentool</MudText>
+    <MudText Typo="Typo.body2" Class="mb-2">
+        Kies een huurperiode, artikelen en pakketten en een reservatiedatum, en zie wat de klant zou betalen met de
+        prijsregels die aan staan. Met een reservatiedatum in de toekomst zie je ook een actie die later start. Er wordt
+        niets bewaard en de beschikbaarheid speelt geen rol.
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Editable="true" Date="_from" DateChanged="d => ChangeAsync(() => _from = d)" Label="Huurperiode van" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy" />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Editable="true" Clearable="true" Date="_until" DateChanged="d => ChangeAsync(() => _until = d)" Label="Huurperiode tot en met" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Leeg: één dag." />
+        </MudItem>
+        <MudItem xs="12" md="4">
+            <MudDatePicker Editable="true" Date="_reservationDate" DateChanged="d => ChangeAsync(() => _reservationDate = d)" Label="Reservatiedatum" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="De dag waarop gereserveerd wordt; standaard vandaag." />
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudSelect T="CatalogEntry" @bind-Value="_entry" Label="Artikel of pakket" Variant="Variant.Outlined" ToStringFunc="@(e => e?.Name ?? "")">
+                @foreach (var entry in _choices?.Entries ?? [])
+                {
+                    <MudSelectItem T="CatalogEntry" Value="entry">@entry.Name@(entry.Kind == CatalogEntryKind.Bundle ? " (pakket)" : "")</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="6" md="2">
+            <MudNumericField T="int" @bind-Value="_quantity" Label="Aantal" Min="1" Max="99" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="6" md="4" Class="d-flex align-center">
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Disabled="_entry is null" OnClick="AddAsync">Toevoegen</MudButton>
+        </MudItem>
+    </MudGrid>
+
+    @if (_lines.Count > 0)
+    {
+        <MudSimpleTable Dense="true" Class="mt-4">
+            <thead>
+                <tr>
+                    <th>Artikel of pakket</th>
+                    <th>Aantal</th>
+                    <th>Gewone prijs per stuk</th>
+                    <th>Per dag, met periodeprijs</th>
+                    <th>Prijs per stuk</th>
+                    <th>Korting per stuk</th>
+                    <th style="text-align: right">Totaal</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @for (var i = 0; i < _lines.Count; i++)
+                {
+                    var index = i;
+                    var line = _lines[index];
+                    // Op sleutel, niet op positie: een artikel of pakket dat niet meer op de reservatiewebsite staat, valt weg uit de uitkomst.
+                    var priced = _result?.Lines.FirstOrDefault(l => l.Entry == line.Entry.Ref());
+                    <tr>
+                        <td>@line.Entry.Name</td>
+                        <td style="max-width: 6rem">
+                            <MudNumericField T="int" Value="line.Quantity" ValueChanged="q => ChangeAsync(() => _lines[index] = line with { Quantity = Math.Max(1, q) })"
+                                             Min="1" Max="99" Variant="Variant.Text" aria-label="Aantal" />
+                        </td>
+                        @if (priced is null)
+                        {
+                            <td colspan="5">@(_result is null ? "Kies een huurperiode." : "Staat niet (meer) op de reservatiewebsite: telt niet mee.")</td>
+                        }
+                        else
+                        {
+                            <td>@Euro(priced.NormalPrice)</td>
+                            <td>
+                                @foreach (var day in priced.Days)
+                                {
+                                    <div>@day.Date.ToString("ddd dd/MM", Money): @Euro(day.NormalPrice)@(day.Percentage != 0 ? $" {Percent(day.Percentage)} = {Euro(day.Price)}" : "")</div>
+                                }
+                            </td>
+                            <td>@Euro(priced.UnitPrice)</td>
+                            <td>
+                                @foreach (var (piece, number) in priced.Pieces.Select((p, n) => (p, n + 1)))
+                                {
+                                    <div>
+                                        @(priced.Pieces.Count > 1 ? $"Stuk {number}: " : "")@(piece.Rule is null ? "geen korting" : $"−{Euro(piece.Discount)} ({piece.Rule})")
+                                    </div>
+                                }
+                            </td>
+                            <td style="text-align: right">@Euro(priced.LineTotal)</td>
+                        }
+                        <td>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small" aria-label="Verwijderen" OnClick="() => ChangeAsync(() => _lines.RemoveAt(index))" />
+                        </td>
+                    </tr>
+                }
+                @if (_result is not null)
+                {
+                    <tr>
+                        <td colspan="6">Subtotaal</td>
+                        <td style="text-align: right">@Euro(_result.Subtotal)</td>
+                        <td></td>
+                    </tr>
+                    @foreach (var discount in _result.Discounts)
+                    {
+                        <tr>
+                            <td colspan="6">@discount.Rule (@discount.Pieces @(discount.Pieces == 1 ? "stuk" : "stuks"))</td>
+                            <td style="text-align: right">−@Euro(discount.Amount)</td>
+                            <td></td>
+                        </tr>
+                    }
+                    <tr>
+                        <td colspan="6"><strong>Totaal</strong></td>
+                        <td style="text-align: right"><strong>@Euro(_result.Total)</strong></td>
+                        <td></td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+    <Problems Items="_problems" />
+</MudPaper>
+
+@code {
+    private static readonly CultureInfo Money = CultureInfo.GetCultureInfo("nl-BE");
+
+    private sealed record ChosenLine(CatalogEntry Entry, int Quantity);
+
+    private PriceExampleChoices? _choices;
+    private DateTime? _from;
+    private DateTime? _until;
+    private DateTime? _reservationDate;
+    private CatalogEntry? _entry;
+    private int _quantity = 1;
+    private readonly List<ChosenLine> _lines = [];
+    private PriceExampleResult? _result;
+    private IReadOnlyList<string>? _problems;
+    // Elke berekening krijgt een volgnummer: een oudere die later terugkomt, overschrijft de nieuwere niet.
+    private int _calculation;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _choices = await Examples.GetChoicesAsync();
+        _reservationDate = _choices.Today.ToDateTime(TimeOnly.MinValue);
+    }
+
+    /// <summary>Een artikel of pakket dat er al staat, krijgt er stuks bij: één lijn per artikel of pakket, zoals in de winkelkar.</summary>
+    private Task AddAsync() => ChangeAsync(() =>
+    {
+        if (_entry is null) return;
+        var quantity = Math.Max(1, _quantity);
+        var existing = _lines.FindIndex(l => l.Entry.Id == _entry.Id && l.Entry.Kind == _entry.Kind);
+        if (existing >= 0) _lines[existing] = _lines[existing] with { Quantity = _lines[existing].Quantity + quantity };
+        else _lines.Add(new ChosenLine(_entry, quantity));
+        _entry = null;
+        _quantity = 1;
+    });
+
+    /// <summary>Past de keuze aan en rekent meteen opnieuw.</summary>
+    private async Task ChangeAsync(Action change)
+    {
+        change();
+        await CalculateAsync();
+    }
+
+    /// <summary>Rekent dezelfde keuze opnieuw, met de prijsregels zoals ze nu zijn: na een wijziging in een tabblad.</summary>
+    public async Task RecalculateAsync()
+    {
+        await CalculateAsync();
+        StateHasChanged();
+    }
+
+    private async Task CalculateAsync()
+    {
+        var calculation = ++_calculation;
+        _problems = null;
+        _result = null;
+        if (_lines.Count == 0 || _from is not { } from || _reservationDate is not { } reservationDate) return;
+        var start = DateOnly.FromDateTime(from);
+        var end = _until is { } until ? DateOnly.FromDateTime(until) : start;
+        if (end < start)
+        {
+            _problems = ["Het einde van de huurperiode ligt voor het begin."];
+            return;
+        }
+        var result = await Examples.CalculateAsync(new PriceExample(new Moshtar.Domain.Common.DateRange(start, end), DateOnly.FromDateTime(reservationDate),
+            _lines.Select(l => new PriceExampleLine(l.Entry.Ref(), l.Quantity)).ToList()));
+        if (calculation == _calculation) _result = result;
+    }
+
+    private static string Euro(decimal amount) => amount.ToString("C", Money);
+
+    private static string Percent(decimal percentage) => (percentage > 0 ? "+" : "−") + Math.Abs(percentage).ToString("0.##", Money) + "%";
+}

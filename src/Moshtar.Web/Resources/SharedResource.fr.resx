@@ -76,6 +76,8 @@
   <data name="PeriodTooLong" xml:space="preserve"><value>Vous pouvez louer au maximum 31 jours d'affilée. Choisissez une période plus courte ou contactez-nous.</value></data>
   <data name="Yes" xml:space="preserve"><value>Oui</value></data>
   <data name="No" xml:space="preserve"><value>Non</value></data>
+  <data name="ComboHint" xml:space="preserve"><value>Plus avantageux ensemble : {0}</value></data>
+  <data name="PromotionLabel" xml:space="preserve"><value>Promo −{0} %</value></data>
   <data name="PerPiece" xml:space="preserve"><value>par pièce</value></data>
   <data name="OtherLanguages" xml:space="preserve"><value>Autres langues</value></data>
   <data name="Address" xml:space="preserve"><value>Adresse</value></data>

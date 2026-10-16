@@ -1,0 +1,281 @@
+@inject IPricingRuleAdministration Admin
+@inject ICategoryAdministration CategoryAdmin
+@inject IRentalItemAdministration ItemAdmin
+@inject IBundleAdministration BundleAdmin
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@* Het tabblad Acties op de pagina Prijsregels: de lijst (verlopen acties grijs onderaan) en een formulier. *@
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.body2" Class="mb-2">
+        Een actie geeft een korting op reservaties die gemaakt worden tussen de start- en einddatum, optioneel enkel voor
+        huurperiodes binnen bepaalde data ("reserveer nu voor de zomer"). De reservatiewebsite toont de oude prijs
+        doorstreept met het label "Actie −10%". Elk stuk krijgt hoogstens één korting: de voordeligste van de acties en
+        combinatiekortingen. Bestaande reservaties houden hun prijs als je een actie wijzigt of verwijdert.
+    </MudText>
+
+    @if (_promotions is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_promotions.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Class="mb-2">Er zijn nog geen acties.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Class="mb-4">
+            <thead>
+                <tr>
+                    <th>Naam</th>
+                    <th>Op</th>
+                    <th>Korting</th>
+                    <th>Gereserveerd</th>
+                    <th>Huurperiodes</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var promotion in _promotions)
+                {
+                    <tr style="@(promotion.IsExpired ? "color: var(--mud-palette-text-disabled)" : null)">
+                        <td>@NameOf(promotion.Input)</td>
+                        <td>@_targets.Text(promotion.Input.Target)</td>
+                        <td>@promotion.Input.Percentage.ToString("0.##")%</td>
+                        <td>@(promotion.IsExpired ? "verlopen: " : "")@Dates(promotion.Input.ReservedFrom, promotion.Input.ReservedUntil)</td>
+                        <td>@(promotion.Input.RentalFrom is null && promotion.Input.RentalUntil is null ? "alle" : Dates(promotion.Input.RentalFrom, promotion.Input.RentalUntil))</td>
+                        <td style="white-space: nowrap">
+                            <MudSwitch T="bool" Value="promotion.Input.IsActive" ValueChanged="active => SetActiveAsync(promotion, active)" Color="Color.Primary"
+                                       Label="@(promotion.Input.IsActive ? "Aan" : "Uit")" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" aria-label="Wijzigen" OnClick="() => Edit(promotion)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Verwijderen" OnClick="() => DeleteAsync(promotion)" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+
+    <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editing is null ? "Nieuwe actie" : "Actie wijzigen")</MudText>
+    <MudText Typo="Typo.body2" Class="mb-2">
+        De naam staat op de kortingslijn in de winkelkar, de reservatie en de mail. Alleen de naam in het
+        @PricingTargetNames.LanguageName(DefaultCulture) is verplicht; een taal zonder naam toont die van het @PricingTargetNames.LanguageName(DefaultCulture).
+    </MudText>
+    <MudGrid>
+        @foreach (var culture in Cultures)
+        {
+            var c = culture;
+            <MudItem xs="12" md="4">
+                <MudTextField T="string" Value="_draft.Names.GetValueOrDefault(c)" ValueChanged="v => _draft.Names[c] = v" Label="@($"Naam ({PricingTargetNames.LanguageName(c)})")"
+                              Variant="Variant.Outlined" MaxLength="100" Required="@(c == DefaultCulture)" />
+            </MudItem>
+        }
+        <MudItem xs="12">
+            <MudRadioGroup T="Scope" @bind-Value="_draft.Scope">
+                <MudRadio T="Scope" Value="Scope.All">Alles</MudRadio>
+                <MudRadio T="Scope" Value="Scope.Categories">Categorieën</MudRadio>
+                <MudRadio T="Scope" Value="Scope.Chosen">Gekozen artikelen en pakketten</MudRadio>
+            </MudRadioGroup>
+        </MudItem>
+        @if (_draft.Scope == Scope.Categories)
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.CategoryIds" Label="Categorieën" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => _targets.CategoryName(id))">
+                    @foreach (var category in _targets.Categories)
+                    {
+                        <MudSelectItem T="Guid" Value="category.Id">@_targets.Name(category)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        else if (_draft.Scope == Scope.Chosen)
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.RentalItemIds" Label="Artikelen" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => _targets.ItemName(id))">
+                    @foreach (var item in _targets.Items)
+                    {
+                        <MudSelectItem T="Guid" Value="item.Id">@item.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.BundleIds" Label="Pakketten" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => _targets.BundleName(id))">
+                    @foreach (var bundle in _targets.Bundles)
+                    {
+                        <MudSelectItem T="Guid" Value="bundle.Id">@bundle.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        <MudItem xs="12" md="3">
+            <MudNumericField T="decimal" @bind-Value="_draft.Percentage" Label="Korting (%)" Min="1" Max="100" Format="0.##" Variant="Variant.Outlined" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" @bind-Date="_draft.ReservedFrom" Label="Startdatum" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Eerste dag van reserveren." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" @bind-Date="_draft.ReservedUntil" Label="Einddatum" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Laatste dag van reserveren." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSwitch T="bool" @bind-Value="_draft.IsActive" Color="Color.Primary" Label="@(_draft.IsActive ? "Aan" : "Uit")" />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" Clearable="true" @bind-Date="_draft.RentalFrom" Label="Huurperiodes vanaf" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Optioneel." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" Clearable="true" @bind-Date="_draft.RentalUntil" Label="Huurperiodes tot en met" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Optioneel: de hele huurperiode valt erbinnen." />
+        </MudItem>
+    </MudGrid>
+    <Problems Items="_problems" />
+    <MudStack Row="true" Class="mt-3">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">@(_editing is null ? "Toevoegen" : "Opslaan")</MudButton>
+        @if (_editing is not null)
+        {
+            <MudButton Variant="Variant.Text" OnClick="Reset">Annuleren</MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    /// <summary>Na elke geslaagde wijziging (toevoegen, wijzigen, aan/uit, verwijderen): de rekentool rekent opnieuw.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
+    private enum Scope { All, Categories, Chosen }
+
+    private sealed class Draft
+    {
+        public Dictionary<string, string> Names { get; set; } = [];
+        public Scope Scope { get; set; } = Scope.All;
+        public IReadOnlyCollection<Guid> CategoryIds { get; set; } = [];
+        public IReadOnlyCollection<Guid> RentalItemIds { get; set; } = [];
+        public IReadOnlyCollection<Guid> BundleIds { get; set; } = [];
+        public decimal Percentage { get; set; } = 10;
+        public DateTime? ReservedFrom { get; set; }
+        public DateTime? ReservedUntil { get; set; }
+        public DateTime? RentalFrom { get; set; }
+        public DateTime? RentalUntil { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    private IReadOnlyList<PromotionSummary>? _promotions;
+    private PricingTargetNames _targets = PricingTargetNames.None;
+    private Draft _draft = new();
+    private Guid? _editing;
+    private IReadOnlyList<string>? _problems;
+
+    private IReadOnlyList<string> Cultures => TenantContext.Tenant?.Cultures ?? [];
+    private string DefaultCulture => TenantContext.Tenant?.DefaultCulture ?? "nl";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _targets = await PricingTargetNames.LoadAsync(CategoryAdmin, ItemAdmin, BundleAdmin, DefaultCulture);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _promotions = await Admin.GetPromotionsAsync();
+
+    private void Reset()
+    {
+        _editing = null;
+        _draft = new Draft();
+        _problems = null;
+    }
+
+    private void Edit(PromotionSummary promotion)
+    {
+        _editing = promotion.Id;
+        _problems = null;
+        var input = promotion.Input;
+        _draft = new Draft
+        {
+            Names = input.Names.ToDictionary(n => n.Culture, n => n.Name),
+            Scope = input.Target.All ? Scope.All : input.Target.CategoryIds.Count > 0 ? Scope.Categories : Scope.Chosen,
+            CategoryIds = input.Target.CategoryIds.ToHashSet(),
+            RentalItemIds = input.Target.RentalItemIds.ToHashSet(),
+            BundleIds = input.Target.BundleIds.ToHashSet(),
+            Percentage = input.Percentage,
+            ReservedFrom = ToDateTime(input.ReservedFrom),
+            ReservedUntil = ToDateTime(input.ReservedUntil),
+            RentalFrom = ToDateTime(input.RentalFrom),
+            RentalUntil = ToDateTime(input.RentalUntil),
+            IsActive = input.IsActive,
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        var target = _draft.Scope switch
+        {
+            Scope.All => PricingTarget.Everything,
+            Scope.Categories => PricingTarget.Categories(_draft.CategoryIds.ToArray()),
+            _ => PricingTarget.Chosen(_draft.RentalItemIds.ToList(), _draft.BundleIds.ToList()),
+        };
+        var input = new PromotionInput(
+            Cultures.Select(c => new PricingRuleName(c, _draft.Names.GetValueOrDefault(c) ?? "")).ToList(),
+            target, _draft.Percentage, ToDate(_draft.ReservedFrom), ToDate(_draft.ReservedUntil),
+            ToDate(_draft.RentalFrom), ToDate(_draft.RentalUntil), _draft.IsActive);
+        try
+        {
+            if (_editing is { } ruleId) await Admin.SavePromotionAsync(ruleId, input);
+            else await Admin.CreatePromotionAsync(input);
+            Snackbar.Add(_editing is null ? "Actie toegevoegd." : "Actie gewijzigd.", Severity.Success);
+            Reset();
+            await LoadAsync();
+            await Changed.InvokeAsync();
+        }
+        catch (PricingRuleException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private async Task SetActiveAsync(PromotionSummary promotion, bool active)
+    {
+        await Admin.SetActiveAsync(promotion.Id, active);
+        await LoadAsync();
+        await Changed.InvokeAsync();
+    }
+
+    private async Task DeleteAsync(PromotionSummary promotion)
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Actie verwijderen",
+            $"Wil je \"{NameOf(promotion.Input)}\" verwijderen? Bestaande reservaties houden hun korting.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        try
+        {
+            await Admin.DeleteAsync(promotion.Id);
+            if (_editing == promotion.Id) Reset();
+            await LoadAsync();
+            await Changed.InvokeAsync();
+            Snackbar.Add("Actie verwijderd.", Severity.Success);
+        }
+        catch (PricingRuleException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private string NameOf(PromotionInput input) =>
+        input.Names.FirstOrDefault(n => n.Culture == DefaultCulture)?.Name ?? input.Names.FirstOrDefault()?.Name ?? "";
+
+    private static string Dates(DateOnly? from, DateOnly? until) => (from, until) switch
+    {
+        ({ } f, { } u) => $"{f:dd/MM/yyyy} – {u:dd/MM/yyyy}",
+        ({ } f, null) => $"vanaf {f:dd/MM/yyyy}",
+        (null, { } u) => $"t.e.m. {u:dd/MM/yyyy}",
+        _ => "",
+    };
+
+    private static DateTime? ToDateTime(DateOnly? date) => date?.ToDateTime(TimeOnly.MinValue);
+
+    private static DateOnly? ToDate(DateTime? date) => date is { } d ? DateOnly.FromDateTime(d) : null;
+}

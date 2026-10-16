@@ -450,6 +450,79 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("MarketingContacts");
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Prices.PricingRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AppliesToAll")
+                        .HasColumnType("boolean");
+
+                    b.PrimitiveCollection<List<Guid>>("BundleIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
+                    b.PrimitiveCollection<List<Guid>>("CategoryIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int?>("MinimumQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Percentage")
+                        .HasPrecision(7, 2)
+                        .HasColumnType("numeric(7,2)");
+
+                    b.Property<DateOnly?>("PeriodEnd")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("PeriodStart")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("RentalFrom")
+                        .HasColumnType("date");
+
+                    b.PrimitiveCollection<List<Guid>>("RentalItemIds")
+                        .IsRequired()
+                        .HasColumnType("uuid[]");
+
+                    b.Property<DateOnly?>("RentalUntil")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ReservedFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ReservedUntil")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.PrimitiveCollection<int[]>("Weekdays")
+                        .IsRequired()
+                        .HasColumnType("integer[]");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Kind");
+
+                    b.ToTable("PricingRules");
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Reservations.AlternativeProposal", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1293,6 +1366,38 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UpdatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Moshtar.Domain.Prices.PricingRule", b =>
+                {
+                    b.OwnsMany("Moshtar.Domain.Common.Translation", "Names", b1 =>
+                        {
+                            b1.Property<Guid>("PricingRuleId");
+
+                            b1.Property<int>("__synthesizedOrdinal")
+                                .ValueGeneratedOnAdd();
+
+                            b1.Property<string>("Culture")
+                                .IsRequired();
+
+                            b1.Property<string>("Description");
+
+                            b1.Property<string>("Name")
+                                .IsRequired();
+
+                            b1.HasKey("PricingRuleId", "__synthesizedOrdinal");
+
+                            b1.ToTable("PricingRules");
+
+                            b1
+                                .ToJson("Names")
+                                .HasColumnType("jsonb");
+
+                            b1.WithOwner()
+                                .HasForeignKey("PricingRuleId");
+                        });
+
+                    b.Navigation("Names");
                 });
 
             modelBuilder.Entity("Moshtar.Domain.Reservations.AlternativeProposal", b =>

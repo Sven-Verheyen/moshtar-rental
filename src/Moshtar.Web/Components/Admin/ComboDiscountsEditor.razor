@@ -1,0 +1,251 @@
+@inject IPricingRuleAdministration Admin
+@inject ICategoryAdministration CategoryAdmin
+@inject IRentalItemAdministration ItemAdmin
+@inject IBundleAdministration BundleAdmin
+@inject ITenantContext TenantContext
+@inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@* Het tabblad Combinatiekortingen op de pagina Prijsregels: de lijst (verlopen regels grijs onderaan) en een formulier. *@
+
+<MudPaper Class="pa-4 mb-4" Elevation="1">
+    <MudText Typo="Typo.body2" Class="mb-2">
+        Bij een minimum aantal stuks uit een categorie of uit gekozen artikelen en pakketten in één reservatie krijgt het
+        goedkoopste stuk van elke volledige groep de korting: "bij 2 springkastelen 40% korting op het goedkoopste" geeft
+        bij 4 springkastelen de 2 goedkoopste de korting. Een pakket telt alleen als je het zelf kiest; de artikelen in
+        een pakket tellen nooit apart. Bestaande reservaties houden hun prijs als je een regel wijzigt of verwijdert.
+    </MudText>
+
+    @if (_combos is null)
+    {
+        <MudProgressLinear Indeterminate="true" />
+    }
+    else if (_combos.Count == 0)
+    {
+        <MudText Typo="Typo.body2" Class="mb-2">Er zijn nog geen combinatiekortingen.</MudText>
+    }
+    else
+    {
+        <MudSimpleTable Dense="true" Class="mb-4">
+            <thead>
+                <tr>
+                    <th>Naam</th>
+                    <th>Op</th>
+                    <th>Vanaf</th>
+                    <th>Korting</th>
+                    <th>Einddatum</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var combo in _combos)
+                {
+                    <tr style="@(combo.IsExpired ? "color: var(--mud-palette-text-disabled)" : null)">
+                        <td>@NameOf(combo.Input)</td>
+                        <td>@_targets.Text(combo.Input.Target)</td>
+                        <td>@combo.Input.MinimumQuantity stuks</td>
+                        <td>@combo.Input.Percentage.ToString("0.##")%</td>
+                        <td>@(combo.Input.EndDate is { } end ? (combo.IsExpired ? $"verlopen op {end:dd/MM/yyyy}" : $"t.e.m. {end:dd/MM/yyyy}") : "geen")</td>
+                        <td style="white-space: nowrap">
+                            <MudSwitch T="bool" Value="combo.Input.IsActive" ValueChanged="active => SetActiveAsync(combo, active)" Color="Color.Primary"
+                                       Label="@(combo.Input.IsActive ? "Aan" : "Uit")" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Edit" aria-label="Wijzigen" OnClick="() => Edit(combo)" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" aria-label="Verwijderen" OnClick="() => DeleteAsync(combo)" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+
+    <MudText Typo="Typo.subtitle1" Class="mb-2">@(_editing is null ? "Nieuwe combinatiekorting" : "Combinatiekorting wijzigen")</MudText>
+    <MudText Typo="Typo.body2" Class="mb-2">
+        De naam staat op de kortingslijn en op de artikelpagina, bv. "2e springkasteel 40% korting". Alleen de naam in het
+        @PricingTargetNames.LanguageName(DefaultCulture) is verplicht; een taal zonder naam toont die van het @PricingTargetNames.LanguageName(DefaultCulture).
+    </MudText>
+    <MudGrid>
+        @foreach (var culture in Cultures)
+        {
+            var c = culture;
+            <MudItem xs="12" md="4">
+                <MudTextField T="string" Value="_draft.Names.GetValueOrDefault(c)" ValueChanged="v => _draft.Names[c] = v" Label="@($"Naam ({PricingTargetNames.LanguageName(c)})")"
+                              Variant="Variant.Outlined" MaxLength="100" Required="@(c == DefaultCulture)" />
+            </MudItem>
+        }
+        <MudItem xs="12">
+            <MudRadioGroup T="bool" @bind-Value="_draft.ByCategory">
+                <MudRadio T="bool" Value="true">Een categorie</MudRadio>
+                <MudRadio T="bool" Value="false">Gekozen artikelen en pakketten</MudRadio>
+            </MudRadioGroup>
+        </MudItem>
+        @if (_draft.ByCategory)
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid?" @bind-Value="_draft.CategoryId" Label="Categorie" Variant="Variant.Outlined">
+                    @foreach (var category in _targets.Categories)
+                    {
+                        <MudSelectItem T="Guid?" Value="category.Id">@_targets.Name(category)</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        else
+        {
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.RentalItemIds" Label="Artikelen" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => _targets.ItemName(id))">
+                    @foreach (var item in _targets.Items)
+                    {
+                        <MudSelectItem T="Guid" Value="item.Id">@item.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudSelect T="Guid" MultiSelection="true" @bind-SelectedValues="_draft.BundleIds" Label="Pakketten" Variant="Variant.Outlined"
+                           ToStringFunc="@(id => _targets.BundleName(id))">
+                    @foreach (var bundle in _targets.Bundles)
+                    {
+                        <MudSelectItem T="Guid" Value="bundle.Id">@bundle.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
+        <MudItem xs="12" md="3">
+            <MudNumericField T="int" @bind-Value="_draft.MinimumQuantity" Label="Minimum aantal stuks" Min="2" Variant="Variant.Outlined"
+                             HelperText="De grootte van elke groep." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudNumericField T="decimal" @bind-Value="_draft.Percentage" Label="Korting (%)" Min="1" Max="100" Format="0.##" Variant="Variant.Outlined"
+                             HelperText="Op het goedkoopste stuk van elke groep." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudDatePicker Editable="true" Clearable="true" @bind-Date="_draft.EndDate" Label="Einddatum" Variant="Variant.Outlined" DateFormat="dd/MM/yyyy"
+                           HelperText="Leeg: geen einddatum." />
+        </MudItem>
+        <MudItem xs="12" md="3">
+            <MudSwitch T="bool" @bind-Value="_draft.IsActive" Color="Color.Primary" Label="@(_draft.IsActive ? "Aan" : "Uit")" />
+        </MudItem>
+    </MudGrid>
+    <Problems Items="_problems" />
+    <MudStack Row="true" Class="mt-3">
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">@(_editing is null ? "Toevoegen" : "Opslaan")</MudButton>
+        @if (_editing is not null)
+        {
+            <MudButton Variant="Variant.Text" OnClick="Reset">Annuleren</MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@code {
+    /// <summary>Na elke geslaagde wijziging (toevoegen, wijzigen, aan/uit, verwijderen): de rekentool rekent opnieuw.</summary>
+    [Parameter] public EventCallback Changed { get; set; }
+
+    private sealed class Draft
+    {
+        public Dictionary<string, string> Names { get; set; } = [];
+        public bool ByCategory { get; set; } = true;
+        public Guid? CategoryId { get; set; }
+        public IReadOnlyCollection<Guid> RentalItemIds { get; set; } = [];
+        public IReadOnlyCollection<Guid> BundleIds { get; set; } = [];
+        public int MinimumQuantity { get; set; } = 2;
+        public decimal Percentage { get; set; } = 10;
+        public DateTime? EndDate { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    private IReadOnlyList<ComboDiscountSummary>? _combos;
+    private PricingTargetNames _targets = PricingTargetNames.None;
+    private Draft _draft = new();
+    private Guid? _editing;
+    private IReadOnlyList<string>? _problems;
+
+    private IReadOnlyList<string> Cultures => TenantContext.Tenant?.Cultures ?? [];
+    private string DefaultCulture => TenantContext.Tenant?.DefaultCulture ?? "nl";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _targets = await PricingTargetNames.LoadAsync(CategoryAdmin, ItemAdmin, BundleAdmin, DefaultCulture);
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync() => _combos = await Admin.GetCombosAsync();
+
+    private void Reset()
+    {
+        _editing = null;
+        _draft = new Draft();
+        _problems = null;
+    }
+
+    private void Edit(ComboDiscountSummary combo)
+    {
+        _editing = combo.Id;
+        _problems = null;
+        var input = combo.Input;
+        _draft = new Draft
+        {
+            Names = input.Names.ToDictionary(n => n.Culture, n => n.Name),
+            ByCategory = input.Target.CategoryIds.Count > 0,
+            CategoryId = input.Target.CategoryIds.FirstOrDefault() is var c && c != Guid.Empty ? c : null,
+            RentalItemIds = input.Target.RentalItemIds.ToHashSet(),
+            BundleIds = input.Target.BundleIds.ToHashSet(),
+            MinimumQuantity = input.MinimumQuantity,
+            Percentage = input.Percentage,
+            EndDate = input.EndDate?.ToDateTime(TimeOnly.MinValue),
+            IsActive = input.IsActive,
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        var target = _draft.ByCategory
+            ? PricingTarget.Categories(_draft.CategoryId is { } id ? [id] : [])
+            : PricingTarget.Chosen(_draft.RentalItemIds.ToList(), _draft.BundleIds.ToList());
+        var input = new ComboDiscountInput(
+            Cultures.Select(c => new PricingRuleName(c, _draft.Names.GetValueOrDefault(c) ?? "")).ToList(),
+            target, _draft.MinimumQuantity, _draft.Percentage, _draft.IsActive,
+            _draft.EndDate is { } end ? DateOnly.FromDateTime(end) : null);
+        try
+        {
+            if (_editing is { } ruleId) await Admin.SaveComboAsync(ruleId, input);
+            else await Admin.CreateComboAsync(input);
+            Snackbar.Add(_editing is null ? "Combinatiekorting toegevoegd." : "Combinatiekorting gewijzigd.", Severity.Success);
+            Reset();
+            await LoadAsync();
+            await Changed.InvokeAsync();
+        }
+        catch (PricingRuleException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private async Task SetActiveAsync(ComboDiscountSummary combo, bool active)
+    {
+        await Admin.SetActiveAsync(combo.Id, active);
+        await LoadAsync();
+        await Changed.InvokeAsync();
+    }
+
+    private async Task DeleteAsync(ComboDiscountSummary combo)
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Combinatiekorting verwijderen",
+            $"Wil je \"{NameOf(combo.Input)}\" verwijderen? Bestaande reservaties houden hun korting.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        try
+        {
+            await Admin.DeleteAsync(combo.Id);
+            if (_editing == combo.Id) Reset();
+            await LoadAsync();
+            await Changed.InvokeAsync();
+            Snackbar.Add("Combinatiekorting verwijderd.", Severity.Success);
+        }
+        catch (PricingRuleException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+
+    private string NameOf(ComboDiscountInput input) =>
+        input.Names.FirstOrDefault(n => n.Culture == DefaultCulture)?.Name ?? input.Names.FirstOrDefault()?.Name ?? "";
+}
