@@ -72,6 +72,7 @@ public static class DependencyInjection
         services.AddScoped<IOldSlugs>(sp => sp.GetRequiredService<OldSlugs>());
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();
+        services.AddScoped<Application.Reviews.IReviewRequests, Reviews.ReviewRequests>();
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
         services.AddScoped<IPricingRuleAdministration, PricingRuleAdministration>();

@@ -20,6 +20,8 @@ public enum MailKind
     /// <summary>Het verwacht tijdsvenster van een ophaling, per ophaalronde met de hand gemaild.</summary>
     ExpectedCollectionTime,
     ReservationAlternatives,
+    /// <summary>De reviewvraag, de dag na de einddag van elke reservatie vanzelf gemaild.</summary>
+    ReviewRequest,
 }
 
 /// <summary>
@@ -40,7 +42,7 @@ public sealed partial class MailKindDefinition(
     public IReadOnlyList<string> Placeholders { get; } = placeholders;
     public IReadOnlyList<string> Blocks { get; } = blocks;
 
-    /// <summary>Heeft deze soort mail ook een WhatsApp-bericht (Verwacht leveruur en Verwacht ophaaluur)?</summary>
+    /// <summary>Heeft deze soort mail ook een WhatsApp-bericht (Verwacht leveruur, Verwacht ophaaluur en Reviewvraag)?</summary>
     public bool HasWhatsApp => standardByCulture["nl"].WhatsApp is not null;
 
     /// <summary>Moet deze plaatshouder in de tekst staan?</summary>
@@ -104,6 +106,10 @@ public static class MailKinds
     public const string ExpectedDate = "expectedDate";
     public const string DeliveryAddress = "deliveryAddress";
     public const string Alternatives = "alternatives";
+    /// <summary>De knop "Schrijf een review" naar de reviewlink; in het WhatsApp-bericht de link zelf.</summary>
+    public const string ReviewLink = "reviewLink";
+    /// <summary>De QR-code van de reviewlink, om met een gsm te scannen.</summary>
+    public const string ReviewQrCode = "reviewQrCode";
 
     /// <summary>Wat een blokplaatshouder invoegt, voor de beheerder.</summary>
     public static string Describe(string block) => block switch
@@ -111,6 +117,8 @@ public static class MailKinds
         ReservationDetails => "voegt het vaste overzicht van de reservatie in",
         CartContents => "voegt de huurperiode en wat in de winkelkar zit in",
         CartLink => "voegt de link in die de winkelkar opent, ook op een ander toestel",
+        ReviewLink => "voegt de knop \"Schrijf een review\" naar je reviewlink in; in het WhatsApp-bericht de link zelf",
+        ReviewQrCode => "voegt de QR-code van je reviewlink in, om met een gsm te scannen",
         Alternatives => "voegt de aangevinkte alternatieven in, elk met foto, naam, meerprijs of \"zonder meerprijs\" en een link naar de artikelpagina",
         _ => "voegt een vast blok in",
     };
@@ -375,7 +383,75 @@ public static class MailKinds
                 """),
         });
 
-    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation, CartReminder, ReservationAlternatives, ExpectedDeliveryTime, ExpectedCollectionTime];
+    /// <summary>
+    /// De reviewvraag: neutraal, voor elke klant dezelfde, zonder beloning of actie (Google verbiedt beide). De QR-code
+    /// is optioneel; in het WhatsApp-bericht hoort ze niet, de link wel.
+    /// </summary>
+    public static readonly MailKindDefinition ReviewRequest = new(
+        MailKind.ReviewRequest,
+        "Reviewvraag",
+        placeholders: ["firstName", "lastName", "reservationNumber", "rentalPeriod", "companyName", "contactEmail", "phone", ReviewLink, ReviewQrCode],
+        requiredInBody: [ReviewLink],
+        blocks: [ReviewLink, ReviewQrCode],
+        standardByCulture: new Dictionary<string, MailTemplateText>
+        {
+            ["nl"] = new(
+                "Hoe was je huur bij {companyName}?",
+                """
+                Hallo {firstName},
+
+                Bedankt dat je bij {companyName} huurde. We hopen dat alles naar wens was.
+
+                Wil je even een review schrijven over je ervaring? Zo help je andere klanten kiezen. Het duurt maar een minuutje.
+
+                {reviewLink}
+
+                {reviewQrCode}
+
+                Bedankt!
+
+                {companyName}
+                """,
+                "Hallo {firstName}, bedankt dat je bij {companyName} huurde! Wil je even een review schrijven over je ervaring? Dat kan hier: {reviewLink}"),
+            ["fr"] = new(
+                "Comment s'est passée votre location chez {companyName} ?",
+                """
+                Bonjour {firstName},
+
+                Merci d'avoir loué chez {companyName}. Nous espérons que tout s'est bien passé.
+
+                Pourriez-vous écrire un avis sur votre expérience ? Cela aide d'autres clients à choisir. Cela ne prend qu'une minute.
+
+                {reviewLink}
+
+                {reviewQrCode}
+
+                Merci !
+
+                {companyName}
+                """,
+                "Bonjour {firstName}, merci d'avoir loué chez {companyName} ! Pourriez-vous écrire un avis sur votre expérience ? C'est ici : {reviewLink}"),
+            ["en"] = new(
+                "How was your rental with {companyName}?",
+                """
+                Hello {firstName},
+
+                Thank you for renting with {companyName}. We hope everything went well.
+
+                Would you take a moment to write a review about your experience? It helps other customers choose. It only takes a minute.
+
+                {reviewLink}
+
+                {reviewQrCode}
+
+                Thank you!
+
+                {companyName}
+                """,
+                "Hello {firstName}, thank you for renting with {companyName}! Would you take a moment to write a review about your experience? You can do so here: {reviewLink}"),
+        });
+
+    public static IReadOnlyList<MailKindDefinition> All { get; } = [ReservationConfirmation, CartReminder, ReservationAlternatives, ExpectedDeliveryTime, ExpectedCollectionTime, ReviewRequest];
 
     public static MailKindDefinition For(MailKind kind) => All.Single(d => d.Kind == kind);
 }

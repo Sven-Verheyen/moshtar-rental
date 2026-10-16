@@ -48,6 +48,12 @@ public class Reservation : TenantEntity
     /// <summary>Wanneer de klant het laatst een mail met alternatieven kreeg, of null.</summary>
     public DateTime? AlternativesMailedAtUtc { get; set; }
 
+    /// <summary>
+    /// Wanneer de reviewvraag voor deze reservatie vertrok, of null. Een reservatie krijgt er hoogstens één: dit tijdstip
+    /// wordt gezet voor de mail vertrekt, zodat een herstart of een tweede run nooit dubbel stuurt.
+    /// </summary>
+    public DateTime? ReviewRequestMailedAtUtc { get; set; }
+
     public List<ReservationLine> Lines { get; set; } = [];
 
     /// <summary>Wie wat deed met deze reservatie, en wanneer.</summary>
@@ -149,6 +155,13 @@ public class Reservation : TenantEntity
     /// <summary>Noteert in de historiek dat de klant zijn verwacht tijdsvenster gemaild kreeg.</summary>
     public void RecordExpectedTimeMailed(ReservationActor actor, DateTime atUtc) =>
         Record(ReservationEventKind.ExpectedTimeMailed, actor, atUtc);
+
+    /// <summary>Noteert op de reservatie en in de historiek dat de klant de reviewvraag gemaild kreeg.</summary>
+    public void RecordReviewRequestMailed(DateTime atUtc)
+    {
+        ReviewRequestMailedAtUtc = atUtc;
+        Record(ReservationEventKind.ReviewRequestMailed, ReservationActor.Website, atUtc);
+    }
 
     private void Record(ReservationEventKind kind, ReservationActor actor, DateTime atUtc, string? note = null) =>
         History.Add(new ReservationEvent

@@ -34,7 +34,10 @@ builder.Services.AddScoped<SiteLinks>();
 builder.Services.AddScoped<CartCount>();
 // In de tests loopt het onderhoud alleen als een test het zelf start, met zijn eigen klok.
 if (!builder.Environment.IsEnvironment("Testing"))
+{
     builder.Services.AddHostedService<CartHousekeepingWorker>();
+    builder.Services.AddHostedService<ReviewRequestWorker>();
+}
 // Eén antiforgery-cookie voor de hele site, ook als de eerste pagina onder /fr of /en lag.
 builder.Services.Configure<Microsoft.AspNetCore.Antiforgery.AntiforgeryOptions>(o => o.Cookie.Path = "/");
 

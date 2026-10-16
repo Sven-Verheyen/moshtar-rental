@@ -640,6 +640,9 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<DateTime?>("ReviewRequestMailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 

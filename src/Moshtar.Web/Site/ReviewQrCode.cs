@@ -11,7 +11,7 @@ namespace Moshtar.Web.Site;
 /// </summary>
 public static class ReviewQrCode
 {
-    public const string Path = "/review-qr.png";
+    public const string Path = Application.Reviews.ReviewQrCodePath.Path;
 
     /// <summary>Pixels per blokje: groot genoeg om scherp af te drukken op een sticker of flyer.</summary>
     private const int PixelsPerModule = 12;

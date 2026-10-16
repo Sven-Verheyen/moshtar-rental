@@ -111,7 +111,7 @@
                                     <tr>
                                         <td>@LocalTime(entry.OccurredAtUtc)</td>
                                         <td>@EventLabel(entry)</td>
-                                        <td>@(entry.UserEmail ?? "via website")</td>
+                                        <td>@(entry.UserEmail ?? (entry.Kind == ReservationEventKind.ReviewRequestMailed ? "automatisch" : "via website"))</td>
                                     </tr>
                                 }
                             </tbody>
@@ -225,6 +225,7 @@
         ReservationEventKind.AddressCorrected => "Leveradres verbeterd",
         ReservationEventKind.PointConfirmed => "Speld op de kaart bevestigd",
         ReservationEventKind.ExpectedTimeMailed => "Verwacht tijdsvenster gemaild",
+        ReservationEventKind.ReviewRequestMailed => "Reviewvraag gemaild",
         ReservationEventKind.AlternativesMailed => entry.Note is { } note ? $"Alternatieven gemaild: {note}" : "Alternatieven gemaild",
         ReservationEventKind.ItemReplaced => entry.Note is { } replaced ? $"Artikel vervangen: {replaced}" : "Artikel vervangen",
         _ => $"Status gewijzigd naar {StatusLabel(entry.Status).ToLowerInvariant()}",

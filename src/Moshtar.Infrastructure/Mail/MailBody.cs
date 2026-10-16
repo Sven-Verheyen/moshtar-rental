@@ -27,7 +27,8 @@ internal static class MailBody
             {
                 Part(paragraph[position..m.Index]);
                 var block = blocks[m.Groups[1].Value];
-                text.Add(block.Text);
+                // Een blok zonder tekstversie, zoals een QR-code, staat enkel in de HTML.
+                if (block.Text.Length > 0) text.Add(block.Text);
                 html.Append(block.Html);
                 position = m.Index + m.Length;
             }

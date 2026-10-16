@@ -117,4 +117,48 @@ public class MailTemplateTests
     [Fact]
     public void Braces_without_a_name_are_ordinary_text() =>
         Assert.Empty(Confirmation.Problems(new MailTemplateText("Tot {} snel :-}", "{reservationDetails} { geen plaatshouder }")));
+    [Theory]
+    [InlineData("nl", "Hallo {firstName}")]
+    [InlineData("fr", "Bonjour {firstName}")]
+    [InlineData("en", "Hello {firstName}")]
+    public void The_review_request_has_a_neutral_standard_text_with_the_review_link_and_qr_code_in_every_language(string culture, string greeting)
+    {
+        var definition = MailKinds.For(MailKind.ReviewRequest);
+        var standard = definition.Standard(culture);
+
+        Assert.Empty(definition.Problems(standard));
+        Assert.StartsWith(greeting, standard.Body);
+        Assert.Contains("{reviewLink}", standard.Body);
+        Assert.Contains("{reviewQrCode}", standard.Body);
+        // Geen beloning of actie: Google verbiedt het.
+        foreach (var forbidden in new[] { "korting", "actie", "réduction", "promo", "discount", "%" })
+            Assert.DoesNotContain(forbidden, standard.Body + standard.Subject, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData("nl")]
+    [InlineData("fr")]
+    [InlineData("en")]
+    public void The_review_request_has_a_short_whatsapp_message_with_the_review_link(string culture)
+    {
+        var definition = MailKinds.ReviewRequest;
+        var whatsApp = definition.Standard(culture).WhatsApp;
+
+        Assert.True(definition.HasWhatsApp);
+        Assert.Contains("{reviewLink}", whatsApp);
+        Assert.DoesNotContain("{reviewQrCode}", whatsApp);
+        Assert.DoesNotContain("*", whatsApp);
+    }
+
+    [Fact]
+    public void The_review_link_is_required_and_the_qr_code_is_optional_in_a_review_request()
+    {
+        var standard = MailKinds.ReviewRequest.Standard("nl");
+
+        Assert.Equal(["{reviewLink} ontbreekt in de tekst."],
+            MailKinds.ReviewRequest.Problems(standard with { Body = "Hallo {firstName}, laat een review achter. {reviewQrCode}" }));
+        Assert.Empty(MailKinds.ReviewRequest.Problems(standard with { Body = "Hallo {firstName}, {reviewLink}" }));
+        Assert.Equal(["{reviewQrCode} kan niet in het onderwerp."],
+            MailKinds.ReviewRequest.Problems(standard with { Subject = "Review {reviewQrCode}" }));
+    }
 }

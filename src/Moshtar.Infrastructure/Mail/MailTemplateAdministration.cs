@@ -7,6 +7,7 @@ using Moshtar.Domain.Mail;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Carts;
 using Moshtar.Infrastructure.Reservations;
+using Moshtar.Infrastructure.Reviews;
 using Moshtar.Infrastructure.Schedule;
 
 namespace Moshtar.Infrastructure.Mail;
@@ -68,7 +69,9 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
             throw new MailTemplateException([$"{definition.Name} heeft geen WhatsApp-bericht."]);
         text = Checked(definition, culture, text);
         var today = DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime);
-        return Task.FromResult(ExpectedTimeMail.ExampleWhatsApp(kind, culture, today, Tenant, text));
+        return Task.FromResult(kind == MailKind.ReviewRequest
+            ? ReviewRequestMail.WhatsApp(ReservationConfirmation.Example(culture, today), Tenant, text, ReviewRequestMail.ExampleLink(Tenant))
+            : ExpectedTimeMail.ExampleWhatsApp(kind, culture, today, Tenant, text));
     }
 
     public async Task SendTestAsync(MailKind kind, string culture, MailTemplateText text, Guid userId, CancellationToken ct = default)
@@ -95,6 +98,8 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
                 $"https://{host ?? "www.example.com"}{CartReminderPath.For("voorbeeld")}"),
             MailKind.ExpectedDeliveryTime or MailKind.ExpectedCollectionTime => ExpectedTimeMail.Example(kind, culture, today, Tenant, images.LogoUrl(Tenant), text),
             MailKind.ReservationAlternatives => AlternativesExample(culture, today, host ?? "www.example.com", text),
+            MailKind.ReviewRequest => ReviewRequestMail.Create(ReservationConfirmation.Example(culture, today), Tenant, images.LogoUrl(Tenant), text,
+                ReviewRequestMail.ExampleLink(Tenant), ReviewRequestMail.QrCodeUrl(host ?? "www.example.com")),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
         return mail with { To = to };
