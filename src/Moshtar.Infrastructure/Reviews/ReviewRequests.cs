@@ -7,6 +7,7 @@ using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Reviews;
 using Moshtar.Domain.Tenants;
 using Moshtar.Infrastructure.Persistence;
 using Moshtar.Infrastructure.Reservations;
@@ -14,7 +15,8 @@ using Moshtar.Infrastructure.Reservations;
 namespace Moshtar.Infrastructure.Reviews;
 
 internal sealed class ReviewRequests(
-    AppDbContext db, ITenantContext tenantContext, IMailer mailer, IImageStore images, ILogger<ReviewRequests> logger) : IReviewRequests
+    AppDbContext db, ITenantContext tenantContext, IMailer mailer, IImageStore images, IReviewOptOuts optOuts, IReviewOptOutLinks optOutLinks,
+    ILogger<ReviewRequests> logger) : IReviewRequests
 {
     /// <summary>Het uur waarop de reviewvraag de dag na de einddag vertrekt, Belgische tijd.</summary>
     private static readonly TimeOnly SendFrom = new(10, 0);
@@ -59,9 +61,13 @@ internal sealed class ReviewRequests(
         }
         var customizations = await db.MailTemplateCustomizations.AsNoTracking().Where(t => t.Kind == MailKind.ReviewRequest).ToListAsync(ct);
 
-        // Eén mail per klant (e-mailadres) en einddag, voor al zijn reservaties die dan eindigden.
-        var groups = due.Where(r => r.Customer is not null)
-            .GroupBy(r => (Email: r.Customer!.Email.Trim().ToLowerInvariant(), r.EndDate))
+        // Eén mail per klant (e-mailadres) en einddag, voor al zijn reservaties die dan eindigden; wie zich afmeldde,
+        // krijgt niets. Zijn reservaties blijven zonder reviewvraag, zodat ze ook in de Planning niet meer opduiken.
+        var customers = due.Where(r => r.Customer is not null).ToList();
+        var optedOut = await optOuts.OptedOutAmongAsync(customers.Select(r => r.Customer!.Email), ct);
+        var groups = customers
+            .GroupBy(r => (Email: ReviewOptOut.Normalize(r.Customer!.Email), r.EndDate))
+            .Where(g => !optedOut.Contains(g.Key.Email))
             .Select(g => g.ToList());
 
         var sent = 0;
@@ -80,7 +86,8 @@ internal sealed class ReviewRequests(
             var template = ReviewRequestMail.Template(customizations.SingleOrDefault(c => c.Culture == language), language);
             try
             {
-                await mailer.SendAsync(ReviewRequestMail.Create(first, tenant, images.LogoUrl(tenant), template, reviewLink, ReviewRequestMail.QrCodeUrl(host)),
+                await mailer.SendAsync(ReviewRequestMail.Create(first, tenant, images.LogoUrl(tenant), template, reviewLink, ReviewRequestMail.QrCodeUrl(host),
+                    optOutLinks.For(host, language, first.Customer!.Email)),
                     CancellationToken.None);
             }
             catch (Exception e)

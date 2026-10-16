@@ -7,6 +7,7 @@ using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Prices;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Reviews;
 using Moshtar.Domain.Rounds;
 using Moshtar.Domain.Tenants;
 using Moshtar.Domain.Website;
@@ -297,6 +298,15 @@ internal sealed class MarketingContactConfiguration : IEntityTypeConfiguration<M
         b.Property(c => c.Culture).HasMaxLength(10);
         b.Property(c => c.Source).HasConversion<string>().HasMaxLength(20);
         b.HasIndex(c => new { c.TenantId, c.Email }).IsUnique();
+    }
+}
+
+internal sealed class ReviewOptOutConfiguration : IEntityTypeConfiguration<ReviewOptOut>
+{
+    public void Configure(EntityTypeBuilder<ReviewOptOut> b)
+    {
+        b.Property(o => o.Email).HasMaxLength(320);
+        b.HasIndex(o => new { o.TenantId, o.Email }).IsUnique();
     }
 }
 

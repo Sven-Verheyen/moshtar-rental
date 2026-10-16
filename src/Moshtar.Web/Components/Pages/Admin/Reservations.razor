@@ -3,6 +3,7 @@
 @rendermode InteractiveServer
 @using Microsoft.EntityFrameworkCore
 @using Moshtar.Infrastructure.Persistence
+@using Moshtar.Domain.Reviews
 @inject IDbContextFactory<AppDbContext> DbFactory
 @inject IReservationService ReservationService
 @inject IReservationAlternatives ReservationAlternatives
@@ -31,7 +32,13 @@
         </HeaderContent>
         <RowTemplate>
             <MudTd>@context.Number</MudTd>
-            <MudTd>@context.Customer?.FirstName @context.Customer?.LastName<br /><small>@context.Customer?.Email</small></MudTd>
+            <MudTd>
+                @context.Customer?.FirstName @context.Customer?.LastName<br /><small>@context.Customer?.Email</small>
+                @if (context.Customer is { } customer && _optedOut.Contains(ReviewOptOut.Normalize(customer.Email)))
+                {
+                    <br /><small class="mud-text-secondary">Afgemeld voor reviewvragen</small>
+                }
+            </MudTd>
             <MudTd>@context.StartDate.ToString("dd/MM/yyyy") – @context.EndDate.ToString("dd/MM/yyyy")</MudTd>
             <MudTd>@string.Join(", ", context.Lines.Select(LineText))</MudTd>
             <MudTd>@(context.DeliveryMethod == DeliveryMethod.Delivery ? "Leveren" : "Afhalen")</MudTd>
@@ -128,6 +135,8 @@
     private static readonly System.Globalization.CultureInfo Money = System.Globalization.CultureInfo.GetCultureInfo("nl-BE");
     private static readonly TimeZoneInfo BelgianTime = TimeZoneInfo.FindSystemTimeZoneById("Europe/Brussels");
     private List<Reservation>? _reservations;
+    /// <summary>De klanten in de lijst die zich afmeldden voor reviewvragen, zodat je ziet waarom ze er geen kregen.</summary>
+    private IReadOnlySet<string> _optedOut = new HashSet<string>();
     private readonly Dictionary<Guid, IReadOnlyList<ReservationHistoryEntry>> _history = [];
     private readonly Dictionary<Guid, ReplaceState> _replace = [];
 
@@ -154,6 +163,8 @@
             .Where(r => string.IsNullOrEmpty(number) || r.Number == number)
             .OrderByDescending(r => r.StartDate).ThenBy(r => r.Number)
             .Take(200).ToListAsync();
+        var emails = _reservations.Where(r => r.Customer is not null).Select(r => ReviewOptOut.Normalize(r.Customer!.Email)).Distinct().ToList();
+        _optedOut = (await db.ReviewOptOuts.AsNoTracking().Where(o => emails.Contains(o.Email)).Select(o => o.Email).ToListAsync()).ToHashSet();
     }
 
     private static readonly ReservationStatus[] NextStatuses =

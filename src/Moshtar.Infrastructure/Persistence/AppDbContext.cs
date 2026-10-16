@@ -10,6 +10,7 @@ using Moshtar.Domain.Customers;
 using Moshtar.Domain.Mail;
 using Moshtar.Domain.Prices;
 using Moshtar.Domain.Reservations;
+using Moshtar.Domain.Reviews;
 using Moshtar.Domain.Rounds;
 using Moshtar.Domain.Tenants;
 using Moshtar.Domain.Website;
@@ -34,6 +35,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
     public DbSet<WebsiteTextCustomization> WebsiteTextCustomizations => Set<WebsiteTextCustomization>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<MarketingContact> MarketingContacts => Set<MarketingContact>();
+    public DbSet<ReviewOptOut> ReviewOptOuts => Set<ReviewOptOut>();
     public DbSet<OldSlug> OldSlugs => Set<OldSlug>();
     public DbSet<PricingRule> PricingRules => Set<PricingRule>();
 

@@ -32,6 +32,8 @@ builder.Services.AddBackOfficeIdentity();
 builder.Services.AddLocalization(o => o.ResourcesPath = "Resources");
 builder.Services.AddScoped<SiteLinks>();
 builder.Services.AddScoped<CartCount>();
+builder.Services.AddScoped<ReviewOptOutLinks>();
+builder.Services.AddScoped<Moshtar.Application.Reviews.IReviewOptOutLinks>(sp => sp.GetRequiredService<ReviewOptOutLinks>());
 // In de tests loopt het onderhoud alleen als een test het zelf start, met zijn eigen klok.
 if (!builder.Environment.IsEnvironment("Testing"))
 {

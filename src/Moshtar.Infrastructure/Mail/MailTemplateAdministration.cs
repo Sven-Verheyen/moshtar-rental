@@ -12,7 +12,8 @@ using Moshtar.Infrastructure.Schedule;
 
 namespace Moshtar.Infrastructure.Mail;
 
-internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images) : IMailTemplateAdministration
+internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images,
+    Application.Reviews.IReviewOptOutLinks optOutLinks) : IMailTemplateAdministration
 {
     private const int MaxSubjectLength = 300;
     private const int MaxWhatsAppLength = 1000;
@@ -99,7 +100,8 @@ internal sealed class MailTemplateAdministration(AppDbContext db, ITenantContext
             MailKind.ExpectedDeliveryTime or MailKind.ExpectedCollectionTime => ExpectedTimeMail.Example(kind, culture, today, Tenant, images.LogoUrl(Tenant), text),
             MailKind.ReservationAlternatives => AlternativesExample(culture, today, host ?? "www.example.com", text),
             MailKind.ReviewRequest => ReviewRequestMail.Create(ReservationConfirmation.Example(culture, today), Tenant, images.LogoUrl(Tenant), text,
-                ReviewRequestMail.ExampleLink(Tenant), ReviewRequestMail.QrCodeUrl(host ?? "www.example.com")),
+                ReviewRequestMail.ExampleLink(Tenant), ReviewRequestMail.QrCodeUrl(host ?? "www.example.com"),
+                optOutLinks.Example(host ?? "www.example.com", ReservationConfirmation.LanguageOf(ReservationConfirmation.Example(culture, today), Tenant))),
             _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, null),
         };
         return mail with { To = to };

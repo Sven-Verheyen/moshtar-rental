@@ -136,4 +136,12 @@
   <data name="CartHasGoneItems" xml:space="preserve"><value>Un article de votre panier n'est plus disponible à la location. Retirez-le, puis réservez.</value></data>
   <data name="CartCannotReserve" xml:space="preserve"><value>Cette réservation n'est pas possible. Vérifiez la période de location ou contactez-nous.</value></data>
   <data name="ReservationThanks" xml:space="preserve"><value>Merci pour votre réservation</value></data>
+  <data name="PrivacyReviewTitle" xml:space="preserve"><value>Demandes d'avis</value></data>
+  <data name="PrivacyReviewText" xml:space="preserve"><value>Le lendemain de votre période de location, nous vous envoyons un e-mail pour vous demander si vous souhaitez écrire un avis sur {0} sur Google. Pour cela, nous utilisons votre nom et votre adresse e-mail de votre réservation. Tout le monde reçoit la même demande, sans récompense, et vous n'êtes pas obligé d'écrire un avis. Si vous ne voulez plus de demandes d'avis, cliquez en bas de cet e-mail sur « Je ne veux plus de demandes d'avis » ; nous conservons alors votre adresse e-mail et la date de votre désinscription, afin que vous n'en receviez plus. Vous recevez toujours les e-mails concernant vos réservations.</value></data>
+  <data name="ReviewOptOutTitle" xml:space="preserve"><value>Plus de demandes d'avis</value></data>
+  <data name="ReviewOptOutIntro" xml:space="preserve"><value>Vous ne voulez plus recevoir d'e-mails de {0} vous demandant d'écrire un avis ?</value></data>
+  <data name="ReviewOptOutButton" xml:space="preserve"><value>Je ne veux plus de demandes d'avis</value></data>
+  <data name="ReviewOptOutDone" xml:space="preserve"><value>Vous ne recevrez plus de demandes d'avis de {0}.</value></data>
+  <data name="ReviewOptOutOtherMails" xml:space="preserve"><value>Vous recevez toujours les e-mails concernant vos réservations, et votre choix concernant les actualités et promotions reste le même.</value></data>
+  <data name="ReviewOptOutInvalid" xml:space="preserve"><value>Ce lien ne fonctionne pas. Copiez le lien complet de l'e-mail, ou contactez-nous.</value></data>
 </root>

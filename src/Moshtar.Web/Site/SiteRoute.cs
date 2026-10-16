@@ -22,6 +22,7 @@ public abstract record SiteRoute
             [var word] when FaqRoute.Words.ContainsValue(word) => Faq,
             [var word] when PrivacyRoute.Words.ContainsValue(word) => Privacy,
             [var word] when CartRoute.Words.ContainsValue(word) => Cart,
+            [var word] when ReviewOptOutRoute.Words.ContainsValue(word) => ReviewOptOut,
             [var word, var slug] when slug.Length > 0 && RentalPath.Words.Values.Contains(word) => new RentalRoute(slug),
             _ => null,
         };
@@ -41,6 +42,9 @@ public abstract record SiteRoute
 
     /// <summary>De winkelkar van de klant.</summary>
     public static readonly SiteRoute Cart = new CartRoute();
+
+    /// <summary>De pagina waarop een klant zich afmeldt voor reviewvragen, via de link onderaan de reviewvraag.</summary>
+    public static readonly SiteRoute ReviewOptOut = new ReviewOptOutRoute();
 }
 
 /// <summary>De home: "/" in de standaardtaal, "/fr" of "/en" in de andere.</summary>
@@ -94,6 +98,15 @@ public sealed record PrivacyRoute : SiteRoute
 public sealed record CartRoute : SiteRoute
 {
     internal static readonly Dictionary<string, string> Words = new() { ["nl"] = "winkelkar", ["fr"] = "panier", ["en"] = "cart" };
+
+    public override string PathIn(string culture) => Words[culture];
+}
+
+/// <summary>De afmeldpagina voor reviewvragen. Niet geïndexeerd: ze werkt alleen met de link uit de mail.</summary>
+public sealed record ReviewOptOutRoute : SiteRoute
+{
+    internal static readonly Dictionary<string, string> Words =
+        new() { ["nl"] = "geen-reviewvragen", ["fr"] = "plus-de-demandes-d-avis", ["en"] = "no-review-requests" };
 
     public override string PathIn(string culture) => Words[culture];
 }

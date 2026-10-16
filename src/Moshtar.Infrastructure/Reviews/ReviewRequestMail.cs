@@ -16,13 +16,13 @@ namespace Moshtar.Infrastructure.Reviews;
 /// </summary>
 internal static class ReviewRequestMail
 {
-    private sealed record Texts(string Button, string ScanQrCode, string QrCodeAlt);
+    private sealed record Texts(string Button, string ScanQrCode, string QrCodeAlt, string OptOut);
 
     private static readonly Dictionary<string, Texts> ByLanguage = new()
     {
-        ["nl"] = new("Schrijf een review", "Of scan deze QR-code met je gsm:", "QR-code om een review te schrijven"),
-        ["fr"] = new("Écrire un avis", "Ou scannez ce code QR avec votre téléphone :", "Code QR pour écrire un avis"),
-        ["en"] = new("Write a review", "Or scan this QR code with your phone:", "QR code to write a review"),
+        ["nl"] = new("Schrijf een review", "Of scan deze QR-code met je gsm:", "QR-code om een review te schrijven", "Ik wil geen reviewvragen meer"),
+        ["fr"] = new("Écrire un avis", "Ou scannez ce code QR avec votre téléphone :", "Code QR pour écrire un avis", "Je ne veux plus de demandes d'avis"),
+        ["en"] = new("Write a review", "Or scan this QR code with your phone:", "QR code to write a review", "I don't want review requests anymore"),
     };
 
     /// <summary>Het sjabloon in deze taal: de aanpassing van de verhuurder, anders de standaardtekst.</summary>
@@ -36,9 +36,11 @@ internal static class ReviewRequestMail
 
     /// <param name="reviewLink">De reviewlink van de verhuurder (een volledig https-adres).</param>
     /// <param name="qrCodeUrl">Het publieke adres van de QR-code van die link, zie <see cref="QrCodeUrl"/>.</param>
+    /// <param name="optOutUrl">De afmeldlink voor dit e-mailadres, zie <see cref="IReviewOptOutLinks"/>; de mail zet hem zelf onderaan.</param>
     /// <param name="logoUrl">Het publieke adres van het logo van de verhuurder, of null.</param>
     /// <param name="template">Het mailsjabloon in de taal van <see cref="ReservationConfirmation.LanguageOf"/>.</param>
-    public static MailMessage Create(Reservation reservation, Tenant tenant, string? logoUrl, MailTemplateText template, string reviewLink, string qrCodeUrl)
+    public static MailMessage Create(Reservation reservation, Tenant tenant, string? logoUrl, MailTemplateText template, string reviewLink, string qrCodeUrl,
+        string optOutUrl)
     {
         var customer = reservation.Customer ?? throw new InvalidOperationException("Reservatie zonder klant.");
         var t = ByLanguage[ReservationConfirmation.LanguageOf(reservation, tenant)];
@@ -53,6 +55,9 @@ internal static class ReviewRequestMail
                 // Een QR-code scant niemand uit de tekstversie: die heeft de link al.
                 [MailKinds.ReviewQrCode] = new(qrCode, ""),
             });
+        // De afmeldlink staat altijd onderaan, ook als de verhuurder de tekst aanpaste.
+        html += $"<p style=\"font-size:12px;color:#6b7280\"><a href=\"{E(optOutUrl)}\" style=\"color:#6b7280\">{E(t.OptOut)}</a></p>";
+        text += $"{Environment.NewLine}{Environment.NewLine}{t.OptOut}: {optOutUrl}";
         return new MailMessage(customer.Email, MailKindDefinition.Fill(template.Subject, name => values.GetValueOrDefault(name)), html, text);
     }
 

@@ -199,6 +199,10 @@ _Avoid_: reviewverzoek, feedbackmail, enquête
 De link van Google waarmee een klant meteen een review over de verhuurder schrijft, ook als QR-code. Hij hoort bij de bedrijfsgegevens en is iets anders dan de link naar het Google-bedrijfsprofiel.
 _Avoid_: Google-link, reviewpagina
 
+**Afgemeld voor reviewvragen** (`ReviewOptOut`):
+Een e-mailadres dat via de link onderaan een reviewvraag liet weten geen reviewvragen meer te willen. Het krijgt bij die verhuurder geen reviewvraag meer, per mail noch via WhatsApp; reservatiemails en een toestemming als marketingcontact blijven ongewijzigd.
+_Avoid_: uitgeschreven, opt-out, blacklist
+
 **Huisstijl** (`Branding`):
 Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office.
 _Avoid_: branding, thema, look

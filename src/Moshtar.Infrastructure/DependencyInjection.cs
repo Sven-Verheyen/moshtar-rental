@@ -73,6 +73,7 @@ public static class DependencyInjection
         services.AddScoped<ICartService, CartService>();
         services.AddScoped<ICartHousekeeping, CartHousekeeping>();
         services.AddScoped<Application.Reviews.IReviewRequests, Reviews.ReviewRequests>();
+        services.AddScoped<Application.Reviews.IReviewOptOuts, Reviews.ReviewOptOuts>();
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
         services.AddScoped<IPricingRuleAdministration, PricingRuleAdministration>();

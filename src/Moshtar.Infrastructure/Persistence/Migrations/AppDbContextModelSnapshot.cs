@@ -708,6 +708,33 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.ToTable("ReservationEvents", (string)null);
                 });
 
+            modelBuilder.Entity("Moshtar.Domain.Reviews.ReviewOptOut", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("character varying(320)");
+
+                    b.Property<DateTime>("OptedOutAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TenantId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TenantId");
+
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique();
+
+                    b.ToTable("ReviewOptOuts");
+                });
+
             modelBuilder.Entity("Moshtar.Domain.Rounds.Round", b =>
                 {
                     b.Property<Guid>("Id")

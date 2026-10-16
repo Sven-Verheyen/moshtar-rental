@@ -19,9 +19,7 @@ namespace Moshtar.Web.Tests;
 /// </summary>
 public sealed class ReviewRequestMailTests(MoshtarApp app) : IClassFixture<MoshtarApp>
 {
-    private const string ReviewLink = "https://g.page/r/hopsa-review";
-
-    private RecordingMailTransport Outbox => app.Services.GetRequiredService<RecordingMailTransport>();
+    private const string ReviewLink = ReviewTenant.ReviewLink;
 
     [Fact]
     public async Task From_ten_oclock_the_day_after_the_end_day_the_customer_gets_one_review_request_with_the_button_and_the_qr_code()
@@ -193,22 +191,14 @@ public sealed class ReviewRequestMailTests(MoshtarApp app) : IClassFixture<Mosht
         Assert.DoesNotContain("review-qr.png", mail.HtmlBody);
     }
 
-    private List<OutgoingMail> ReviewMails(string to, string subject = "huur bij") =>
-        Outbox.Sent.Where(m => m.To == to && (m.Subject.Contains(subject) || m.Subject.Contains("location chez") || m.Subject.Contains("rental with"))).ToList();
+    private List<OutgoingMail> ReviewMails(string to, string subject = "huur bij") => ReviewTenant.Mails(app, to, subject);
 
-    private static DateTimeOffset At(DateOnly day, int hour, int minute) => Belgium.At(day, new TimeOnly(hour, minute));
+    private static DateTimeOffset At(DateOnly day, int hour, int minute) => ReviewTenant.At(day, hour, minute);
 
-    private async Task<int> RunAsync(string tenant, DateTimeOffset now)
-    {
-        await using var scope = await app.TenantScopeAsync(tenant);
-        return await scope.ServiceProvider.GetRequiredService<IReviewRequests>().SendDueAsync(now.UtcDateTime);
-    }
+    private Task<int> RunAsync(string tenant, DateTimeOffset now) => ReviewTenant.RunAsync(app, tenant, now);
 
-    private async Task<IReadOnlyList<ReservationHistoryEntry>> HistoryAsync(string tenant, Guid reservationId)
-    {
-        await using var scope = await app.TenantScopeAsync(tenant);
-        return await scope.ServiceProvider.GetRequiredService<IReservationService>().GetHistoryAsync(reservationId);
-    }
+    private Task<IReadOnlyList<ReservationHistoryEntry>> HistoryAsync(string tenant, Guid reservationId) =>
+        ReviewTenant.HistoryAsync(app, tenant, reservationId);
 
     private async Task ChangeStatusAsync(string tenant, Guid reservationId, ReservationStatus status)
     {
@@ -216,36 +206,9 @@ public sealed class ReviewRequestMailTests(MoshtarApp app) : IClassFixture<Mosht
         await scope.ServiceProvider.GetRequiredService<IReservationService>().ChangeStatusAsync(reservationId, status, ReservationActor.Website);
     }
 
-    /// <summary>Een klant reserveert een springkasteel om af te halen, op één dag.</summary>
-    private async Task<Guid> ReserveAsync(string tenant, string email, string firstName, DateOnly day, string culture = "nl")
-    {
-        await using var scope = await app.TenantScopeAsync(tenant);
-        var item = await scope.ServiceProvider.GetRequiredService<AppDbContext>().RentalItems.SingleAsync(i => i.Slug == "kasteel");
-        var result = await scope.ServiceProvider.GetRequiredService<IReservationService>().ReserveAsync(new ReservationRequest(
-            new DateRange(day, day),
-            [new ReservationLineRequest(item.Id, null, 1)],
-            new ReservationCustomer(firstName, "Klant", email, "0470 12 34 56", new Address { Street = "Kerkstraat 1", PostalCode = "2000", City = "Antwerpen" }),
-            DeliveryMethod.Pickup, null, null, culture), ReservationActor.Website);
-        return result.Reservation?.Id ?? throw new InvalidOperationException("Reserveren mislukt: " + string.Join(", ", result.Shortages));
-    }
+    private Task<Guid> ReserveAsync(string tenant, string email, string firstName, DateOnly day, string culture = "nl") =>
+        ReviewTenant.ReserveAsync(app, tenant, email, firstName, day, culture);
 
-    /// <summary>
-    /// Een verhuurder met een reviewlink en een kasteel met ruime voorraad. "Reviewvragen sturen" staat aan sinds
-    /// <paramref name="since"/>, standaard nu (de reservaties liggen in de toekomst), tenzij <paramref name="switchedOn"/> false is.
-    /// </summary>
-    private async Task NewTenantAsync(string slug, bool switchedOn = true, DateTimeOffset? since = null)
-    {
-        await app.CreateTenantAsync(slug, $"{slug}.test");
-        await using var scope = await app.TenantScopeAsync(slug);
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var tenant = await db.Tenants.SingleAsync(t => t.Slug == slug);
-        tenant.ReviewLink = ReviewLink;
-        tenant.ReviewRequestsSince = switchedOn ? (since ?? DateTimeOffset.UtcNow).ToUniversalTime() : null;
-        db.RentalItems.Add(new RentalItem
-        {
-            Slug = "kasteel", Stock = 20, Pricing = new Pricing { DayPrice = 100 },
-            Translations = [new Translation { Culture = "nl", Name = "Kasteel" }],
-        });
-        await db.SaveChangesAsync();
-    }
+    private Task NewTenantAsync(string slug, bool switchedOn = true, DateTimeOffset? since = null) =>
+        ReviewTenant.CreateAsync(app, slug, switchedOn, since);
 }
