@@ -3,7 +3,6 @@ using Moshtar.Application.Customers;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Reservations;
-using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Customers;
@@ -11,10 +10,10 @@ namespace Moshtar.Infrastructure.Customers;
 /// <summary>Met een eigen, kortlevende context per oproep, zodat de interactieve pagina's Klanten en Klantfiche ze kunnen gebruiken.</summary>
 internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> contexts, TimeProvider clock, IVatRegistry vatRegistry) : ICustomerAdministration
 {
-    private const string DuplicateEmail = "Er is al een klant met dit e-mailadres.";
     private const string NotFound = "Deze klant bestaat niet (meer).";
     private const string AdministratorOnly = "Alleen de beheerder kan klanten verwijderen of anonimiseren.";
 
+    /// <summary>Zoekt klanten op tekst of telefoonnummer en type, op naam gesorteerd, één pagina tegelijk.</summary>
     public async Task<CustomerPage> SearchAsync(CustomerSearch search, CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -55,6 +54,7 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
             total);
     }
 
+    /// <summary>De klantfiche met al zijn reservaties; null als de klant niet (meer) bestaat.</summary>
     public async Task<CustomerCard?> GetAsync(Guid customerId, CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -79,12 +79,15 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
             customer.UpdatedByUserId is { } updated ? users.GetValueOrDefault(updated) : null);
     }
 
+    /// <summary>Voegt een klant toe namens deze gebruiker, met de controle van een nieuw EU-btw-nummer.</summary>
     public Task<CustomerSaveResult> AddAsync(CustomerDetails details, Guid userId, CancellationToken ct = default) =>
         SaveAsync(null, details, userId, ct);
 
+    /// <summary>Wijzigt een klant namens deze gebruiker; een klant die niet (meer) bestaat of geanonimiseerd is, wordt geweigerd.</summary>
     public Task<CustomerSaveResult> UpdateAsync(Guid customerId, CustomerDetails details, Guid userId, CancellationToken ct = default) =>
         SaveAsync(customerId, details, userId, ct);
 
+    /// <summary>Vraagt de btw-databank naar een ingegeven btw-nummer, zonder iets te bewaren.</summary>
     public async Task<VatNumberLookup> LookUpVatNumberAsync(string? vatNumber, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(vatNumber) || !VatNumberFormat.IsWellFormed(vatNumber)) return new VatNumberLookup(null);
@@ -100,6 +103,7 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
         };
     }
 
+    /// <summary>"Opnieuw controleren": vraagt de btw-databank opnieuw naar het EU-btw-nummer van de klant en bewaart het antwoord.</summary>
     public async Task<VatRecheckResult> RecheckVatNumberAsync(Guid customerId, CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -117,10 +121,11 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
             : null);
     }
 
+    /// <summary>Verwijdert een klant zonder reservaties; alleen een beheerder mag dat.</summary>
     public async Task<CustomerRemovalResult> DeleteAsync(Guid customerId, Guid userId, CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
-        if (!await IsAdministratorAsync(db, userId, ct)) return new CustomerRemovalResult([AdministratorOnly]);
+        if (!await CustomerChecks.IsAdministratorAsync(db, userId, ct)) return new CustomerRemovalResult([AdministratorOnly]);
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct);
         if (customer is null) return new CustomerRemovalResult([NotFound]);
         if (await db.Reservations.AnyAsync(r => r.CustomerId == customerId, ct))
@@ -130,10 +135,11 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
         return new CustomerRemovalResult([]);
     }
 
+    /// <summary>Anonimiseert een klant met reservaties die geen van alle nog lopen; alleen een beheerder mag dat.</summary>
     public async Task<CustomerRemovalResult> AnonymizeAsync(Guid customerId, Guid userId, CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
-        if (!await IsAdministratorAsync(db, userId, ct)) return new CustomerRemovalResult([AdministratorOnly]);
+        if (!await CustomerChecks.IsAdministratorAsync(db, userId, ct)) return new CustomerRemovalResult([AdministratorOnly]);
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct);
         if (customer is null) return new CustomerRemovalResult([NotFound]);
         if (customer.IsAnonymized) return new CustomerRemovalResult(["Deze klant is al geanonimiseerd."]);
@@ -162,10 +168,6 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
         return new CustomerRemovalResult([]);
     }
 
-    /// <summary>Verwijderen en anonimiseren mag alleen een beheerder, ook al toont de klantfiche de knoppen enkel aan hem.</summary>
-    private static Task<bool> IsAdministratorAsync(AppDbContext db, Guid userId, CancellationToken ct) =>
-        db.Users.AnyAsync(u => u.Id == userId && u.IsActive && u.Role == UserRole.Administrator, ct);
-
     private async Task<CustomerSaveResult> SaveAsync(Guid? customerId, CustomerDetails details, Guid userId, CancellationToken ct)
     {
         var errors = details.Errors();
@@ -174,12 +176,14 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
         await using var db = await contexts.CreateDbContextAsync(ct);
         var email = Customer.NormalizeEmail(details.Email);
         if (await OtherWithEmailAsync(db, email, customerId, ct) is { } existing)
-            return new CustomerSaveResult(null, [DuplicateEmail], existing);
+            return new CustomerSaveResult(null, [CustomerChecks.DuplicateEmail], existing);
 
         Customer customer;
         if (customerId is { } id)
         {
-            customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct) ?? throw new ArgumentException("Klant niet gevonden.");
+            var found = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct);
+            if (found is null) return new CustomerSaveResult(null, [NotFound]);
+            customer = found;
             if (customer.IsAnonymized)
                 return new CustomerSaveResult(null, ["Deze klant is geanonimiseerd en kan niet meer gewijzigd worden."]);
         }
@@ -203,7 +207,7 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
         {
             // Intussen kreeg een andere klant hetzelfde e-mailadres, bv. door een reservatie op de website.
             if (await OtherWithEmailAsync(db, email, customerId, ct) is not { } raced) throw;
-            return new CustomerSaveResult(null, [DuplicateEmail], raced);
+            return new CustomerSaveResult(null, [CustomerChecks.DuplicateEmail], raced);
         }
         return new CustomerSaveResult(customer.Id, []);
     }

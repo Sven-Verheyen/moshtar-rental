@@ -1,0 +1,45 @@
+@using Moshtar.Application.Customers
+@using Moshtar.Domain.Customers
+@inject ICustomerAdministration Customers
+
+@* Een nieuw nummer gaat meteen naar de btw-databank: geldig vult bedrijfsnaam en factuuradres van het formulier in. *@
+<MudTextField T="string" Value="Form.VatNumber" ValueChanged="VatNumberChangedAsync" Label="Btw-nummer (optioneel)"
+              HelperText="@HelperText" Error="@(_lookup?.Status == VatCheckStatus.Invalid)"
+              ErrorText="Ongeldig volgens de btw-databank van de EU: zo kan de klant niet bewaard worden."
+              Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="30" Disabled="_checking"
+              Adornment="@(_checking ? Adornment.End : Adornment.None)" AdornmentIcon="@Icons.Material.Filled.HourglassTop" />
+
+@code {
+    [Parameter, EditorRequired] public ICompanyForm Form { get; set; } = default!;
+    /// <summary>Na het invullen van bedrijfsnaam en factuuradres, zodat het formulier ze toont.</summary>
+    [Parameter] public EventCallback OnFilled { get; set; }
+
+    private VatNumberLookup? _lookup;
+    private bool _checking;
+
+    private string HelperText => _lookup?.Status switch
+    {
+        VatCheckStatus.Valid => "Geldig volgens de btw-databank. Bedrijfsnaam en factuuradres zijn ingevuld; je kan ze nog aanpassen.",
+        VatCheckStatus.NotChecked => "De btw-databank is nu onbereikbaar. Het nummer wordt bewaard als nog niet gecontroleerd en later opnieuw gecontroleerd.",
+        VatCheckStatus.NotCheckable => "Een btw-nummer van buiten de EU: niet te controleren.",
+        _ => "Bv. BE0123456789",
+    };
+
+    private async Task VatNumberChangedAsync(string? vatNumber)
+    {
+        Form.VatNumber = vatNumber;
+        _lookup = null;
+        if (string.IsNullOrWhiteSpace(vatNumber) || !VatNumberFormat.IsWellFormed(vatNumber)) return;
+        _checking = true;
+        try
+        {
+            _lookup = await Customers.LookUpVatNumberAsync(vatNumber);
+            Form.Fill(_lookup);
+            await OnFilled.InvokeAsync();
+        }
+        finally
+        {
+            _checking = false;
+        }
+    }
+}

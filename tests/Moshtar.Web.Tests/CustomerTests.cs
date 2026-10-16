@@ -114,6 +114,19 @@ public sealed class CustomerTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     }
 
     [Fact]
+    public async Task Changing_a_customer_that_no_longer_exists_says_so()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "klant-weg@hopsakee.test", UserRole.Staff);
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var customers = scope.ServiceProvider.GetRequiredService<ICustomerAdministration>();
+
+        var result = await customers.UpdateAsync(Guid.NewGuid(), Details("weg@example.test"), user.Id);
+
+        Assert.Null(result.CustomerId);
+        Assert.Equal(["Deze klant bestaat niet (meer)."], result.Errors);
+    }
+
+    [Fact]
     public async Task Reserving_on_the_website_makes_a_customer_via_website_and_reserving_again_keeps_the_note()
     {
         var user = await app.CreateUserAsync("hopsakee", "klant-notitie@hopsakee.test", UserRole.Staff);

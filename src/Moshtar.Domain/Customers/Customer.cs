@@ -83,7 +83,10 @@ public class Customer : TenantEntity
     /// <summary>Een e-mailadres zoals het bewaard en vergeleken wordt: zonder spaties rond en in kleine letters.</summary>
     public static string NormalizeEmail(string email) => email.Trim().ToLowerInvariant();
 
-    /// <summary>Neemt de gegevens over die een gebruiker invulde, de notitie inbegrepen.</summary>
+    /// <summary>
+    /// Neemt de gegevens over die een gebruiker invulde, de notitie inbegrepen. Een particulier houdt nooit een
+    /// bedrijfsnaam of btw-nummer, ook niet als die toch ingevuld werden.
+    /// </summary>
     public void Apply(CustomerDetails details)
     {
         Kind = details.Kind;
@@ -91,8 +94,9 @@ public class Customer : TenantEntity
         LastName = details.LastName.Trim();
         Email = NormalizeEmail(details.Email);
         Phone = PhoneNumber.International(details.Phone);
-        CompanyName = Blank(details.CompanyName);
-        ChangeVatNumber(details.VatNumber);
+        var business = details.Kind == CustomerKind.Business;
+        CompanyName = business ? Blank(details.CompanyName) : null;
+        ChangeVatNumber(business ? details.VatNumber : null);
         Address = Trimmed(details.Address);
         BillingAddress = details.BillingAddress is null ? null : Trimmed(details.BillingAddress);
         PreferredCulture = details.Culture;

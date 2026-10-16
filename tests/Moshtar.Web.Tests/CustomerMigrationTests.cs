@@ -48,7 +48,7 @@ public sealed class CustomerMigrationTests : IAsyncLifetime
         var particulier = await InsertCustomerAsync(Tenant, "Piet", "piet@example.test", vat: null);
         var school = await InsertCustomerAsync(Tenant, "Els", "school@example.test", vat: "BE0123456789");
         var swiss = await InsertCustomerAsync(Tenant, "Urs", "zwitsers@example.test", vat: "che-123.456.789");
-        var oldDuplicate = await InsertCustomerAsync(Tenant, "Oud", " Dubbel@Example.test");
+        var oldDuplicate = await InsertCustomerAsync(Tenant, "Oud", " Dubbel@Example.test", vat: "BE0123456789", company: "De Linde");
         var newDuplicate = await InsertCustomerAsync(Tenant, "Nieuw", "dubbel@example.test");
         var elsewhere = await InsertCustomerAsync(OtherTenant, "Ander", "dubbel@example.test");
         await InsertReservationAsync(Tenant, particulier, "2026-0001", new DateTime(2026, 3, 1, 9, 0, 0, DateTimeKind.Utc));
@@ -70,19 +70,21 @@ public sealed class CustomerMigrationTests : IAsyncLifetime
         // Van twee klanten met hetzelfde e-mailadres blijft die met de laatste reservatie, met alle reservaties.
         var dubbel = Assert.Single(customers, c => c.TenantId == Tenant && c.Email == "dubbel@example.test");
         Assert.Equal((newDuplicate, "Nieuw"), (dubbel.Id, dubbel.FirstName));
+        // Wat alleen de verdwenen dubbel wist, gaat niet verloren: zijn bedrijfsnaam en btw-nummer.
+        Assert.Equal(("De Linde", "BE0123456789", CustomerKind.Business), (dubbel.CompanyName, dubbel.VatNumber, dubbel.Kind));
         Assert.Equal(2, await _db.Reservations.IgnoreQueryFilters().CountAsync(r => r.CustomerId == newDuplicate));
         Assert.Equal(new DateTime(2026, 4, 1, 9, 0, 0, DateTimeKind.Utc), dubbel.CreatedAtUtc);
         Assert.Equal(new DateTime(2026, 5, 1, 9, 0, 0, DateTimeKind.Utc), dubbel.UpdatedAtUtc);
         Assert.Contains(customers, c => c.Id == elsewhere);
     }
 
-    private async Task<Guid> InsertCustomerAsync(Guid tenant, string firstName, string email, string? vat = null)
+    private async Task<Guid> InsertCustomerAsync(Guid tenant, string firstName, string email, string? vat = null, string? company = null)
     {
         var id = Guid.NewGuid();
         await _db.Database.ExecuteSqlAsync($"""
             INSERT INTO "Customers" ("Id", "TenantId", "FirstName", "LastName", "Email", "Phone", "CompanyName", "VatNumber",
                 "PreferredCulture", "Address_Street", "Address_PostalCode", "Address_City", "Address_Country")
-            VALUES ({id}, {tenant}, {firstName}, 'Klant', {email}, '+32470123456', NULL, {vat}, 'nl', 'Markt 1', '9000', 'Gent', 'BE')
+            VALUES ({id}, {tenant}, {firstName}, 'Klant', {email}, '+32470123456', {company}, {vat}, 'nl', 'Markt 1', '9000', 'Gent', 'BE')
             """);
         return id;
     }

@@ -87,7 +87,7 @@
                     @if (_form.Kind == CustomerKind.Business)
                     {
                         <MudTextField @bind-Value="_form.CompanyName" Label="Bedrijfsnaam" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
-                        <MudTextField @bind-Value="_form.VatNumber" Label="Btw-nummer (optioneel)" HelperText="Bv. BE0123456789" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="30" />
+                        <VatNumberField Form="_form" OnFilled="StateHasChanged" />
                         <MudText Typo="Typo.subtitle2" Class="mt-2">Contactpersoon</MudText>
                     }
                     <div class="d-flex gap-2">

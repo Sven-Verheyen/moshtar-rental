@@ -7,7 +7,7 @@ using Moshtar.Domain.Reservations;
 namespace Moshtar.Web.Models;
 
 /// <summary>Een reservatie die een gebruiker in het back office invoert.</summary>
-public class ManualReservationForm
+public class ManualReservationForm : ICompanyForm
 {
     [Required(ErrorMessage = "Kies een begindatum.")] public DateTime? StartDate { get; set; }
     [Required(ErrorMessage = "Kies een einddatum.")] public DateTime? EndDate { get; set; }

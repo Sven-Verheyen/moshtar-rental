@@ -19,7 +19,10 @@ public interface ICustomerAdministration
     /// <summary>Voegt een klant toe namens deze gebruiker; geweigerd als de gegevens niet kloppen of het e-mailadres al klant is.</summary>
     Task<CustomerSaveResult> AddAsync(CustomerDetails details, Guid userId, CancellationToken ct = default);
 
-    /// <summary>Wijzigt een klant namens deze gebruiker; geweigerd als de gegevens niet kloppen of het e-mailadres van een andere klant is.</summary>
+    /// <summary>
+    /// Wijzigt een klant namens deze gebruiker; geweigerd als de klant niet (meer) bestaat, de gegevens niet kloppen of
+    /// het e-mailadres van een andere klant is.
+    /// </summary>
     Task<CustomerSaveResult> UpdateAsync(Guid customerId, CustomerDetails details, Guid userId, CancellationToken ct = default);
 
     /// <summary>

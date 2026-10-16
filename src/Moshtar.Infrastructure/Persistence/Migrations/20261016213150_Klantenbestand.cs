@@ -82,7 +82,7 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
 
             // Dubbels van hetzelfde (genormaliseerde) e-mailadres per verhuurder worden één klant: die met de laatste
             // reservatie, zoals reserveren de klantfiche ook bijwerkt met de laatst ingevulde gegevens. Hun reservaties
-            // gaan naar die klant.
+            // gaan naar die klant. Een bedrijfsnaam of btw-nummer dat alleen een dubbel kende, neemt ze over.
             migrationBuilder.Sql("""
                 CREATE TEMP TABLE "CustomerMerge" AS
                 WITH ranked AS (
@@ -93,10 +93,18 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                            ) AS "Rank"
                     FROM "Customers" c
                 )
-                SELECT d."Id" AS "DuplicateId", k."Id" AS "KeepId"
+                SELECT d."Id" AS "DuplicateId", k."Id" AS "KeepId", d."Rank"
                 FROM ranked d JOIN ranked k ON k."TenantId" = d."TenantId" AND k."Email" = d."Email" AND k."Rank" = 1
                 WHERE d."Rank" > 1;
 
+                UPDATE "Customers" k SET
+                    "CompanyName" = coalesce(k."CompanyName", (
+                        SELECT d."CompanyName" FROM "CustomerMerge" m JOIN "Customers" d ON d."Id" = m."DuplicateId"
+                        WHERE m."KeepId" = k."Id" AND d."CompanyName" IS NOT NULL ORDER BY m."Rank" LIMIT 1)),
+                    "VatNumber" = coalesce(k."VatNumber", (
+                        SELECT d."VatNumber" FROM "CustomerMerge" m JOIN "Customers" d ON d."Id" = m."DuplicateId"
+                        WHERE m."KeepId" = k."Id" AND d."VatNumber" IS NOT NULL ORDER BY m."Rank" LIMIT 1))
+                WHERE k."Id" IN (SELECT "KeepId" FROM "CustomerMerge");
                 UPDATE "Reservations" r SET "CustomerId" = m."KeepId" FROM "CustomerMerge" m WHERE r."CustomerId" = m."DuplicateId";
                 DELETE FROM "Customers" c USING "CustomerMerge" m WHERE c."Id" = m."DuplicateId";
                 UPDATE "Customers" SET "Email" = lower(trim("Email"));

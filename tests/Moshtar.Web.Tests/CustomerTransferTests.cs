@@ -133,6 +133,46 @@ public sealed class CustomerTransferTests(MoshtarApp app) : IClassFixture<Moshta
     }
 
     [Fact]
+    public void A_field_starting_with_a_tab_or_carriage_return_gets_an_apostrophe_like_a_formula()
+    {
+        Assert.Equal("'\tcmd", CustomerCsv.Field("\tcmd"));
+        Assert.Equal("\"'\rcmd\"", CustomerCsv.Field("\rcmd"));
+    }
+
+    [Fact]
+    public async Task A_row_with_a_field_longer_than_the_customer_file_holds_is_skipped_with_its_reason()
+    {
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var longEmail = new string('a', 64) + "@" + string.Join(".", Enumerable.Repeat(new string('b', 60), 5)) + ".test";
+        var csv = Csv(
+            $"Particulier;Els;Lang;;;lang-notitie@example.test;0470 12 34 56;Markt 1;9000;Gent;BE;;;;;nl;{new string('x', 4001)}",
+            $"Particulier;Els;Lang;;;{longEmail};0470 12 34 56;Markt 1;9000;Gent;BE;;;;;nl;");
+
+        var preview = await scope.ServiceProvider.GetRequiredService<ICustomerTransfer>().PreviewAsync(csv);
+
+        Assert.Equal(0, preview.Count);
+        Assert.Equal(["De notitie is te lang: hoogstens 4000 tekens.", "Het e-mailadres is te lang: hoogstens 320 tekens."],
+            preview.Skipped.Select(s => s.Reason));
+    }
+
+    [Fact]
+    public async Task A_private_customer_never_keeps_a_company_name_or_vat_number()
+    {
+        var admin = await app.CreateUserAsync("hopsakee", "import-particulier-beheerder@hopsakee.test", UserRole.Administrator);
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var csv = Csv("Particulier;Els;Prive;Els BV;BE0123456789;import-particulier@example.test;0470 12 34 56;Markt 1;9000;Gent;BE;;;;;nl;");
+
+        var report = await scope.ServiceProvider.GetRequiredService<ICustomerTransfer>().ImportAsync(csv, admin.Id);
+
+        Assert.Equal((1, 0), (report.Count, report.Skipped.Count));
+        var customers = scope.ServiceProvider.GetRequiredService<ICustomerAdministration>();
+        var item = Assert.Single((await customers.SearchAsync(new CustomerSearch("import-particulier@example.test"))).Items);
+        var customer = (await customers.GetAsync(item.Id))!.Customer;
+        Assert.Equal((CustomerKind.Private, (string?)null, (string?)null, (VatCheckStatus?)null),
+            (customer.Kind, customer.CompanyName, customer.VatNumber, customer.VatCheck));
+    }
+
+    [Fact]
     public async Task An_exported_file_imports_again_once_its_customers_are_gone()
     {
         var admin = await app.CreateUserAsync("hopsakee", "rondje-beheerder@hopsakee.test", UserRole.Administrator);

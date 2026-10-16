@@ -130,18 +130,21 @@ public static class CustomerCsv
 
     /// <summary>
     /// Een veld zoals Excel het veilig leest: tussen aanhalingstekens als het een scheidingsteken bevat, en met een
-    /// apostrof ervoor als het met =, +, - of @ begint, zodat Excel het nooit als formule uitvoert. De import haalt die
-    /// apostrof weer weg.
+    /// apostrof ervoor als het met =, +, -, @, een tab of een carriage return begint (de lijst van OWASP), zodat Excel het
+    /// nooit als formule uitvoert. De import haalt die apostrof weer weg.
     /// </summary>
     public static string Field(string value)
     {
-        if (value.Length > 0 && "=+-@".Contains(value[0])) value = "'" + value;
+        if (value.Length > 0 && FormulaStart.Contains(value[0])) value = "'" + value;
         return value.IndexOfAny([';', ',', '"', '\r', '\n']) >= 0 ? $"\"{value.Replace("\"", "\"\"")}\"" : value;
     }
 
-    /// <summary>Haalt de apostrof weg die <see cref="Field"/> voor een veld met =, +, - of @ vooraan zet.</summary>
+    /// <summary>Waarmee een veld begint dat Excel als formule zou kunnen lezen.</summary>
+    private const string FormulaStart = "=+-@\t\r";
+
+    /// <summary>Haalt de apostrof weg die <see cref="Field"/> voor een veld vooraan zet dat als formule gelezen kan worden.</summary>
     private static string Unescape(string value) =>
-        value.Length > 1 && value[0] == '\'' && "=+-@".Contains(value[1]) ? value[1..] : value;
+        value.Length > 1 && value[0] == '\'' && FormulaStart.Contains(value[1]) ? value[1..] : value;
 
     private static string Normalize(string column) => column.Trim().ToLowerInvariant() switch
     {

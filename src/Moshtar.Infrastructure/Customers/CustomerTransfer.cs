@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Moshtar.Application.Customers;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Customers;
-using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Customers;
@@ -11,8 +10,6 @@ namespace Moshtar.Infrastructure.Customers;
 /// <summary>Met een eigen, kortlevende context per oproep, zodat de interactieve importpagina ze kan gebruiken.</summary>
 internal sealed class CustomerTransfer(IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock) : ICustomerTransfer
 {
-    private const string DuplicateEmail = "Er is al een klant met dit e-mailadres.";
-
     public async Task<string> ExportAsync(CancellationToken ct = default)
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
@@ -35,7 +32,7 @@ internal sealed class CustomerTransfer(IDbContextFactory<AppDbContext> contexts,
     {
         await using var db = await contexts.CreateDbContextAsync(ct);
         // De importpagina is alleen voor de beheerder; de dienst weigert het ook zelf.
-        if (!await db.Users.AnyAsync(u => u.Id == userId && u.IsActive && u.Role == UserRole.Administrator, ct))
+        if (!await CustomerChecks.IsAdministratorAsync(db, userId, ct))
             return CustomerImportResult.Refused("Alleen de beheerder kan klanten importeren.");
         var plan = await PlanAsync(db, csv, ct);
         var now = clock.GetUtcNow().UtcDateTime;
@@ -51,7 +48,7 @@ internal sealed class CustomerTransfer(IDbContextFactory<AppDbContext> contexts,
         {
             await db.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException e) when (CustomerChecks.IsUniqueViolation(e))
         {
             // Intussen kreeg iemand anders een van deze e-mailadressen, bv. door een reservatie op de website. Er werd
             // niets bewaard; een nieuw voorbeeld slaat die rij over.
@@ -83,7 +80,7 @@ internal sealed class CustomerTransfer(IDbContextFactory<AppDbContext> contexts,
             var (details, errors) = CustomerCsv.Details(row, cultures, defaultCulture);
             var email = Customer.NormalizeEmail(details.Email);
             string? reason = errors.Count > 0 ? string.Join(" ", errors)
-                : existing.Contains(email) ? DuplicateEmail
+                : existing.Contains(email) ? CustomerChecks.DuplicateEmail
                 : firstLine.TryGetValue(email, out var line) ? $"Dit e-mailadres staat al op regel {line} van dit bestand."
                 : null;
             if (reason is null)

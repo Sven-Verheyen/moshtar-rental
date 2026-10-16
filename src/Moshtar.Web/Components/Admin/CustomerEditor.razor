@@ -15,12 +15,7 @@
                 @if (Form.Kind == CustomerKind.Business)
                 {
                     <MudTextField @bind-Value="Form.CompanyName" Label="Bedrijfsnaam" Required="true" Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="200" />
-                    @* Een nieuw nummer gaat meteen naar de btw-databank: geldig vult bedrijfsnaam en factuuradres in. *@
-                    <MudTextField T="string" Value="Form.VatNumber" ValueChanged="VatNumberChangedAsync" Label="Btw-nummer (optioneel)"
-                                  HelperText="@VatHelperText" Error="@(_vatLookup?.Status == VatCheckStatus.Invalid)"
-                                  ErrorText="Ongeldig volgens de btw-databank van de EU: zo kan de klant niet bewaard worden."
-                                  Variant="Variant.Outlined" Margin="Margin.Dense" MaxLength="30" Disabled="_checkingVat"
-                                  Adornment="@(_checkingVat ? Adornment.End : Adornment.None)" AdornmentIcon="@Icons.Material.Filled.HourglassTop" />
+                    <VatNumberField Form="Form" OnFilled="StateHasChanged" />
                     <MudText Typo="Typo.subtitle2" Class="mt-3">Contactpersoon</MudText>
                 }
                 <div class="d-flex gap-2">
@@ -96,34 +91,6 @@
     [Parameter] public Guid? CustomerId { get; set; }
     [Parameter] public EventCallback<Guid> OnSaved { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
-
-    private VatNumberLookup? _vatLookup;
-    private bool _checkingVat;
-
-    private string VatHelperText => _vatLookup?.Status switch
-    {
-        VatCheckStatus.Valid => "Geldig volgens de btw-databank. Bedrijfsnaam en factuuradres zijn ingevuld; je kan ze nog aanpassen.",
-        VatCheckStatus.NotChecked => "De btw-databank is nu onbereikbaar. Het nummer wordt bewaard als nog niet gecontroleerd en later opnieuw gecontroleerd.",
-        VatCheckStatus.NotCheckable => "Een btw-nummer van buiten de EU: niet te controleren.",
-        _ => "Bv. BE0123456789",
-    };
-
-    private async Task VatNumberChangedAsync(string? vatNumber)
-    {
-        Form.VatNumber = vatNumber;
-        _vatLookup = null;
-        if (string.IsNullOrWhiteSpace(vatNumber) || !VatNumberFormat.IsWellFormed(vatNumber)) return;
-        _checkingVat = true;
-        try
-        {
-            _vatLookup = await Customers.LookUpVatNumberAsync(vatNumber);
-            Form.Fill(_vatLookup);
-        }
-        finally
-        {
-            _checkingVat = false;
-        }
-    }
 
     private async Task SaveAsync()
     {

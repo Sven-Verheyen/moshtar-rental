@@ -395,13 +395,11 @@ internal sealed class ReservationService(
             throw new ArgumentException("Het telefoonnummer is verplicht.");
         if (PhoneNumber.International(request.Customer.Phone) is null)
             throw new ArgumentException("Dit is geen geldig telefoonnummer, bv. 0470 12 34 56 of +32 470 12 34 56.");
+        // Dezelfde regels als op de klantfiche (CustomerDetails).
         var customer = request.Customer;
-        if (customer.Kind == CustomerKind.Business && string.IsNullOrWhiteSpace(customer.CompanyName))
-            throw new ArgumentException("De bedrijfsnaam is verplicht voor een zakelijke klant.");
-        if (customer.Kind == CustomerKind.Business && !string.IsNullOrWhiteSpace(customer.VatNumber) && !VatNumberFormat.IsWellFormed(customer.VatNumber))
-            throw new ArgumentException(CustomerDetails.InvalidVatNumber);
-        if (customer.BillingAddress is { } billing &&
-            (string.IsNullOrWhiteSpace(billing.Street) || string.IsNullOrWhiteSpace(billing.PostalCode) || string.IsNullOrWhiteSpace(billing.City)))
-            throw new ArgumentException("Vul de straat met huisnummer, de postcode en de gemeente van het factuuradres in.");
+        if (CustomerDetails.BusinessErrors(customer.Kind, customer.CompanyName, customer.VatNumber) is [var error, ..])
+            throw new ArgumentException(error);
+        if (customer.BillingAddress is { } billing && !CustomerDetails.IsComplete(billing))
+            throw new ArgumentException(CustomerDetails.IncompleteBillingAddress);
     }
 }

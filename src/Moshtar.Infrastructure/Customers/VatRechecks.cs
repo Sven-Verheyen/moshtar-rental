@@ -7,6 +7,10 @@ namespace Moshtar.Infrastructure.Customers;
 
 internal sealed class VatRechecks(AppDbContext db, IVatRegistry vatRegistry) : IVatRechecks
 {
+    /// <summary>
+    /// Vraagt de btw-databank naar de EU-btw-nummers die nog niet gecontroleerd zijn, de langst wachtende eerst en
+    /// hoogstens <see cref="IVatRechecks.BatchSize"/>; geeft terug hoeveel ze gevraagd werd.
+    /// </summary>
     public async Task<int> RecheckAsync(DateTime nowUtc, CancellationToken ct = default)
     {
         var before = nowUtc - IVatRechecks.RetryAfter;

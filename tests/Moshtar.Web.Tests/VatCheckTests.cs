@@ -3,6 +3,7 @@ using Moshtar.Application.Customers;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
 using Moshtar.Infrastructure.Identity;
+using Moshtar.Web.Models;
 
 namespace Moshtar.Web.Tests;
 
@@ -189,7 +190,7 @@ public sealed class VatCheckTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     [Fact]
     public void The_customer_form_takes_the_official_name_and_address_as_company_name_and_billing_address_that_stay_editable()
     {
-        var form = new Moshtar.Web.Models.CustomerForm { Kind = CustomerKind.Business, CompanyName = "Chiro", Street = "Markt 1", PostalCode = "9000", City = "Gent" };
+        var form = new CustomerForm { Kind = CustomerKind.Business, CompanyName = "Chiro", Street = "Markt 1", PostalCode = "9000", City = "Gent" };
 
         form.Fill(new VatNumberLookup(VatCheckStatus.Valid, "VZW CHIRO WIEZEWA",
             new Address { Street = "KERKSTRAAT 12", PostalCode = "2000", City = "ANTWERPEN", Country = "BE" }));
@@ -202,12 +203,24 @@ public sealed class VatCheckTests(MoshtarApp app) : IClassFixture<MoshtarApp>
     [Fact]
     public void The_customer_form_keeps_the_same_billing_address_when_the_official_address_is_the_address()
     {
-        var form = new Moshtar.Web.Models.CustomerForm { Kind = CustomerKind.Business, CompanyName = "Chiro", Street = "Kerkstraat 12", PostalCode = "2000", City = "Antwerpen" };
+        var form = new CustomerForm { Kind = CustomerKind.Business, CompanyName = "Chiro", Street = "Kerkstraat 12", PostalCode = "2000", City = "Antwerpen" };
 
         form.Fill(new VatNumberLookup(VatCheckStatus.Valid, null,
             new Address { Street = "KERKSTRAAT 12", PostalCode = "2000", City = "ANTWERPEN", Country = "BE" }));
 
         Assert.Equal(("Chiro", true), (form.CompanyName, form.SameBillingAddress));
+    }
+
+    [Fact]
+    public void A_new_reservation_for_a_business_customer_takes_the_official_name_and_address_like_the_customer_form()
+    {
+        var form = new ManualReservationForm { Kind = CustomerKind.Business, CompanyName = "Chiro", Street = "Markt 1", PostalCode = "9000", City = "Gent" };
+
+        form.Fill(new VatNumberLookup(VatCheckStatus.Valid, "VZW CHIRO WIEZEWA",
+            new Address { Street = "KERKSTRAAT 12", PostalCode = "2000", City = "ANTWERPEN", Country = "BE" }));
+
+        Assert.Equal(("VZW CHIRO WIEZEWA", false), (form.CompanyName, form.SameBillingAddress));
+        Assert.Equal(("KERKSTRAAT 12", "2000", "ANTWERPEN", "BE"), (form.BillingStreet, form.BillingPostalCode, form.BillingCity, form.BillingCountry));
     }
 
     [Theory]
