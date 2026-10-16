@@ -45,8 +45,36 @@ Het ene domein waarop de reservatiewebsite van een verhuurder getoond wordt. Zij
 _Avoid_: hoofdsite, standaarddomein
 
 **Klant** (`Customer`):
-Een persoon of organisatie die bij een verhuurder huurt via de reservatiewebsite. Een klant is nooit een gebruiker.
-_Avoid_: huurder, gebruiker, client
+Een persoon of organisatie die bij een verhuurder reserveerde, ook als die reservatie geannuleerd werd, of die de verhuurder zelf toevoegde. Een klant wordt herkend aan zijn e-mailadres en is particulier of zakelijk. Een bezoeker die alleen een winkelkar heeft of alleen marketingcontact is, is nog geen klant. Een klant is nooit een gebruiker.
+_Avoid_: huurder, gebruiker, client, contact
+
+**Particuliere klant** (`CustomerKind.Private`):
+Een klant die als privépersoon huurt.
+_Avoid_: privéklant, consument
+
+**Zakelijke klant** (`CustomerKind.Business`):
+Een klant die huurt namens een bedrijf of organisatie, zoals een school, vereniging of gemeente, met een bedrijfsnaam, eventueel een btw-nummer, en een contactpersoon.
+_Avoid_: bedrijfsklant, B2B-klant, organisatie
+
+**Klantenbestand** (`Customers`):
+Alle klanten van een verhuurder.
+_Avoid_: klantenlijst, adresboek, CRM
+
+**Klantfiche**:
+De gegevens van één klant in het back office, met zijn reservaties en een interne notitie die de klant nooit ziet.
+_Avoid_: klantprofiel, klantdetail, klantkaart
+
+**Factuuradres** (`BillingAddress`):
+Het adres van een klant waarop hij gefactureerd wordt. Standaard is het hetzelfde als zijn adres; alleen als het verschilt, staat het apart op zijn klantfiche.
+_Avoid_: facturatieadres, betaaladres
+
+**Btw-databank** (`VatRegistry`):
+De databank van de Europese Unie (VIES) die zegt of een btw-nummer uit een EU-land bestaat, en voor veel landen op welke naam en welk adres. Een EU-btw-nummer dat de btw-databank na controle niet kent, is ongeldig. Is ze onbereikbaar, dan is het nummer nog niet gecontroleerd. Een btw-nummer van buiten de EU is niet te controleren.
+_Avoid_: VIES (in gesprekken), btw-register, KBO
+
+**Anonimiseren** (`Anonymize`):
+De persoonsgegevens van een klant wissen, bijvoorbeeld op zijn vraag, terwijl zijn reservaties blijven bestaan zonder te tonen van wie ze waren. Een klant zonder reservaties wordt verwijderd in plaats van geanonimiseerd.
+_Avoid_: wissen, vergeten, archiveren
 
 ## Aanbod
 
