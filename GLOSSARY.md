@@ -68,6 +68,14 @@ _Avoid_: klantprofiel, klantdetail, klantkaart
 Het adres van een klant waarop hij gefactureerd wordt. Standaard is het hetzelfde als zijn adres; alleen als het verschilt, staat het apart op zijn klantfiche.
 _Avoid_: facturatieadres, betaaladres
 
+**Btw-databank** (`VatRegistry`):
+De databank van de Europese Unie (VIES) die zegt of een btw-nummer bestaat, en voor veel landen op welke naam en welk adres. Een btw-nummer dat de btw-databank niet kent, is ongeldig; is ze onbereikbaar, dan is het nummer nog niet gecontroleerd.
+_Avoid_: VIES (in gesprekken), btw-register, KBO
+
+**Anonimiseren** (`Anonymize`):
+De persoonsgegevens van een klant wissen, bijvoorbeeld op zijn vraag, terwijl zijn reservaties blijven bestaan zonder te tonen van wie ze waren. Een klant zonder reservaties wordt verwijderd in plaats van geanonimiseerd.
+_Avoid_: wissen, vergeten, archiveren
+
 ## Aanbod
 
 **Artikel** (`RentalItem`):
