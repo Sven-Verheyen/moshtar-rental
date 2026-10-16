@@ -34,6 +34,7 @@ internal class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         b.Property(t => t.TikTokUrl).HasMaxLength(500);
         b.Property(t => t.GoogleBusinessUrl).HasMaxLength(500);
         b.Property(t => t.GoogleAnalyticsId).HasMaxLength(30);
+        b.Property(t => t.ReviewLink).HasMaxLength(500);
         b.Ignore(t => t.Cultures);
         b.Ignore(t => t.RoundSettings);
         // De standaarden voor de rondes krijgen bestaande verhuurders in de migratie Rondes (geen HasDefaultValue:

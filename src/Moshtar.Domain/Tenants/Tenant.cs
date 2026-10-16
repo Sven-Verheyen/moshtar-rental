@@ -43,6 +43,14 @@ public class Tenant
     /// <summary>Het Google-bedrijfsprofiel, waar klanten de reviews lezen.</summary>
     public string? GoogleBusinessUrl { get; set; }
 
+    /// <summary>De reviewlink: de link van Google waarmee een klant meteen een review over de verhuurder schrijft.</summary>
+    public string? ReviewLink { get; set; }
+    /// <summary>
+    /// Sinds wanneer de schakelaar "Reviewvragen sturen" aan staat, of null als hij uit staat. Alleen reservaties die
+    /// daarna eindigen krijgen een reviewvraag.
+    /// </summary>
+    public DateTimeOffset? ReviewRequestsSince { get; set; }
+
     /// <summary>Het GA4-meet-ID (G-…). Zonder: geen Google Analytics en geen toestemmingsbalk op de reservatiewebsite.</summary>
     public string? GoogleAnalyticsId { get; set; }
     /// <summary>Het werkgebied: de gemeenten waar de verhuurder levert.</summary>

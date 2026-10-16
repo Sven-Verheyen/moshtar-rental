@@ -18,6 +18,12 @@ public sealed record BusinessDetailsSettings
     public string? GoogleBusinessUrl { get; init; }
     /// <summary>Het GA4-meet-ID, bv. G-ABC123XYZ; leeg betekent geen Google Analytics.</summary>
     public string? GoogleAnalyticsId { get; init; }
+    /// <summary>De reviewlink: de link van Google waarmee een klant meteen een review schrijft ("Vraag om reviews").</summary>
+    public string? ReviewLink { get; init; }
+    /// <summary>De schakelaar "Reviewvragen sturen"; kan alleen aan met een reviewlink.</summary>
+    public bool SendReviewRequests { get; init; }
+    /// <summary>Sinds wanneer de reviewvragen aan staan, of null als ze uit staan. Alleen te lezen: bewaren zet het zelf.</summary>
+    public DateTimeOffset? ReviewRequestsSince { get; init; }
     /// <summary>De gemeenten van het werkgebied.</summary>
     public IReadOnlyList<string> ServiceArea { get; init; } = [];
     /// <summary>Kunnen klanten zelf afhalen, of levert de verhuurder altijd?</summary>

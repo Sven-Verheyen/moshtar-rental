@@ -5,7 +5,7 @@ using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Tenancy;
 
-internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantContext tenantContext, ITenantStore store) : IBusinessDetailsAdministration
+internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantContext tenantContext, ITenantStore store, TimeProvider clock) : IBusinessDetailsAdministration
 {
     public async Task<BusinessDetailsSettings> GetAsync(CancellationToken ct = default)
     {
@@ -17,6 +17,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
             Email = t.ContactEmail, Phone = t.ContactPhone, WhatsAppPhone = t.WhatsAppPhone, VatNumber = t.VatNumber,
             FacebookUrl = t.FacebookUrl, InstagramUrl = t.InstagramUrl, TikTokUrl = t.TikTokUrl, GoogleBusinessUrl = t.GoogleBusinessUrl,
             GoogleAnalyticsId = t.GoogleAnalyticsId,
+            ReviewLink = t.ReviewLink, SendReviewRequests = t.ReviewRequestsSince is not null, ReviewRequestsSince = t.ReviewRequestsSince,
             ServiceArea = t.ServiceArea,
             OffersPickup = t.OffersPickup,
             Rounds = t.RoundSettings,
@@ -28,6 +29,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
         var problems = BusinessDetails.Problems(s.Email, s.Phone, s.WhatsAppPhone, s.FacebookUrl, s.InstagramUrl, s.TikTokUrl, s.GoogleBusinessUrl)
             .Concat(TooLong(s))
             .Concat(BusinessDetails.GoogleAnalyticsProblem(s.GoogleAnalyticsId) is { } analytics ? [analytics] : [])
+            .Concat(BusinessDetails.ReviewLinkProblem(s.ReviewLink, s.SendReviewRequests) is { } review ? [review] : [])
             .Concat(s.Rounds.Problems())
             .ToList();
         if (problems.Count > 0)
@@ -35,14 +37,16 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
 
         var id = Tenant.Id;
         var tenant = await db.Tenants.SingleAsync(t => t.Id == id, ct);
-        Apply(tenant, s);
+        // Het tijdstip van aanzetten blijft staan zolang de schakelaar aan blijft; opnieuw aanzetten begint opnieuw.
+        var since = s.SendReviewRequests ? tenant.ReviewRequestsSince ?? clock.GetUtcNow() : (DateTimeOffset?)null;
+        Apply(tenant, s, since);
         await db.SaveChangesAsync(ct);
         // Ook wat in dit scherm (dezelfde Blazor-circuit) en in de cache van verhuurders zit, toont meteen de nieuwe gegevens.
-        Apply(Tenant, s);
+        Apply(Tenant, s, since);
         store.Forget(id);
     }
 
-    private static void Apply(Tenant tenant, BusinessDetailsSettings s)
+    private static void Apply(Tenant tenant, BusinessDetailsSettings s, DateTimeOffset? reviewRequestsSince)
     {
         // Een ander adres is een ander punt: de planning zoekt het opnieuw op bij het openen van een dag.
         if ((tenant.Street, tenant.PostalCode, tenant.City) != (Text(s.Street), Text(s.PostalCode), Text(s.City)))
@@ -59,6 +63,8 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
         tenant.TikTokUrl = BusinessDetails.Link(s.TikTokUrl);
         tenant.GoogleBusinessUrl = BusinessDetails.Link(s.GoogleBusinessUrl);
         tenant.GoogleAnalyticsId = BusinessDetails.GoogleAnalyticsId(s.GoogleAnalyticsId);
+        tenant.ReviewLink = BusinessDetails.Link(s.ReviewLink);
+        tenant.ReviewRequestsSince = reviewRequestsSince;
         tenant.ServiceArea = BusinessDetails.ServiceArea(string.Join('\n', s.ServiceArea)).ToList();
         tenant.OffersPickup = s.OffersPickup;
         tenant.RoundSettings = s.Rounds;
@@ -72,7 +78,7 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
             ("Het e-mailadres", s.Email, 254), ("Het telefoonnummer", s.Phone, 30), ("Het WhatsApp-nummer", s.WhatsAppPhone, 30),
             ("Het btw-nummer", s.VatNumber, 30), ("De link naar je Facebook", s.FacebookUrl, 500),
             ("De link naar je Instagram", s.InstagramUrl, 500), ("De link naar je TikTok", s.TikTokUrl, 500),
-            ("De link naar je Google-bedrijfsprofiel", s.GoogleBusinessUrl, 500),
+            ("De link naar je Google-bedrijfsprofiel", s.GoogleBusinessUrl, 500), ("De Google-reviewlink", s.ReviewLink, 500),
         }
         .Where(f => f.Value?.Trim().Length > f.Max)
         .Select(f => $"{f.Field} mag hoogstens {f.Max} tekens lang zijn.");

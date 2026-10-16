@@ -108,6 +108,7 @@ app.MapPost(IdentitySetup.LogoutPath, async (SignInManager<User> signInManager, 
 
 app.MapStaticAssets();
 app.MapSiteFiles();
+app.MapReviewQrCode();
 app.MapAnalyticsConsent();
 app.MapCartEndpoints();
 app.MapMarketingContactsExport();

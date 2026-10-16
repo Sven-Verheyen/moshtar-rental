@@ -815,6 +815,13 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<string>("PrimaryColor")
                         .HasColumnType("text");
 
+                    b.Property<string>("ReviewLink")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTimeOffset?>("ReviewRequestsSince")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("SenderEmail")
                         .HasMaxLength(254)
                         .HasColumnType("character varying(254)");

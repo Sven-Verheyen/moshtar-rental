@@ -74,6 +74,17 @@ public static partial class BusinessDetails
             ? "Het meet-ID van Google Analytics begint met G- gevolgd door letters en cijfers, bv. G-ABC123XYZ."
             : null;
 
+    /// <summary>
+    /// Wat er mis is met de reviewlink en de schakelaar "Reviewvragen sturen", of null als ze in orde zijn. De link mag
+    /// leeg zijn, maar dan kan de schakelaar niet aan: er vertrekt nooit een reviewvraag zonder link.
+    /// </summary>
+    public static string? ReviewLinkProblem(string? reviewLink, bool sendReviewRequests) =>
+        Filled(reviewLink) && Link(reviewLink) is null
+            ? "De Google-reviewlink moet een volledig adres zijn dat begint met https://, zoals Google het geeft bij \"Vraag om reviews\"."
+            : sendReviewRequests && !Filled(reviewLink)
+                ? "Vul eerst je Google-reviewlink in: zonder link kunnen er geen reviewvragen vertrekken."
+                : null;
+
     private static bool Filled(string? value) => !string.IsNullOrWhiteSpace(value);
 
     private static string Dialable(string phone) => NotDialable().Replace(phone, "");
