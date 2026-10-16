@@ -84,7 +84,11 @@ aan andere verhuurbedrijven aangeboden te worden.
   "via website") hij aangemaakt en laatst gewijzigd werd. Klanten manueel toevoegen en wijzigen (`/admin/klanten/nieuw`):
   particulier of zakelijk (bedrijfsnaam verplicht, btw-nummer optioneel), een apart factuuradres als "Factuuradres is
   hetzelfde" uit staat, en een interne notitie. Het e-mailadres is uniek per verhuurder (`ICustomerAdministration`);
-  reserveren werkt de klant bij, maar nooit de notitie.
+  reserveren werkt de klant bij, maar nooit de notitie. Alleen de Beheerder verwijdert op de klantfiche een klant
+  zonder reservaties, of **anonimiseert** een klant met reservaties die geen meer lopen: naam, bedrijfsnaam, btw-nummer,
+  e-mail (een uniek adres op `geanonimiseerd.invalid`), telefoon, adressen en notitie worden gewist, net als de straat
+  en de opmerking van zijn reservaties en zijn marketingcontact; de reservaties en een afmelding voor reviewvragen
+  blijven, en een geanonimiseerde klant krijgt geen reviewvraag meer.
   Bij het reserveren (stap 2 van de winkelkar, zonder JavaScript: "Bijwerken" toont de juiste velden) kiest de klant
   "Particulier" of "Bedrijf of organisatie" en kan hij een apart factuuradres opgeven; een btw-nummer krijgt een
   formaatcontrole per EU-land (`VatNumberFormat`). In het back office zoekt Nieuwe reservatie een bestaande klant, of

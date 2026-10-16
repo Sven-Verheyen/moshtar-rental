@@ -3,6 +3,7 @@ using Moshtar.Application.Customers;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
 using Moshtar.Domain.Reservations;
+using Moshtar.Infrastructure.Identity;
 using Moshtar.Infrastructure.Persistence;
 
 namespace Moshtar.Infrastructure.Customers;
@@ -11,6 +12,8 @@ namespace Moshtar.Infrastructure.Customers;
 internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> contexts, TimeProvider clock) : ICustomerAdministration
 {
     private const string DuplicateEmail = "Er is al een klant met dit e-mailadres.";
+    private const string NotFound = "Deze klant bestaat niet (meer).";
+    private const string AdministratorOnly = "Alleen de beheerder kan klanten verwijderen of anonimiseren.";
 
     public async Task<CustomerPage> SearchAsync(CustomerSearch search, CancellationToken ct = default)
     {
@@ -82,6 +85,55 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
     public Task<CustomerSaveResult> UpdateAsync(Guid customerId, CustomerDetails details, Guid userId, CancellationToken ct = default) =>
         SaveAsync(customerId, details, userId, ct);
 
+    public async Task<CustomerRemovalResult> DeleteAsync(Guid customerId, Guid userId, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        if (!await IsAdministratorAsync(db, userId, ct)) return new CustomerRemovalResult([AdministratorOnly]);
+        var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct);
+        if (customer is null) return new CustomerRemovalResult([NotFound]);
+        if (await db.Reservations.AnyAsync(r => r.CustomerId == customerId, ct))
+            return new CustomerRemovalResult(["Deze klant heeft reservaties en kan niet verwijderd worden. Anonimiseer hem in de plaats."]);
+        db.Customers.Remove(customer);
+        await db.SaveChangesAsync(ct);
+        return new CustomerRemovalResult([]);
+    }
+
+    public async Task<CustomerRemovalResult> AnonymizeAsync(Guid customerId, Guid userId, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        if (!await IsAdministratorAsync(db, userId, ct)) return new CustomerRemovalResult([AdministratorOnly]);
+        var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct);
+        if (customer is null) return new CustomerRemovalResult([NotFound]);
+        if (customer.IsAnonymized) return new CustomerRemovalResult(["Deze klant is al geanonimiseerd."]);
+        var reservations = await db.Reservations.Where(r => r.CustomerId == customerId).ToListAsync(ct);
+        if (reservations.Count == 0)
+            return new CustomerRemovalResult(["Deze klant heeft geen reservaties. Verwijder hem in de plaats."]);
+        // Een levering of afhaling die nog moet gebeuren, kan niet zonder naam, telefoon en adres.
+        if (reservations.Any(r => r.OccupiesStock))
+            return new CustomerRemovalResult(["Deze klant heeft nog een lopende reservatie. Annuleer ze of rond ze af voor je hem anonimiseert."]);
+
+        var email = customer.Email;
+        customer.Anonymize(userId, clock.GetUtcNow().UtcDateTime);
+        foreach (var reservation in reservations)
+        {
+            // De gemeente blijft, voor de cijfers; de straat en het punt op de kaart wijzen de klant aan.
+            if (reservation.DeliveryAddress is { } address)
+                reservation.DeliveryAddress = new Address { PostalCode = address.PostalCode, City = address.City, Country = address.Country };
+            reservation.DeliveryPoint = null;
+            reservation.DeliveryPointConfirmed = false;
+            reservation.Notes = null;
+        }
+        // Zijn toestemming voor nieuws en acties vervalt; een afmelding voor reviewvragen blijft, zodat hij er nooit
+        // per ongeluk een krijgt als hij later opnieuw klant wordt.
+        db.MarketingContacts.RemoveRange(await db.MarketingContacts.Where(m => m.Email == email).ToListAsync(ct));
+        await db.SaveChangesAsync(ct);
+        return new CustomerRemovalResult([]);
+    }
+
+    /// <summary>Verwijderen en anonimiseren mag alleen een beheerder, ook al toont de klantfiche de knoppen enkel aan hem.</summary>
+    private static Task<bool> IsAdministratorAsync(AppDbContext db, Guid userId, CancellationToken ct) =>
+        db.Users.AnyAsync(u => u.Id == userId && u.IsActive && u.Role == UserRole.Administrator, ct);
+
     private async Task<CustomerSaveResult> SaveAsync(Guid? customerId, CustomerDetails details, Guid userId, CancellationToken ct)
     {
         var errors = details.Errors();
@@ -94,7 +146,11 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
 
         Customer customer;
         if (customerId is { } id)
+        {
             customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == id, ct) ?? throw new ArgumentException("Klant niet gevonden.");
+            if (customer.IsAnonymized)
+                return new CustomerSaveResult(null, ["Deze klant is geanonimiseerd en kan niet meer gewijzigd worden."]);
+        }
         else
             db.Customers.Add(customer = new Customer());
         customer.Apply(details);
