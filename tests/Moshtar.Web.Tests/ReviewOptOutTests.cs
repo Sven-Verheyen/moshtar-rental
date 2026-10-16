@@ -63,6 +63,26 @@ public sealed class ReviewOptOutTests(MoshtarApp app) : IClassFixture<MoshtarApp
     }
 
     [Fact]
+    public async Task Switching_language_on_the_opt_out_page_keeps_the_link_working()
+    {
+        await CreateAsync(app, "afmelden-wissel");
+        var end = TestReservations.FutureDay(24);
+        await ReserveAsync(app, "afmelden-wissel", "wissel@example.test", "Wout", end, "fr");
+        await RunAsync(app, "afmelden-wissel", At(end.AddDays(1), 10, 0));
+        var link = Regex.Match(Assert.Single(Mails(app, "wissel@example.test")).TextBody, @"Je ne veux plus de demandes d'avis: (\S+)").Groups[1].Value;
+
+        var client = app.CreateClient("afmelden-wissel.test");
+        var french = await WebsiteCart.PageAsync(client, new Uri(link).PathAndQuery);
+        var dutchHref = WebUtility.HtmlDecode(Regex.Match(french, @"<a href=""([^""]*)"" hreflang=""nl""").Groups[1].Value);
+        Assert.StartsWith("/geen-reviewvragen?code=", dutchHref);
+
+        var dutch = await WebsiteCart.PageAsync(client, dutchHref);
+        Assert.Contains("Ik wil geen reviewvragen meer</button>", dutch);
+        Assert.Contains("Je ne veux plus de demandes d'avis</button>", await WebsiteCart.PageAsync(client,
+            WebUtility.HtmlDecode(Regex.Match(dutch, @"<a href=""([^""]*)"" hreflang=""fr""").Groups[1].Value)));
+    }
+
+    [Fact]
     public async Task A_changed_token_or_a_token_on_another_rental_companys_site_opts_nobody_out()
     {
         await CreateAsync(app, "afmelden-vals");

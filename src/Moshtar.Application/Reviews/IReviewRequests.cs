@@ -6,9 +6,9 @@ namespace Moshtar.Application.Reviews;
 /// één reviewvraag, tot 3 dagen na de einddag. Reservaties van dezelfde klant (e-mailadres) met dezelfde einddag
 /// krijgen samen één mail; elke reservatie krijgt een lijn in de historiek. Komt er later nog een reservatie bij voor
 /// dezelfde klant en einddag, dan krijgt die alleen de lijn in de historiek, geen tweede mail (zie
-/// <see cref="Domain.Reviews.ReviewRequestRule"/>). Er vertrekt nooit een tweede, ook niet na
-/// een herstart of als het versturen twee keer tegelijk loopt; een mail die mislukte, wordt bij een volgende run
-/// opnieuw geprobeerd.
+/// <see cref="Domain.Reviews.ReviewRequestRule"/>). Per verhuurder loopt het versturen nooit twee
+/// keer tegelijk: een run die er een bezig vindt, verstuurt niets. Een mail die mislukte, wordt bij een volgende run
+/// opnieuw geprobeerd; wie zich afmeldt, krijgt niets meer, ook niet als de run al bezig was.
 /// </summary>
 public interface IReviewRequests
 {

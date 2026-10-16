@@ -49,8 +49,8 @@ public class Reservation : TenantEntity
     public DateTime? AlternativesMailedAtUtc { get; set; }
 
     /// <summary>
-    /// Wanneer de reviewvraag voor deze reservatie vertrok, of null. Een reservatie krijgt er hoogstens één: dit tijdstip
-    /// wordt gezet voor de mail vertrekt, zodat een herstart of een tweede run nooit dubbel stuurt.
+    /// Wanneer de reviewvraag voor deze reservatie vertrok, of null. Een reservatie krijgt er één: dit tijdstip wordt
+    /// gezet zodra de mail vertrokken is, en wat het heeft, wordt niet opnieuw gemaild.
     /// </summary>
     public DateTime? ReviewRequestMailedAtUtc { get; set; }
 

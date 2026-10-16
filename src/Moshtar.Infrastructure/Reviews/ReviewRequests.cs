@@ -21,8 +21,11 @@ internal sealed class ReviewRequests(
     public async Task<int> SendDueAsync(DateTime nowUtc, CancellationToken ct = default)
     {
         var tenant = tenantContext.Tenant ?? throw new InvalidOperationException("Geen verhuurder gekend.");
-        // Op de microseconde, zoals de databank het bewaart: zo herkent het vrijgeven van een claim zijn eigen tijdstip.
-        nowUtc = new DateTime(nowUtc.Ticks - nowUtc.Ticks % 10, DateTimeKind.Utc);
+        // Per verhuurder loopt er maar één run tegelijk, ook met meerdere servers: een run die er een bezig vindt, slaat
+        // over; de volgende pikt op wat overbleef. Alles hieronder leest pas binnen de lock wat nog te sturen valt.
+        await using var runLock = await db.Database.TryAcquireSessionAdvisoryLockAsync("reviewvraag-mail:" + tenant.Id, ct);
+        if (runLock is null) return 0;
+
         // Het tijdstip van het aanzetten opnieuw lezen: de verhuurder in de context kan van voor een wijziging zijn.
         var settings = await db.Tenants.AsNoTracking().Where(t => t.Id == tenant.Id)
             .Select(t => new { t.ReviewLink, t.ReviewRequestsSince }).SingleAsync(ct);
@@ -45,23 +48,15 @@ internal sealed class ReviewRequests(
         }
         var customizations = await db.MailTemplateCustomizations.AsNoTracking().Where(t => t.Kind == MailKind.ReviewRequest).ToListAsync(ct);
 
-        // Eén mail per klant en einddag, voor al zijn reservaties die dan eindigden; wie zich afmeldde, krijgt niets. Zijn
-        // reservaties blijven zonder reviewvraag, zodat ze ook in de Planning niet meer opduiken.
-        var groups = ReviewRequestRule.PerCustomer(reservations).ToList();
-        var optedOut = await optOuts.OptedOutAmongAsync(groups.Select(g => g.Key.Email), ct);
-
+        // Eén mail per klant en einddag, voor al zijn reservaties die dan eindigden.
         var sent = 0;
-        foreach (var group in groups.Where(g => !optedOut.Contains(g.Key.Email)))
+        foreach (var group in ReviewRequestRule.PerCustomer(reservations))
         {
             var pending = group.Where(r => r.ReviewRequestMailedAtUtc == null).ToList();
             if (pending.Count == 0) continue;
-            var ids = pending.Select(r => r.Id).ToList();
-            // Eerst opeisen, dan mailen: zo vertrekt er nooit een tweede, ook niet als het versturen twee keer tegelijk
-            // loopt. Mislukt de mail, dan wordt de claim vrijgegeven zodat een volgende run het opnieuw probeert.
-            var claimed = await db.Reservations
-                .Where(r => ids.Contains(r.Id) && r.ReviewRequestMailedAtUtc == null)
-                .ExecuteUpdateAsync(s => s.SetProperty(r => r.ReviewRequestMailedAtUtc, nowUtc), ct);
-            if (claimed == 0) continue;
+            // Wie zich afmeldde, krijgt niets, ook niet als dat gebeurde terwijl deze run bezig was. Zijn reservaties
+            // blijven zonder reviewvraag, zodat ze ook in de Planning niet meer opduiken.
+            if (await optOuts.IsOptedOutAsync(group.Key.Email, ct)) continue;
 
             if (pending.Count < group.Count())
             {
@@ -82,12 +77,13 @@ internal sealed class ReviewRequests(
             }
             catch (Exception e)
             {
+                // Er is niets genoteerd: een volgende run probeert het opnieuw.
                 logger.LogError(e, "Reviewvraag voor reservatie {Number} van verhuurder {Tenant} kon niet vertrekken.", first.Number, tenant.Slug);
-                await db.Reservations.Where(r => ids.Contains(r.Id) && r.ReviewRequestMailedAtUtc == nowUtc)
-                    .ExecuteUpdateAsync(s => s.SetProperty(r => r.ReviewRequestMailedAtUtc, (DateTime?)null), CancellationToken.None);
                 continue;
             }
 
+            // Pas na het versturen genoteerd: valt het proces net tussen versturen en opslaan weg, dan krijgt deze klant
+            // bij de volgende run nog een keer dezelfde mail. Liever dat dan een reviewvraag die nooit vertrekt.
             sent++;
             foreach (var reservation in pending) reservation.RecordReviewRequestMailed(nowUtc);
             await db.SaveChangesAsync(CancellationToken.None);
