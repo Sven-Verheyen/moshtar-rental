@@ -21,6 +21,26 @@ public interface ICustomerAdministration
 
     /// <summary>Wijzigt een klant namens deze gebruiker; geweigerd als de gegevens niet kloppen of het e-mailadres van een andere klant is.</summary>
     Task<CustomerSaveResult> UpdateAsync(Guid customerId, CustomerDetails details, Guid userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Verwijdert een klant zonder reservaties, namens deze gebruiker. Alleen een beheerder mag dat; een klant met
+    /// reservaties wordt geanonimiseerd in plaats van verwijderd.
+    /// </summary>
+    Task<CustomerRemovalResult> DeleteAsync(Guid customerId, Guid userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Anonimiseert een klant met reservaties namens deze gebruiker, bijvoorbeeld op vraag van de klant: zijn
+    /// persoonsgegevens worden gewist, zijn reservaties blijven voor de cijfers zonder te tonen van wie ze waren. Het
+    /// marketingcontact van zijn e-mailadres wordt verwijderd; zijn afmelding voor reviewvragen blijft. Alleen een
+    /// beheerder mag dat, en niet zolang een reservatie van de klant nog loopt.
+    /// </summary>
+    Task<CustomerRemovalResult> AnonymizeAsync(Guid customerId, Guid userId, CancellationToken ct = default);
+}
+
+/// <summary>De uitkomst van verwijderen of anonimiseren: gelukt, of waarom het niet kon.</summary>
+public sealed record CustomerRemovalResult(IReadOnlyList<string> Errors)
+{
+    public bool Succeeded => Errors.Count == 0;
 }
 
 /// <param name="Page">De pagina, vanaf 0.</param>
@@ -34,7 +54,10 @@ public sealed record CustomerPage(IReadOnlyList<CustomerListItem> Items, int Tot
 /// </summary>
 public sealed record CustomerListItem(
     Guid Id, CustomerKind Kind, string FirstName, string LastName, string? CompanyName, string Email, string? Phone, string City,
-    int ReservationCount, DateRange? LastPeriod);
+    int ReservationCount, DateRange? LastPeriod)
+{
+    public bool IsAnonymized => Customer.IsAnonymizedEmail(Email);
+}
 
 /// <summary>
 /// De klantfiche: de klant, al zijn reservaties (ook geannuleerde, de laatste huurperiode eerst), of hij marketingcontact

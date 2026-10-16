@@ -35,9 +35,9 @@
         <RowTemplate>
             <MudTd>
                 <MudLink Href="@($"admin/klanten/{context.Id}")">
-                    @(context.Kind == CustomerKind.Business ? context.CompanyName : $"{context.FirstName} {context.LastName}")
+                    @(context.IsAnonymized ? "Geanonimiseerde klant" : context.Kind == CustomerKind.Business ? context.CompanyName : $"{context.FirstName} {context.LastName}")
                 </MudLink>
-                @if (context.Kind == CustomerKind.Business)
+                @if (context.Kind == CustomerKind.Business && !context.IsAnonymized)
                 {
                     <br /><small>@context.FirstName @context.LastName · zakelijk</small>
                 }

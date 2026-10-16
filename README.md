@@ -84,7 +84,11 @@ aan andere verhuurbedrijven aangeboden te worden.
   "via website") hij aangemaakt en laatst gewijzigd werd. Klanten manueel toevoegen en wijzigen (`/admin/klanten/nieuw`):
   particulier of zakelijk (bedrijfsnaam verplicht, btw-nummer optioneel), een apart factuuradres als "Factuuradres is
   hetzelfde" uit staat, en een interne notitie. Het e-mailadres is uniek per verhuurder (`ICustomerAdministration`);
-  reserveren werkt de klant bij, maar nooit de notitie.
+  reserveren werkt de klant bij, maar nooit de notitie. Alleen de Beheerder verwijdert op de klantfiche een klant
+  zonder reservaties, of **anonimiseert** een klant met reservaties die geen meer lopen: naam, bedrijfsnaam, btw-nummer,
+  e-mail (een uniek adres op `geanonimiseerd.invalid`), telefoon, adressen en notitie worden gewist, net als de straat
+  en de opmerking van zijn reservaties en zijn marketingcontact; de reservaties en een afmelding voor reviewvragen
+  blijven, en een geanonimiseerde klant krijgt geen reviewvraag meer.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).

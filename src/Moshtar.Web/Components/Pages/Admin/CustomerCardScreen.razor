@@ -6,6 +6,8 @@
 @using Moshtar.Domain.Customers
 @inject ICustomerAdministration CustomerAdministration
 @inject ISnackbar Snackbar
+@inject IDialogService Dialogs
+@inject NavigationManager Navigation
 
 <PageTitle>Klantfiche</PageTitle>
 
@@ -21,6 +23,13 @@
         @if (_editing)
         {
             <CustomerEditor Form="_form" CustomerId="c.Id" OnSaved="SavedAsync" OnCancel="() => _editing = false" />
+        }
+        else if (c.IsAnonymized)
+        {
+            <MudAlert Severity="Severity.Info" Class="mb-4">
+                Deze klant is geanonimiseerd op @Local(c.UpdatedAtUtc) door @By(card.UpdatedBy). Zijn persoonsgegevens zijn gewist;
+                zijn reservaties blijven voor de cijfers.
+            </MudAlert>
         }
         else
         {
@@ -70,7 +79,29 @@
                     </MudPaper>
                 </MudItem>
             </MudGrid>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="Edit" Class="mb-6">Wijzigen</MudButton>
+            <div class="d-flex flex-wrap gap-2 mb-6">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Edit" OnClick="Edit">Wijzigen</MudButton>
+                @* De dienst weigert het ook voor een medewerker; de knoppen tonen we hem niet. *@
+                <AuthorizeView Roles="@Roles.Administrator">
+                    @if (card.Reservations.Count == 0)
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.Delete" OnClick="DeleteAsync">Klant verwijderen</MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Filled.PersonOff" OnClick="AnonymizeAsync">Anonimiseren</MudButton>
+                    }
+                </AuthorizeView>
+            </div>
+            @if (_errors.Count > 0)
+            {
+                <MudAlert Severity="Severity.Error" Class="mb-4">
+                    @foreach (var error in _errors)
+                    {
+                        <div>@error</div>
+                    }
+                </MudAlert>
+            }
         }
 
         <MudText Typo="Typo.h6" Class="mb-2">Reservaties</MudText>
@@ -99,16 +130,21 @@
     private bool _loaded;
     private bool _editing;
     private CustomerForm _form = new();
+    private IReadOnlyList<string> _errors = [];
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
     [Parameter] public Guid Id { get; set; }
 
     private string Title => _card?.Customer is { } c
-        ? c.Kind == CustomerKind.Business && c.CompanyName is { } company ? company : $"{c.FirstName} {c.LastName}"
+        ? c.IsAnonymized ? "Geanonimiseerde klant"
+        : c.Kind == CustomerKind.Business && c.CompanyName is { } company ? company : $"{c.FirstName} {c.LastName}"
         : "Klantfiche";
 
     protected override async Task OnParametersSetAsync()
     {
         _editing = false;
+        _errors = [];
         await LoadAsync();
     }
 
@@ -128,6 +164,34 @@
     {
         Snackbar.Add("De klant is bewaard.", Severity.Success);
         _editing = false;
+        await LoadAsync();
+    }
+
+    private async Task DeleteAsync()
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Klant verwijderen",
+            $"Wil je {Title} verwijderen? Dat kan niet ongedaan gemaakt worden.",
+            yesText: "Verwijderen", cancelText: "Annuleren");
+        if (sure != true) return;
+        var result = await CustomerAdministration.DeleteAsync(Id, (await AuthenticationState).User.Id());
+        _errors = result.Errors;
+        if (!result.Succeeded) return;
+        Snackbar.Add("De klant is verwijderd.", Severity.Success);
+        Navigation.NavigateTo("admin/klanten");
+    }
+
+    private async Task AnonymizeAsync()
+    {
+        var sure = await Dialogs.ShowMessageBoxAsync("Klant anonimiseren",
+            $"Wil je de persoonsgegevens van {Title} wissen? Naam, bedrijfsnaam, btw-nummer, e-mailadres, telefoon, adressen en notitie " +
+            "worden gewist, net als de straat en de opmerking van zijn reservaties en zijn toestemming voor nieuws en acties. " +
+            "Zijn reservaties blijven voor de cijfers. Dat kan niet ongedaan gemaakt worden.",
+            yesText: "Anonimiseren", cancelText: "Annuleren");
+        if (sure != true) return;
+        var result = await CustomerAdministration.AnonymizeAsync(Id, (await AuthenticationState).User.Id());
+        _errors = result.Errors;
+        if (!result.Succeeded) return;
+        Snackbar.Add("De klant is geanonimiseerd.", Severity.Success);
         await LoadAsync();
     }
 

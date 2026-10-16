@@ -31,6 +31,39 @@ public class Customer : TenantEntity
     /// <summary>De gebruiker die de klant het laatst wijzigde; null als dat "via website" gebeurde.</summary>
     public Guid? UpdatedByUserId { get; set; }
 
+    /// <summary>
+    /// Het domein van het e-mailadres dat een geanonimiseerde klant krijgt. Het is voorbehouden (RFC 2606): geen
+    /// echte klant heeft het en er vertrekt nooit een mail naartoe.
+    /// </summary>
+    public const string AnonymizedEmailDomain = "geanonimiseerd.invalid";
+
+    /// <summary>Zijn de persoonsgegevens van deze klant gewist? Zie <see cref="Anonymize"/>.</summary>
+    public bool IsAnonymized => IsAnonymizedEmail(Email);
+
+    /// <summary>Is dit het e-mailadres van een geanonimiseerde klant?</summary>
+    public static bool IsAnonymizedEmail(string email) => email.EndsWith("@" + AnonymizedEmailDomain, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Wist de persoonsgegevens van de klant, bijvoorbeeld op zijn vraag: naam, bedrijfsnaam, btw-nummer, e-mailadres,
+    /// telefoon, adressen en notitie. Het e-mailadres wordt een uniek adres dat niemand heeft, zodat het oude adres weer
+    /// vrij is voor een nieuwe klant. Het type en de taal blijven, voor de cijfers.
+    /// </summary>
+    public void Anonymize(Guid userId, DateTime atUtc)
+    {
+        FirstName = "";
+        LastName = "";
+        Email = $"klant-{Id:N}@{AnonymizedEmailDomain}";
+        Phone = null;
+        CompanyName = null;
+        VatNumber = null;
+        Address = new Address { Country = "" };
+        BillingAddress = null;
+        Notes = null;
+        // Elk nieuw persoonsgegeven op de klant wordt hier mee gewist, zoals straks de gegevens van de btw-databank
+        // (status, tijdstip, officiële naam en adres).
+        RecordChange(userId, atUtc);
+    }
+
     /// <summary>Het adres waarop de klant gefactureerd wordt: zijn factuuradres, of anders zijn adres.</summary>
     public Address BillingAddressOrAddress => BillingAddress ?? Address;
 
