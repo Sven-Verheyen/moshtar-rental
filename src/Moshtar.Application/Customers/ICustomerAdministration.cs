@@ -23,6 +23,19 @@ public interface ICustomerAdministration
     Task<CustomerSaveResult> UpdateAsync(Guid customerId, CustomerDetails details, Guid userId, CancellationToken ct = default);
 
     /// <summary>
+    /// Wat de btw-databank zegt over een btw-nummer dat een gebruiker ingeeft, zodat het formulier bedrijfsnaam en
+    /// factuuradres kan invullen. Een nummer met een verkeerd formaat of geen nummer gaat niet naar de databank (status
+    /// null), een nummer van buiten de EU evenmin (niet te controleren). Bewaart niets.
+    /// </summary>
+    Task<VatNumberLookup> LookUpVatNumberAsync(string? vatNumber, CancellationToken ct = default);
+
+    /// <summary>
+    /// "Opnieuw controleren": vraagt de btw-databank opnieuw naar het EU-btw-nummer van de klant en bewaart het
+    /// antwoord, ook als het nummer nu ongeldig is. Is ze onbereikbaar, dan blijft een eerdere uitspraak staan.
+    /// </summary>
+    Task<VatRecheckResult> RecheckVatNumberAsync(Guid customerId, CancellationToken ct = default);
+
+    /// <summary>
     /// Verwijdert een klant zonder reservaties, namens deze gebruiker. Alleen een beheerder mag dat; een klant met
     /// reservaties wordt geanonimiseerd in plaats van verwijderd.
     /// </summary>
@@ -36,6 +49,15 @@ public interface ICustomerAdministration
     /// </summary>
     Task<CustomerRemovalResult> AnonymizeAsync(Guid customerId, Guid userId, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Wat de btw-databank over een ingegeven btw-nummer zegt; voor een geldig nummer de officiële naam en het adres (zo
+/// goed als het uit de tekst van de databank te halen is), als ze die geeft.
+/// </summary>
+public sealed record VatNumberLookup(VatCheckStatus? Status, string? Name = null, Address? Address = null);
+
+/// <summary>De uitkomst van "Opnieuw controleren": de status van het nummer nu, en waarom het niet kon of niets veranderde.</summary>
+public sealed record VatRecheckResult(VatCheckStatus? Status, string? Message = null);
 
 /// <summary>De uitkomst van verwijderen of anonimiseren: gelukt, of waarom het niet kon.</summary>
 public sealed record CustomerRemovalResult(IReadOnlyList<string> Errors)
@@ -54,7 +76,7 @@ public sealed record CustomerPage(IReadOnlyList<CustomerListItem> Items, int Tot
 /// </summary>
 public sealed record CustomerListItem(
     Guid Id, CustomerKind Kind, string FirstName, string LastName, string? CompanyName, string Email, string? Phone, string City,
-    int ReservationCount, DateRange? LastPeriod)
+    int ReservationCount, DateRange? LastPeriod, VatCheckStatus? VatCheck = null)
 {
     public bool IsAnonymized => Customer.IsAnonymizedEmail(Email);
 }

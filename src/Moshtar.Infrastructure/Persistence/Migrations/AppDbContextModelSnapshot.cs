@@ -391,8 +391,23 @@ namespace Moshtar.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("VatCheck")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime?>("VatCheckedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("VatNumber")
                         .HasColumnType("text");
+
+                    b.Property<string>("VatRegistryAddress")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("VatRegistryName")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.HasKey("Id");
 

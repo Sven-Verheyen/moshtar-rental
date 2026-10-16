@@ -156,5 +156,6 @@
   <data name="BillingAddress" xml:space="preserve"><value>Billing address</value></data>
   <data name="CartCompanyRequired" xml:space="preserve"><value>Please enter the name of your company or organisation.</value></data>
   <data name="CartVatInvalid" xml:space="preserve"><value>This is not a valid VAT number. Start with the country code, like BE0123456789, or leave it empty.</value></data>
+  <data name="CartVatUnknown" xml:space="preserve"><value>This VAT number is not valid according to the EU VAT database. Correct it or leave it empty.</value></data>
   <data name="CartBillingAddressIncomplete" xml:space="preserve"><value>Please enter the street and number, postal code and city of your billing address.</value></data>
 </root>

@@ -80,6 +80,13 @@ public static class DependencyInjection
         services.AddScoped<ICartAdministration, CartAdministration>();
         services.AddScoped<IMarketingContactAdministration, MarketingContactAdministration>();
         services.AddScoped<ICustomerAdministration, CustomerAdministration>();
+        services.AddScoped<IVatRechecks, VatRechecks>();
+        // Kort geduld: een klant of gebruiker wacht op het antwoord; te traag telt als onbereikbaar.
+        services.AddHttpClient<IVatRegistry, ViesVatRegistry>(c =>
+        {
+            c.BaseAddress = new Uri(ViesVatRegistry.BaseAddress);
+            c.Timeout = TimeSpan.FromSeconds(5);
+        });
         services.AddScoped<IPricingRuleAdministration, PricingRuleAdministration>();
         services.AddScoped<IPriceQuotes, PriceQuotes>();
         services.AddScoped<IPriceExamples, PriceExamples>();

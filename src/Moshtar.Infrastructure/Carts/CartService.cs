@@ -151,7 +151,7 @@ internal sealed class CartService(
         var business = details.Kind == CustomerKind.Business;
         if (business && string.IsNullOrWhiteSpace(details.CompanyName))
             return CartReservationResult.Refused("CartCompanyRequired");
-        // Alleen het formaat: de btw-databank zelf komt later.
+        // Eerst het formaat, zodat een tikfout meteen opvalt; de btw-databank vraagt het reserveren zelf.
         if (business && !string.IsNullOrWhiteSpace(details.VatNumber) && !VatNumberFormat.IsWellFormed(details.VatNumber))
             return CartReservationResult.Refused("CartVatInvalid");
         if (details.BillingAddress is { } billing &&
@@ -175,6 +175,10 @@ internal sealed class CartService(
                 details.Notes,
                 details.Culture),
                 ReservationActor.Website, ct);
+        }
+        catch (UnknownVatNumberException)
+        {
+            return CartReservationResult.Refused("CartVatUnknown");
         }
         catch (ArgumentException)
         {

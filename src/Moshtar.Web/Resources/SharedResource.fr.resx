@@ -156,5 +156,6 @@
   <data name="BillingAddress" xml:space="preserve"><value>Adresse de facturation</value></data>
   <data name="CartCompanyRequired" xml:space="preserve"><value>Indiquez le nom de votre entreprise ou organisation.</value></data>
   <data name="CartVatInvalid" xml:space="preserve"><value>Ce n'est pas un numéro de TVA valide. Commencez par le code pays, comme BE0123456789, ou laissez-le vide.</value></data>
+  <data name="CartVatUnknown" xml:space="preserve"><value>Ce numéro de TVA n'est pas valide selon la base de données TVA de l'UE. Corrigez-le ou laissez-le vide.</value></data>
   <data name="CartBillingAddressIncomplete" xml:space="preserve"><value>Indiquez la rue et le numéro, le code postal et la commune de votre adresse de facturation.</value></data>
 </root>

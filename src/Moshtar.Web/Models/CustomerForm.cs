@@ -1,3 +1,4 @@
+using Moshtar.Application.Customers;
 using Moshtar.Domain.Common;
 using Moshtar.Domain.Customers;
 
@@ -39,6 +40,28 @@ public class CustomerForm
         BillingStreet = c.BillingAddress?.Street ?? "", BillingPostalCode = c.BillingAddress?.PostalCode ?? "",
         BillingCity = c.BillingAddress?.City ?? "", BillingCountry = c.BillingAddress?.Country ?? "BE", Notes = c.Notes,
     };
+
+    /// <summary>
+    /// Vult de bedrijfsnaam en het factuuradres in met wat de btw-databank over een geldig nummer zegt, voor zover ze het
+    /// geeft; de gebruiker kan ze daarna nog aanpassen. Is het officiële adres het adres van de klant, dan blijft
+    /// "Factuuradres is hetzelfde" aan.
+    /// </summary>
+    public void Fill(VatNumberLookup lookup)
+    {
+        if (lookup.Status != VatCheckStatus.Valid) return;
+        if (!string.IsNullOrWhiteSpace(lookup.Name)) CompanyName = lookup.Name;
+        if (lookup.Address is not { } official || IsAddress(official)) return;
+        SameBillingAddress = false;
+        BillingStreet = official.Street;
+        BillingPostalCode = official.PostalCode;
+        BillingCity = official.City;
+        BillingCountry = official.Country;
+    }
+
+    private bool IsAddress(Address a) =>
+        string.Equals(a.Street.Trim(), Street.Trim(), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(a.PostalCode.Trim(), PostalCode.Trim(), StringComparison.OrdinalIgnoreCase)
+        && string.Equals(a.City.Trim(), City.Trim(), StringComparison.OrdinalIgnoreCase);
 
     public CustomerDetails ToDetails() => new(
         Kind, FirstName, LastName, Email, Phone,

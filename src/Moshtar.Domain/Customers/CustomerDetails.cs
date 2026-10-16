@@ -21,6 +21,7 @@ public sealed record CustomerDetails(
     string? Notes = null)
 {
     public const string InvalidVatNumber = "Dit is geen geldig btw-nummer. Begin met de landcode, bv. BE0123456789.";
+    public const string UnknownVatNumber = "Dit btw-nummer is ongeldig: de btw-databank van de EU kent het niet. Verbeter het of laat het leeg.";
 
     /// <summary>Wat er ontbreekt of niet klopt, in de volgorde van het formulier; leeg als alles in orde is.</summary>
     public IReadOnlyList<string> Errors()

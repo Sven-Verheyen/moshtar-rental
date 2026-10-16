@@ -17,6 +17,18 @@ public class Customer : TenantEntity
     public string? Phone { get; set; }
     public string? CompanyName { get; set; }
     public string? VatNumber { get; set; }
+
+    /// <summary>Wat de btw-databank over <see cref="VatNumber"/> zei; null zonder btw-nummer. Zie <see cref="ChangeVatNumber"/>.</summary>
+    public VatCheckStatus? VatCheck { get; set; }
+    /// <summary>
+    /// Wanneer de btw-databank het laatst gevraagd werd, ook als ze onbereikbaar was; null als dat nog nooit gebeurde.
+    /// </summary>
+    public DateTime? VatCheckedAtUtc { get; set; }
+    /// <summary>De officiële naam volgens de btw-databank, los van wat de klant of gebruiker als bedrijfsnaam invulde.</summary>
+    public string? VatRegistryName { get; set; }
+    /// <summary>Het officiële adres volgens de btw-databank, als vrije tekst zoals ze het gaf (zie <see cref="VatRegistryAddress"/>).</summary>
+    public string? VatRegistryAddress { get; set; }
+
     public Address Address { get; set; } = new();
     /// <summary>Een apart factuuradres; null als het hetzelfde is als <see cref="Address"/>.</summary>
     public Address? BillingAddress { get; set; }
@@ -55,12 +67,11 @@ public class Customer : TenantEntity
         Email = $"klant-{Id:N}@{AnonymizedEmailDomain}";
         Phone = null;
         CompanyName = null;
-        VatNumber = null;
+        ChangeVatNumber(null);
         Address = new Address { Country = "" };
         BillingAddress = null;
         Notes = null;
-        // Elk nieuw persoonsgegeven op de klant wordt hier mee gewist, zoals straks de gegevens van de btw-databank
-        // (status, tijdstip, officiële naam en adres).
+        // Elk nieuw persoonsgegeven op de klant wordt hier mee gewist.
         RecordChange(userId, atUtc);
     }
 
@@ -79,11 +90,52 @@ public class Customer : TenantEntity
         Email = NormalizeEmail(details.Email);
         Phone = PhoneNumber.International(details.Phone);
         CompanyName = Blank(details.CompanyName);
-        VatNumber = VatNumberFormat.Normalize(details.VatNumber);
+        ChangeVatNumber(details.VatNumber);
         Address = Trimmed(details.Address);
         BillingAddress = details.BillingAddress is null ? null : Trimmed(details.BillingAddress);
         PreferredCulture = details.Culture;
         Notes = Blank(details.Notes);
+    }
+
+    /// <summary>
+    /// Zet het btw-nummer. Een ander nummer dan het vorige verliest wat de btw-databank over het vorige zei: zonder
+    /// nummer is er geen status, een nummer van buiten de EU is niet te controleren, een EU-nummer is nog niet
+    /// gecontroleerd tot <see cref="RecordVatCheck"/>. Hetzelfde nummer houdt zijn status.
+    /// </summary>
+    public void ChangeVatNumber(string? vatNumber)
+    {
+        var normalized = VatNumberFormat.Normalize(vatNumber);
+        if (normalized == VatNumber && (normalized is null) == (VatCheck is null)) return;
+        VatNumber = normalized;
+        VatCheck = normalized is null ? null : VatNumberFormat.IsEu(normalized) ? VatCheckStatus.NotChecked : VatCheckStatus.NotCheckable;
+        VatCheckedAtUtc = null;
+        VatRegistryName = null;
+        VatRegistryAddress = null;
+    }
+
+    /// <summary>Moet het btw-nummer (nog) bij de btw-databank gecontroleerd worden?</summary>
+    public bool AwaitsVatCheck => VatCheck == VatCheckStatus.NotChecked && VatNumber is not null && VatNumberFormat.IsEu(VatNumber);
+
+    /// <summary>
+    /// Bewaart wat de btw-databank over het EU-btw-nummer zei, met de officiële naam en het adres apart: de bedrijfsnaam
+    /// en het factuuradres van de klant blijven wat hij invulde. Was ze onbereikbaar, dan blijft een eerdere uitspraak
+    /// over hetzelfde nummer staan; zonder eerdere uitspraak is het nummer nog niet gecontroleerd.
+    /// </summary>
+    public void RecordVatCheck(VatRegistryAnswer answer, DateTime atUtc)
+    {
+        if (VatNumber is null || !VatNumberFormat.IsEu(VatNumber))
+            throw new InvalidOperationException("Alleen een EU-btw-nummer wordt bij de btw-databank gecontroleerd.");
+        if (answer.Outcome == VatRegistryOutcome.Unavailable)
+        {
+            if (VatCheck is VatCheckStatus.Valid or VatCheckStatus.Invalid) return;
+            VatCheck = VatCheckStatus.NotChecked;
+            VatCheckedAtUtc = atUtc;
+            return;
+        }
+        VatCheck = answer.Outcome == VatRegistryOutcome.Valid ? VatCheckStatus.Valid : VatCheckStatus.Invalid;
+        VatCheckedAtUtc = atUtc;
+        VatRegistryName = answer.Name;
+        VatRegistryAddress = answer.Address;
     }
 
     /// <summary>Wanneer en door wie (null: "via website") de klant aangemaakt of gewijzigd werd.</summary>

@@ -40,8 +40,16 @@ public sealed class MoshtarApp : WebApplicationFactory<Program>, IAsyncLifetime
         // De lokale afbeeldingenopslag, per testklasse een eigen map.
         builder.UseSetting("Images:LocalPath", _imageFolder);
         // Elke request controleert of de login nog geldig is, zodat uitschakelen meteen te testen is.
-        builder.ConfigureTestServices(s => s.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero));
+        builder.ConfigureTestServices(s =>
+        {
+            s.Configure<SecurityStampValidatorOptions>(o => o.ValidationInterval = TimeSpan.Zero);
+            // VIES is vanuit de tests niet bereikbaar.
+            s.AddSingleton<Application.Customers.IVatRegistry>(VatRegistry);
+        });
     }
+
+    /// <summary>De nagebootste btw-databank van deze app; zonder ingesteld antwoord is ze onbereikbaar.</summary>
+    public FakeVatRegistry VatRegistry { get; } = new();
 
     public async Task InitializeAsync()
     {

@@ -41,6 +41,10 @@
                 {
                     <br /><small>@context.FirstName @context.LastName · zakelijk</small>
                 }
+                @if (context.VatCheck == VatCheckStatus.Invalid)
+                {
+                    <br /><MudChip T="string" Size="Size.Small" Color="Color.Error" Icon="@Icons.Material.Filled.Warning">Btw-nummer ongeldig</MudChip>
+                }
             </MudTd>
             <MudTd>@context.Email</MudTd>
             <MudTd>@context.Phone</MudTd>

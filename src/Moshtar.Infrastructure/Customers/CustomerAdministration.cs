@@ -9,7 +9,7 @@ using Moshtar.Infrastructure.Persistence;
 namespace Moshtar.Infrastructure.Customers;
 
 /// <summary>Met een eigen, kortlevende context per oproep, zodat de interactieve pagina's Klanten en Klantfiche ze kunnen gebruiken.</summary>
-internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> contexts, TimeProvider clock) : ICustomerAdministration
+internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> contexts, TimeProvider clock, IVatRegistry vatRegistry) : ICustomerAdministration
 {
     private const string DuplicateEmail = "Er is al een klant met dit e-mailadres.";
     private const string NotFound = "Deze klant bestaat niet (meer).";
@@ -43,7 +43,7 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
             .Skip(Math.Max(0, search.Page) * search.PageSize).Take(search.PageSize)
             .Select(c => new
             {
-                c.Id, c.Kind, c.FirstName, c.LastName, c.CompanyName, c.Email, c.Phone, c.Address.City,
+                c.Id, c.Kind, c.FirstName, c.LastName, c.CompanyName, c.Email, c.Phone, c.Address.City, c.VatCheck,
                 Count = db.Reservations.Count(r => r.CustomerId == c.Id && r.Status != ReservationStatus.Cancelled),
                 Last = db.Reservations.Where(r => r.CustomerId == c.Id && r.Status != ReservationStatus.Cancelled)
                     .OrderByDescending(r => r.StartDate).Select(r => new { r.StartDate, r.EndDate }).FirstOrDefault(),
@@ -51,7 +51,7 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
             .ToListAsync(ct);
         return new CustomerPage(
             page.Select(c => new CustomerListItem(c.Id, c.Kind, c.FirstName, c.LastName, c.CompanyName, c.Email, c.Phone, c.City,
-                c.Count, c.Last is null ? null : new DateRange(c.Last.StartDate, c.Last.EndDate))).ToList(),
+                c.Count, c.Last is null ? null : new DateRange(c.Last.StartDate, c.Last.EndDate), c.VatCheck)).ToList(),
             total);
     }
 
@@ -84,6 +84,38 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
 
     public Task<CustomerSaveResult> UpdateAsync(Guid customerId, CustomerDetails details, Guid userId, CancellationToken ct = default) =>
         SaveAsync(customerId, details, userId, ct);
+
+    public async Task<VatNumberLookup> LookUpVatNumberAsync(string? vatNumber, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(vatNumber) || !VatNumberFormat.IsWellFormed(vatNumber)) return new VatNumberLookup(null);
+        var number = VatNumberFormat.Normalize(vatNumber)!;
+        if (!VatNumberFormat.IsEu(number)) return new VatNumberLookup(VatCheckStatus.NotCheckable);
+        var answer = await vatRegistry.LookUpAsync(number, ct);
+        return answer.Outcome switch
+        {
+            VatRegistryOutcome.Valid => new VatNumberLookup(VatCheckStatus.Valid, answer.Name,
+                VatRegistryAddress.Parse(answer.Address, number[..2])),
+            VatRegistryOutcome.Invalid => new VatNumberLookup(VatCheckStatus.Invalid),
+            _ => new VatNumberLookup(VatCheckStatus.NotChecked),
+        };
+    }
+
+    public async Task<VatRecheckResult> RecheckVatNumberAsync(Guid customerId, CancellationToken ct = default)
+    {
+        await using var db = await contexts.CreateDbContextAsync(ct);
+        var customer = await db.Customers.FirstOrDefaultAsync(c => c.Id == customerId, ct);
+        if (customer is null) return new VatRecheckResult(null, NotFound);
+        if (customer.VatNumber is not { } number) return new VatRecheckResult(null, "Deze klant heeft geen btw-nummer.");
+        if (!VatNumberFormat.IsEu(number))
+            return new VatRecheckResult(customer.VatCheck, "Een btw-nummer van buiten de EU kan de btw-databank niet controleren.");
+        var answer = await vatRegistry.LookUpAsync(number, ct);
+        // Geen wijziging door een gebruiker: aangemaakt en gewijzigd blijven zoals ze waren.
+        customer.RecordVatCheck(answer, clock.GetUtcNow().UtcDateTime);
+        await db.SaveChangesAsync(ct);
+        return new VatRecheckResult(customer.VatCheck, answer.Outcome == VatRegistryOutcome.Unavailable
+            ? "De btw-databank is nu onbereikbaar. Probeer het later opnieuw."
+            : null);
+    }
 
     public async Task<CustomerRemovalResult> DeleteAsync(Guid customerId, Guid userId, CancellationToken ct = default)
     {
@@ -154,6 +186,14 @@ internal sealed class CustomerAdministration(IDbContextFactory<AppDbContext> con
         else
             db.Customers.Add(customer = new Customer());
         customer.Apply(details);
+        // Een nieuw EU-btw-nummer, of een dat nog niet gecontroleerd werd, gaat naar de btw-databank; ongeldig wordt
+        // niet bewaard, onbereikbaar wel ("nog niet gecontroleerd").
+        if (customer.AwaitsVatCheck)
+        {
+            var answer = await vatRegistry.LookUpAsync(customer.VatNumber!, ct);
+            if (answer.Outcome == VatRegistryOutcome.Invalid) return new CustomerSaveResult(null, [CustomerDetails.UnknownVatNumber]);
+            customer.RecordVatCheck(answer, clock.GetUtcNow().UtcDateTime);
+        }
         customer.RecordChange(userId, clock.GetUtcNow().UtcDateTime);
         try
         {

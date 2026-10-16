@@ -543,6 +543,76 @@ public sealed class CartTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         Assert.Equal((CustomerKind.Business, "Basisschool De Linde", "BE0123456789"), (customer.Kind, customer.CompanyName, customer.VatNumber));
         Assert.Equal(("Els", "Antwerpen", "Gentbrugge"), (customer.FirstName, customer.Address.City, customer.BillingAddressOrAddress.City));
         Assert.Equal("Kerkstraat 1", (await scope.ServiceProvider.GetRequiredService<AppDbContext>().Reservations.SingleAsync()).DeliveryAddress!.Street);
+        // De nagebootste btw-databank is onbereikbaar voor dit nummer: aanvaard, later opnieuw gecontroleerd.
+        Assert.Equal(VatCheckStatus.NotChecked, customer.VatCheck);
+    }
+
+    [Fact]
+    public async Task A_valid_vat_number_keeps_what_the_customer_typed_and_stores_the_official_name_and_address_apart()
+    {
+        app.VatRegistry.Valid("BE0200000001", "VZW GEMEENTELIJKE BASISSCHOOL", "SCHOOLSTRAAT 3\n9050 GENTBRUGGE");
+        await NewTenantAsync("kar-btw-geldig");
+        var client = app.CreateClient("kar-btw-geldig.test");
+        await AddAsync(client, $"/huren/prinses?van={TestReservations.FutureDay(156):yyyy-MM-dd}");
+        await IdentifyAsync(client, "btw-geldig@school.test");
+
+        var response = await ReserveAsync(client, "Els", extra: new()
+        {
+            ["Form.Kind"] = "Business", ["Form.CompanyName"] = "Basisschool De Linde", ["Form.VatNumber"] = "BE0200000001",
+        });
+
+        Assert.Contains("is bevestigd", WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()));
+        await using var scope = await app.TenantScopeAsync("kar-btw-geldig");
+        var customer = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Customers.AsNoTracking().SingleAsync();
+        Assert.Equal((VatCheckStatus.Valid, "Basisschool De Linde", null), (customer.VatCheck, customer.CompanyName, customer.BillingAddress));
+        Assert.Equal(("VZW GEMEENTELIJKE BASISSCHOOL", "SCHOOLSTRAAT 3\n9050 GENTBRUGGE"), (customer.VatRegistryName, customer.VatRegistryAddress));
+        Assert.NotNull(customer.VatCheckedAtUtc);
+    }
+
+    [Theory]
+    [InlineData("kar-btw-ongeldig-nl", "/huren/prinses", "/winkelkar", "BE0200000002", "Dit btw-nummer is ongeldig volgens de btw-databank van de EU. Verbeter het of laat het leeg.")]
+    [InlineData("kar-btw-ongeldig-fr", "/fr/louer/prinses", "/fr/panier", "BE0200000003", "Ce numéro de TVA n'est pas valide selon la base de données TVA de l'UE. Corrigez-le ou laissez-le vide.")]
+    [InlineData("kar-btw-ongeldig-en", "/en/rent/prinses", "/en/cart", "BE0200000004", "This VAT number is not valid according to the EU VAT database. Correct it or leave it empty.")]
+    public async Task An_invalid_vat_number_is_refused_in_the_language_of_the_site(string slug, string itemPath, string cartPath, string vat, string message)
+    {
+        app.VatRegistry.Answer(vat, VatRegistryAnswer.Invalid);
+        await NewTenantAsync(slug);
+        var client = app.CreateClient($"{slug}.test");
+        await AddAsync(client, $"{itemPath}?van={TestReservations.FutureDay(157):yyyy-MM-dd}");
+        await IdentifyAsync(client, "btw-ongeldig@example.test", cartPath: cartPath);
+
+        var response = await ReserveAsync(client, "Zoë", cartPath, extra: new()
+        {
+            ["Form.Kind"] = "Business", ["Form.CompanyName"] = "Chiro", ["Form.VatNumber"] = vat,
+        });
+        var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
+
+        Assert.Contains(message, html);
+        Assert.Contains($"value=\"{vat}\"", html);
+        await using var scope = await app.TenantScopeAsync(slug);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.False(await db.Reservations.AnyAsync());
+        Assert.False(await db.Customers.AnyAsync());
+    }
+
+    [Fact]
+    public async Task A_vat_number_from_outside_the_eu_is_accepted_as_not_checkable()
+    {
+        await NewTenantAsync("kar-btw-buiten-eu");
+        var client = app.CreateClient("kar-btw-buiten-eu.test");
+        await AddAsync(client, $"/huren/prinses?van={TestReservations.FutureDay(158):yyyy-MM-dd}");
+        await IdentifyAsync(client, "btw-buiten-eu@example.test");
+
+        var response = await ReserveAsync(client, "Urs", extra: new()
+        {
+            ["Form.Kind"] = "Business", ["Form.CompanyName"] = "Hüpfburg AG", ["Form.VatNumber"] = "CHE-123.456.788",
+        });
+
+        Assert.Contains("is bevestigd", WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync()));
+        await using var scope = await app.TenantScopeAsync("kar-btw-buiten-eu");
+        var customer = await scope.ServiceProvider.GetRequiredService<AppDbContext>().Customers.AsNoTracking().SingleAsync();
+        Assert.Equal(("CHE123456788", VatCheckStatus.NotCheckable), (customer.VatNumber, customer.VatCheck));
+        Assert.Equal(0, app.VatRegistry.LookupsOf("CHE123456788"));
     }
 
     [Theory]

@@ -88,9 +88,10 @@ public sealed class CustomerRemovalTests(MoshtarApp app) : IClassFixture<Moshtar
             .ChangeStatusAsync(reservation, ReservationStatus.Completed, ReservationActor.User(admin.Id));
         var customers = scope.ServiceProvider.GetRequiredService<ICustomerAdministration>();
         var id = await FindAsync(customers, "anja.anoniem@example.test");
+        app.VatRegistry.Valid("BE0400000001", "ANJA JANSSENS", "DORP 1\n9000 GENT");
         await customers.UpdateAsync(id, Details("anja.anoniem@example.test") with
         {
-            Kind = CustomerKind.Business, CompanyName = "Anja's Feestjes", VatNumber = "BE0123456789",
+            Kind = CustomerKind.Business, CompanyName = "Anja's Feestjes", VatNumber = "BE0400000001",
             BillingAddress = new Address { Street = "Factuurlaan 9", PostalCode = "9050", City = "Gentbrugge" }, Notes = "Vaste klant",
         }, admin.Id);
 
@@ -103,6 +104,7 @@ public sealed class CustomerRemovalTests(MoshtarApp app) : IClassFixture<Moshtar
         Assert.Equal(("", "", null, null, null, null), (c.FirstName, c.LastName, c.CompanyName, c.VatNumber, c.Phone, c.Notes));
         Assert.DoesNotContain("anja", c.Email);
         Assert.Equal(("", "", "", null), (c.Address.Street, c.Address.PostalCode, c.Address.City, c.BillingAddress));
+        Assert.Equal((null, null, null, null), (c.VatCheck, c.VatCheckedAtUtc, c.VatRegistryName, c.VatRegistryAddress));
         Assert.Equal(reservation, Assert.Single(card.Reservations).Id);
         Assert.Equal("anoniem-beheerder@hopsakee.test", card.UpdatedBy);
 

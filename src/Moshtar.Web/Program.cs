@@ -45,6 +45,7 @@ if (!builder.Environment.IsEnvironment("Testing"))
 {
     builder.Services.AddHostedService<CartHousekeepingWorker>();
     builder.Services.AddHostedService<ReviewRequestWorker>();
+    builder.Services.AddHostedService<VatRecheckWorker>();
 }
 // Eén antiforgery-cookie voor de hele site, ook als de eerste pagina onder /fr of /en lag.
 builder.Services.Configure<Microsoft.AspNetCore.Antiforgery.AntiforgeryOptions>(o => o.Cookie.Path = "/");

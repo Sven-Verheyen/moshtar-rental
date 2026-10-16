@@ -85,6 +85,36 @@ public sealed class CustomerReservationTests(MoshtarApp app) : IClassFixture<Mos
     }
 
     [Fact]
+    public async Task A_reservation_with_a_vat_number_the_registry_does_not_know_is_refused()
+    {
+        app.VatRegistry.Answer("BE0300000001", VatRegistryAnswer.Invalid);
+
+        var refused = await Assert.ThrowsAsync<UnknownVatNumberException>(() => ReserveAsync(Customer("btw-onbekend@example.test") with
+        {
+            Kind = CustomerKind.Business, CompanyName = "Chiro", VatNumber = "BE0300000001",
+        }, TestReservations.FutureDay(46)));
+
+        Assert.Equal("Dit btw-nummer is ongeldig: de btw-databank van de EU kent het niet. Verbeter het of laat het leeg.", refused.Message);
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        Assert.Empty((await scope.ServiceProvider.GetRequiredService<ICustomerAdministration>().SearchAsync(new CustomerSearch("btw-onbekend@example.test"))).Items);
+    }
+
+    [Fact]
+    public async Task Reserving_again_while_the_registry_is_unavailable_keeps_the_valid_number_and_its_official_data()
+    {
+        app.VatRegistry.Valid("BE0300000002", "VZW SCOUTS", "HEIDE 1\n2000 ANTWERPEN");
+        var business = Customer("btw-blijft-geldig@example.test") with { Kind = CustomerKind.Business, CompanyName = "Scouts", VatNumber = "BE0300000002" };
+        await ReserveAsync(business, TestReservations.FutureDay(47));
+        app.VatRegistry.Answer("BE0300000002", VatRegistryAnswer.Unavailable);
+
+        await ReserveAsync(business with { CompanyName = "Scouts Heide" }, TestReservations.FutureDay(48));
+
+        await using var scope = await app.TenantScopeAsync("hopsakee");
+        var customer = (await scope.ServiceProvider.GetRequiredService<ICustomerAdministration>().GetAsync(await CustomerIdAsync("btw-blijft-geldig@example.test")))!.Customer;
+        Assert.Equal((VatCheckStatus.Valid, "VZW SCOUTS", "Scouts Heide"), (customer.VatCheck, customer.VatRegistryName, customer.CompanyName));
+    }
+
+    [Fact]
     public async Task The_delivery_address_is_the_address_of_the_customer_and_stays_when_the_customer_moves()
     {
         var user = await app.CreateUserAsync("hopsakee", "verhuist@hopsakee.test", UserRole.Staff);

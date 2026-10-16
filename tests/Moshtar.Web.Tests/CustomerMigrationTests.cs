@@ -47,6 +47,7 @@ public sealed class CustomerMigrationTests : IAsyncLifetime
 
         var particulier = await InsertCustomerAsync(Tenant, "Piet", "piet@example.test", vat: null);
         var school = await InsertCustomerAsync(Tenant, "Els", "school@example.test", vat: "BE0123456789");
+        var swiss = await InsertCustomerAsync(Tenant, "Urs", "zwitsers@example.test", vat: "che-123.456.789");
         var oldDuplicate = await InsertCustomerAsync(Tenant, "Oud", " Dubbel@Example.test");
         var newDuplicate = await InsertCustomerAsync(Tenant, "Nieuw", "dubbel@example.test");
         var elsewhere = await InsertCustomerAsync(OtherTenant, "Ander", "dubbel@example.test");
@@ -62,6 +63,9 @@ public sealed class CustomerMigrationTests : IAsyncLifetime
         Assert.Equal(new DateTime(2026, 3, 1, 9, 0, 0, DateTimeKind.Utc), piet.CreatedAtUtc);
         Assert.Null(piet.CreatedByUserId);
         Assert.Equal(CustomerKind.Business, customers.Single(c => c.Id == school).Kind);
+        // Een gekend btw-nummer wordt later gecontroleerd bij de btw-databank, behalve een van buiten de EU.
+        Assert.Equal((null, VatCheckStatus.NotChecked, VatCheckStatus.NotCheckable),
+            (piet.VatCheck, customers.Single(c => c.Id == school).VatCheck, customers.Single(c => c.Id == swiss).VatCheck));
 
         // Van twee klanten met hetzelfde e-mailadres blijft die met de laatste reservatie, met alle reservaties.
         var dubbel = Assert.Single(customers, c => c.TenantId == Tenant && c.Email == "dubbel@example.test");

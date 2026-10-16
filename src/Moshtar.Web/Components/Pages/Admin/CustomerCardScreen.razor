@@ -42,7 +42,33 @@
                             <MudText><b>@c.CompanyName</b></MudText>
                             @if (!string.IsNullOrEmpty(c.VatNumber))
                             {
-                                <MudText>Btw-nummer: @c.VatNumber</MudText>
+                                <MudText>
+                                    Btw-nummer: @c.VatNumber
+                                    <MudChip T="string" Size="Size.Small" Color="@VatColor(c.VatCheck)">@VatLabel(c.VatCheck)</MudChip>
+                                </MudText>
+                                @if (c.VatCheckedAtUtc is { } checkedAt)
+                                {
+                                    <MudText Typo="Typo.body2">
+                                        @(c.VatCheck == VatCheckStatus.NotChecked ? "Laatste poging" : "Laatst gecontroleerd") op @Local(checkedAt)
+                                    </MudText>
+                                }
+                                @if (c.VatRegistryName is not null || c.VatRegistryAddress is not null)
+                                {
+                                    <MudText Typo="Typo.subtitle2" Class="mt-2">Volgens btw-databank</MudText>
+                                    @if (c.VatRegistryName is { } officialName)
+                                    {
+                                        <MudText>@officialName</MudText>
+                                    }
+                                    @if (c.VatRegistryAddress is { } officialAddress)
+                                    {
+                                        <MudText Style="white-space: pre-line">@officialAddress</MudText>
+                                    }
+                                }
+                                @if (c.VatCheck != VatCheckStatus.NotCheckable)
+                                {
+                                    <MudButton Variant="Variant.Text" Size="Size.Small" StartIcon="@Icons.Material.Filled.Refresh" Class="mt-1"
+                                               OnClick="RecheckVatAsync" Disabled="_checkingVat">Opnieuw controleren</MudButton>
+                                }
                             }
                             <MudText Class="mt-2">Contactpersoon: @c.FirstName @c.LastName</MudText>
                         }
@@ -195,6 +221,42 @@
         Snackbar.Add("De klant is geanonimiseerd.", Severity.Success);
         await LoadAsync();
     }
+
+    private bool _checkingVat;
+
+    private async Task RecheckVatAsync()
+    {
+        _checkingVat = true;
+        try
+        {
+            var result = await CustomerAdministration.RecheckVatNumberAsync(Id);
+            await LoadAsync();
+            if (result.Message is { } message)
+                Snackbar.Add(message, Severity.Warning);
+            else
+                Snackbar.Add($"Btw-nummer gecontroleerd: {VatLabel(result.Status)}.", result.Status == VatCheckStatus.Invalid ? Severity.Error : Severity.Success);
+        }
+        finally
+        {
+            _checkingVat = false;
+        }
+    }
+
+    private static string VatLabel(VatCheckStatus? status) => status switch
+    {
+        VatCheckStatus.Valid => "geldig",
+        VatCheckStatus.Invalid => "ongeldig",
+        VatCheckStatus.NotCheckable => "niet te controleren",
+        _ => "nog niet gecontroleerd",
+    };
+
+    private static Color VatColor(VatCheckStatus? status) => status switch
+    {
+        VatCheckStatus.Valid => Color.Success,
+        VatCheckStatus.Invalid => Color.Error,
+        VatCheckStatus.NotChecked => Color.Warning,
+        _ => Color.Default,
+    };
 
     private static string AddressLine(Address a) =>
         $"{a.Street}, {a.PostalCode} {a.City}" + (a.Country is "BE" or "" ? "" : $" ({a.Country})");

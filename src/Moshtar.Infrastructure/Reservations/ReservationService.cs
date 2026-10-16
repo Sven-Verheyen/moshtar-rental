@@ -4,6 +4,7 @@ using Moshtar.Application.Images;
 using Moshtar.Application.Mail;
 using Moshtar.Application.Maps;
 using Moshtar.Infrastructure.Maps;
+using Moshtar.Application.Customers;
 using Moshtar.Application.Reservations;
 using Moshtar.Application.Tenancy;
 using Moshtar.Domain.Availability;
@@ -27,7 +28,7 @@ namespace Moshtar.Infrastructure.Reservations;
 /// </summary>
 internal sealed class ReservationService(
     IDbContextFactory<AppDbContext> contexts, ITenantContext tenantContext, TimeProvider clock, IMailer mailer, IImageStore images,
-    IMapService maps, ILogger<ReservationService> logger) : IReservationService
+    IMapService maps, IVatRegistry vatRegistry, ILogger<ReservationService> logger) : IReservationService
 {
     public async Task<IReadOnlyList<StockShortage>> CheckAvailabilityAsync(
         DateRange period, IReadOnlyList<ReservationLineRequest> lines, CancellationToken ct = default)
@@ -44,6 +45,10 @@ internal sealed class ReservationService(
         var deliveryAddress = request.DeliveryMethod == DeliveryMethod.Delivery ? request.DeliveryAddress ?? request.Customer.Address : null;
         // Voor de lock: de kaartdienst kan even op zich laten wachten, en andere reservaties moeten daar niet op wachten.
         var deliveryPoint = deliveryAddress is null ? null : await maps.TryFindAsync(deliveryAddress, logger, ct);
+        // Ook de btw-databank voor de lock. Een ongeldig nummer houdt de reservatie tegen; onbereikbaar niet.
+        var vatAnswer = await CheckVatNumberAsync(request.Customer, ct);
+        if (vatAnswer?.Outcome == VatRegistryOutcome.Invalid)
+            throw new UnknownVatNumberException();
 
         await using var db = await contexts.CreateDbContextAsync(ct);
         await using var tx = await db.Database.BeginTransactionAsync(ct);
@@ -53,7 +58,7 @@ internal sealed class ReservationService(
         if (shortages.Count > 0)
             return new ReservationResult(null, shortages);
 
-        var customer = await UpsertCustomerAsync(db, request, actor, ct);
+        var customer = await UpsertCustomerAsync(db, request, vatAnswer, actor, ct);
         // De prijsregels van vandaag, binnen dezelfde transactie: dezelfde berekening als de winkelkar.
         var quoter = await PriceQuotes.CurrentAsync(db, clock, ct);
         var priced = quoter.Quote(request.Period, request.Lines.Select(l => PriceLineOf(l, items, bundles)).ToList());
@@ -323,11 +328,18 @@ internal sealed class ReservationService(
         };
     }
 
+    /// <summary>Wat de btw-databank zegt over het EU-btw-nummer van een zakelijke klant; null zonder zo'n nummer.</summary>
+    private async Task<VatRegistryAnswer?> CheckVatNumberAsync(ReservationCustomer customer, CancellationToken ct) =>
+        customer.Kind == CustomerKind.Business && VatNumberFormat.Normalize(customer.VatNumber) is { } number && VatNumberFormat.IsEu(number)
+            ? await vatRegistry.LookUpAsync(number, ct)
+            : null;
+
     /// <summary>
     /// Wie reserveert, wordt klant, of zijn klantfiche neemt de laatst ingevulde gegevens over. De interne notitie blijft
     /// altijd staan: type, bedrijfsnaam, btw-nummer, adres en factuuradres zijn die van deze reservatie. Aangemaakt of gewijzigd door de gebruiker die reserveerde, of "via website".
+    /// Wat de btw-databank zei, komt apart op de klantfiche: de officiële naam en het adres overschrijven niet wat ingevuld werd.
     /// </summary>
-    private async Task<Customer> UpsertCustomerAsync(AppDbContext db, ReservationRequest request, ReservationActor actor, CancellationToken ct)
+    private async Task<Customer> UpsertCustomerAsync(AppDbContext db, ReservationRequest request, VatRegistryAnswer? vatAnswer, ReservationActor actor, CancellationToken ct)
     {
         var email = Customer.NormalizeEmail(request.Customer.Email);
         var customer = await db.Customers.FirstOrDefaultAsync(c => c.Email == email, ct);
@@ -343,7 +355,9 @@ internal sealed class ReservationService(
         var business = request.Customer.Kind == CustomerKind.Business;
         customer.Kind = request.Customer.Kind;
         customer.CompanyName = business ? request.Customer.CompanyName!.Trim() : null;
-        customer.VatNumber = business ? VatNumberFormat.Normalize(request.Customer.VatNumber) : null;
+        customer.ChangeVatNumber(business ? request.Customer.VatNumber : null);
+        if (vatAnswer is not null)
+            customer.RecordVatCheck(vatAnswer, clock.GetUtcNow().UtcDateTime);
         customer.BillingAddress = request.Customer.BillingAddress;
         customer.PreferredCulture = request.Culture;
         customer.RecordChange(actor.UserId, clock.GetUtcNow().UtcDateTime);

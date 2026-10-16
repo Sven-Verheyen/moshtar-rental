@@ -156,5 +156,6 @@
   <data name="BillingAddress" xml:space="preserve"><value>Factuuradres</value></data>
   <data name="CartCompanyRequired" xml:space="preserve"><value>Vul de naam van je bedrijf of organisatie in.</value></data>
   <data name="CartVatInvalid" xml:space="preserve"><value>Dit is geen geldig btw-nummer. Begin met de landcode, zoals BE0123456789, of laat het leeg.</value></data>
+  <data name="CartVatUnknown" xml:space="preserve"><value>Dit btw-nummer is ongeldig volgens de btw-databank van de EU. Verbeter het of laat het leeg.</value></data>
   <data name="CartBillingAddressIncomplete" xml:space="preserve"><value>Vul de straat met huisnummer, de postcode en de gemeente van je factuuradres in.</value></data>
 </root>

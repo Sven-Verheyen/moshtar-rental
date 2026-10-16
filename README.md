@@ -94,6 +94,14 @@ aan andere verhuurbedrijven aangeboden te worden.
   formaatcontrole per EU-land (`VatNumberFormat`). In het back office zoekt Nieuwe reservatie een bestaande klant, of
   start je vanaf de klantfiche (`/admin/reservaties/nieuw?klant=…`); het leveradres is standaard het adres van de klant.
   Mailsjablonen kennen `{customerCompanyName}`, `{customerVatNumber}` en `{billingAddress}` (valt terug op het adres).
+  Een EU-btw-nummer wordt daarna gecontroleerd bij de **btw-databank** (`IVatRegistry`, VIES REST API, 5 s timeout):
+  geldig, ongeldig, nog niet gecontroleerd (databank onbereikbaar) of niet te controleren (buiten de EU, niet
+  opgevraagd). Ongeldig weigert het bewaren van de klant en het reserveren (op de website met een melding in NL/FR/EN);
+  onbereikbaar wordt aanvaard. In het klantformulier vult een geldig nummer meteen bedrijfsnaam en factuuradres in (nog
+  aan te passen); de officiële naam en het adres staan apart op de klantfiche ("Volgens btw-databank") en overschrijven
+  nooit wat de klant invulde. De klantfiche toont de laatste controle met "Opnieuw controleren", de klantenlijst markeert
+  een ongeldig nummer. `VatRecheckWorker` controleert elk kwartier per verhuurder de nog niet gecontroleerde nummers
+  opnieuw (elke klant hoogstens één keer per uur, 50 per run; `IVatRechecks`). Tests gebruiken een nagebootste databank.
   Gebruikers loggen in met e-mail en wachtwoord op het domein van hun verhuurder (`/admin/inloggen`).
   Wie zijn wachtwoord vergeten is, vraagt een herstelmail aan (`/admin/wachtwoord-vergeten`).
   Een Beheerder nodigt gebruikers uit, wijzigt hun rol en schakelt ze uit of weer in (`/admin/gebruikers`).
