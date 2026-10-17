@@ -4,6 +4,7 @@
 @attribute [Authorize(Roles = Roles.Administrator)]
 @using Moshtar.Application.Tenancy
 @inject IBrandingAdministration BrandingAdmin
+@inject IBusinessDetailsAdministration BusinessDetailsAdmin
 @inject ISnackbar Snackbar
 
 <PageTitle>Huisstijl</PageTitle>
@@ -62,6 +63,22 @@
         @ImageButtons(BrandingImage.HeroImage, "sfeerfoto")
     </MudPaper>
 
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Google Analytics</MudText>
+        <MudTextField @bind-Value="_googleAnalyticsId" Label="GA4-meet-ID" Variant="Variant.Outlined" Placeholder="G-ABC123XYZ" Class="mb-3"
+                      HelperText="Vind je in Google Analytics bij Beheer › Gegevensstreams. Leeg: geen Google Analytics en geen cookiebalk op je website." />
+        @if (_analyticsProblems.Count > 0)
+        {
+            <MudAlert Severity="Severity.Error" Class="mb-3">
+                @foreach (var problem in _analyticsProblems)
+                {
+                    <div>@problem</div>
+                }
+            </MudAlert>
+        }
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveGoogleAnalyticsAsync">Meet-ID opslaan</MudButton>
+    </MudPaper>
+
     <MudPaper Outlined="true" Class="pa-4">
         <MudText Typo="Typo.overline">Voorbeeld van de kop van een mail</MudText>
         @if (_preview.Length > 0)
@@ -82,8 +99,29 @@
     private string _preview = "";
     private BrandingImage? _uploading;
     private IReadOnlyList<string> _problems = [];
+    private string? _googleAnalyticsId;
+    private IReadOnlyList<string> _analyticsProblems = [];
 
-    protected override async Task OnInitializedAsync() => await ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadAsync();
+        _googleAnalyticsId = await BusinessDetailsAdmin.GetGoogleAnalyticsIdAsync();
+    }
+
+    private async Task SaveGoogleAnalyticsAsync()
+    {
+        try
+        {
+            await BusinessDetailsAdmin.SaveGoogleAnalyticsIdAsync(_googleAnalyticsId);
+            _analyticsProblems = [];
+            _googleAnalyticsId = await BusinessDetailsAdmin.GetGoogleAnalyticsIdAsync();
+            Snackbar.Add("Je meet-ID van Google Analytics is bewaard.", Severity.Success);
+        }
+        catch (BusinessDetailsException e)
+        {
+            _analyticsProblems = e.Problems;
+        }
+    }
 
     /// <summary>Uploaden, vervangen en verwijderen van het logo of de sfeerfoto.</summary>
     private RenderFragment ImageButtons(BrandingImage which, string label) => __builder =>

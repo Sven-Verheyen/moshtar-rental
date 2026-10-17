@@ -22,9 +22,45 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         Email = "info@feest.test", Phone = "+32 475 12 34 56", WhatsAppPhone = "+32 476 00 11 22", VatNumber = "BE 0123.456.789",
         FacebookUrl = "https://www.facebook.com/feest", InstagramUrl = "https://www.instagram.com/feest", TikTokUrl = "https://www.tiktok.com/@feest",
         GoogleBusinessUrl = "https://g.page/feest",
+    };
+
+    private static readonly PlanningSettings Planning = new()
+    {
         ServiceArea = ["Mortsel", " Edegem ", "", "mortsel", "Kontich"],
         OffersPickup = true,
     };
+
+    [Fact]
+    public async Task Each_part_saves_only_its_own_fields()
+    {
+        await app.CreateTenantAsync("gegevens-per-deel", "gegevens-per-deel.test");
+        await using var scope = await app.TenantScopeAsync("gegevens-per-deel");
+        var admin = Admin(scope);
+        var rounds = new RoundSettings(new TimeOnly(7, 30), new TimeOnly(17, 0), 45, 25, 120);
+        await admin.SaveAsync(Full);
+        await admin.SavePlanningAsync(new PlanningSettings { ServiceArea = ["Mortsel", "Edegem"], OffersPickup = true, Rounds = rounds });
+        await admin.SaveReviewRequestsAsync(new ReviewRequestSettings { ReviewLink = "https://g.page/r/feest/review", SendReviewRequests = true });
+        await admin.SaveGoogleAnalyticsIdAsync("G-ABC123XYZ");
+
+        await admin.SavePlanningAsync(new PlanningSettings { ServiceArea = ["Kontich"] });
+        Assert.Equal("Kerkstraat 1", (await admin.GetAsync()).Street);
+        Assert.Equal("https://g.page/r/feest/review", (await admin.GetReviewRequestsAsync()).ReviewLink);
+        Assert.True((await admin.GetReviewRequestsAsync()).SendReviewRequests);
+        Assert.Equal("G-ABC123XYZ", await admin.GetGoogleAnalyticsIdAsync());
+
+        await admin.SavePlanningAsync(new PlanningSettings { ServiceArea = ["Mortsel"], OffersPickup = true, Rounds = rounds });
+        await admin.SaveAsync(Full with { Street = "Andere straat 2" });
+        await admin.SaveReviewRequestsAsync(new ReviewRequestSettings());
+        await admin.SaveGoogleAnalyticsIdAsync(null);
+
+        var planning = await admin.GetPlanningAsync();
+        Assert.Equal(["Mortsel"], planning.ServiceArea);
+        Assert.True(planning.OffersPickup);
+        Assert.Equal(rounds, planning.Rounds);
+        Assert.Equal("Andere straat 2", (await admin.GetAsync()).Street);
+        Assert.Null((await admin.GetReviewRequestsAsync()).ReviewLink);
+        Assert.Null(await admin.GetGoogleAnalyticsIdAsync());
+    }
 
     [Fact]
     public async Task Business_details_are_saved_cleaned_and_cleared()
@@ -38,11 +74,25 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         Assert.Equal("Kerkstraat 1", saved.Street);
         Assert.Equal("+32 475 12 34 56", saved.Phone);
         Assert.Equal("https://www.tiktok.com/@feest", saved.TikTokUrl);
-        Assert.Equal(["Mortsel", "Edegem", "Kontich"], saved.ServiceArea);
-        Assert.True(saved.OffersPickup);
 
         await admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", Street = " " });
         Assert.Equivalent(new BusinessDetailsSettings { Email = "info@feest.test" }, await admin.GetAsync(), strict: true);
+    }
+
+    [Fact]
+    public async Task The_service_area_and_pickup_are_saved_cleaned_and_cleared()
+    {
+        await app.CreateTenantAsync("planning-instellingen", "planning-instellingen.test");
+        await using var scope = await app.TenantScopeAsync("planning-instellingen");
+        var admin = Admin(scope);
+
+        await admin.SavePlanningAsync(Planning);
+        var saved = await admin.GetPlanningAsync();
+        Assert.Equal(["Mortsel", "Edegem", "Kontich"], saved.ServiceArea);
+        Assert.True(saved.OffersPickup);
+
+        await admin.SavePlanningAsync(new PlanningSettings());
+        Assert.Equivalent(new PlanningSettings(), await admin.GetPlanningAsync(), strict: true);
     }
 
     [Fact]
@@ -81,16 +131,15 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await using var scope = await app.TenantScopeAsync("gegevens-analytics");
         var admin = Admin(scope);
 
-        await admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", GoogleAnalyticsId = " g-abc123xyz " });
-        Assert.Equal("G-ABC123XYZ", (await admin.GetAsync()).GoogleAnalyticsId);
+        await admin.SaveGoogleAnalyticsIdAsync(" g-abc123xyz ");
+        Assert.Equal("G-ABC123XYZ", await admin.GetGoogleAnalyticsIdAsync());
 
-        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() =>
-            admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", GoogleAnalyticsId = "UA-12345-1" }));
+        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() => admin.SaveGoogleAnalyticsIdAsync("UA-12345-1"));
         Assert.Equal(["Het meet-ID van Google Analytics begint met G- gevolgd door letters en cijfers, bv. G-ABC123XYZ."], refused.Problems);
-        Assert.Equal("G-ABC123XYZ", (await admin.GetAsync()).GoogleAnalyticsId);
+        Assert.Equal("G-ABC123XYZ", await admin.GetGoogleAnalyticsIdAsync());
 
-        await admin.SaveAsync(new BusinessDetailsSettings { Email = "info@feest.test", GoogleAnalyticsId = " " });
-        Assert.Null((await admin.GetAsync()).GoogleAnalyticsId);
+        await admin.SaveGoogleAnalyticsIdAsync(" ");
+        Assert.Null(await admin.GetGoogleAnalyticsIdAsync());
     }
 
     [Fact]
@@ -99,12 +148,12 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await app.CreateTenantAsync("gegevens-rondes", "gegevens-rondes.test");
         await using var scope = await app.TenantScopeAsync("gegevens-rondes");
         var admin = Admin(scope);
-        Assert.Equal(new RoundSettings(new TimeOnly(8, 0), new TimeOnly(18, 0), 30, 20, 60), (await admin.GetAsync()).Rounds);
+        Assert.Equal(new RoundSettings(new TimeOnly(8, 0), new TimeOnly(18, 0), 30, 20, 60), (await admin.GetPlanningAsync()).Rounds);
 
         var changed = new RoundSettings(new TimeOnly(7, 30), new TimeOnly(17, 0), 45, 25, 120);
-        await admin.SaveAsync(await admin.GetAsync() with { Rounds = changed });
+        await admin.SavePlanningAsync(await admin.GetPlanningAsync() with { Rounds = changed });
 
-        Assert.Equal(changed, (await admin.GetAsync()).Rounds);
+        Assert.Equal(changed, (await admin.GetPlanningAsync()).Rounds);
     }
 
     [Fact]
@@ -114,7 +163,7 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await using var scope = await app.TenantScopeAsync("gegevens-rondes-fout");
         var admin = Admin(scope);
 
-        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(async () => await admin.SaveAsync(await admin.GetAsync() with
+        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(async () => await admin.SavePlanningAsync(await admin.GetPlanningAsync() with
         {
             Rounds = new RoundSettings(new TimeOnly(8, 0), new TimeOnly(18, 0), -5, 20, 45),
         }));
@@ -123,7 +172,7 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
             "De opbouwtijd moet tussen 0 en 480 minuten liggen.",
             "De breedte van het venster is een veelvoud van 30 minuten, van 30 tot 240 minuten.",
         ], refused.Problems);
-        Assert.Equal(30, (await admin.GetAsync()).Rounds.SetupMinutes);
+        Assert.Equal(30, (await admin.GetPlanningAsync()).Rounds.SetupMinutes);
     }
 
     [Fact]
@@ -194,7 +243,10 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
     {
         await app.CreateTenantAsync("gegevens-contact-" + culture, $"gegevens-contact-{culture}.test");
         await using (var scope = await app.TenantScopeAsync("gegevens-contact-" + culture))
+        {
             await Admin(scope).SaveAsync(Full);
+            await Admin(scope).SavePlanningAsync(Planning);
+        }
 
         var response = await app.CreateClient($"gegevens-contact-{culture}.test").GetAsync(path);
         var html = WebUtility.HtmlDecode(await response.Content.ReadAsStringAsync());
@@ -224,7 +276,10 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await app.CreateTenantAsync("gegevens-een", "gegevens-een.test");
         await app.CreateTenantAsync("gegevens-twee", "gegevens-twee.test");
         await using (var one = await app.TenantScopeAsync("gegevens-een"))
+        {
             await Admin(one).SaveAsync(Full);
+            await Admin(one).SavePlanningAsync(Planning);
+        }
 
         await using (var two = await app.TenantScopeAsync("gegevens-twee"))
             Assert.Null((await Admin(two).GetAsync()).Street);
@@ -248,21 +303,54 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         Assert.Equal(HttpStatusCode.OK, page.StatusCode);
         var html = await page.Content.ReadAsStringAsync();
         Assert.Contains("href=\"admin/bedrijfsgegevens\"", html);
+        Assert.Contains("Btw-nummer", html);
+        Assert.Contains("Google-bedrijfsprofiel", html);
+        foreach (var moved in new[] { "Vertrekuur leverronde", "Werkgebied", "zelf afhalen", "Google-reviewlink", "Reviewvragen sturen", "GA4-meet-ID" })
+            Assert.DoesNotContain(moved, html);
+    }
+
+    [Fact]
+    public async Task Administrator_sets_the_service_area_pickup_and_rounds_in_the_planning_settings()
+    {
+        var client = await app.LoggedInClientAsync("planning-instellingen@hopsakee.test", UserRole.Administrator);
+
+        var html = await client.GetStringAsync("/admin/planning/instellingen");
+
+        Assert.Equal(["Planning", "Instellingen"], BackOfficeMenuTests.Breadcrumb(html));
+        Assert.Contains("href=\"admin/planning/instellingen\"", html);
+        Assert.Contains("Gemeenten waar je levert", html);
+        Assert.Contains("Klanten kunnen zelf afhalen", html);
         Assert.Contains("Vertrekuur leverronde", html);
+        Assert.Contains("Vertrekuur ophaalronde", html);
+        Assert.Contains("Opbouwtijd", html);
+        Assert.Contains("Afbouwtijd", html);
         Assert.Contains("Breedte venster", html);
     }
 
     [Fact]
-    public async Task Administrator_tests_the_review_link_and_downloads_its_qr_code_in_the_business_details()
+    public async Task Administrator_sets_the_google_analytics_measurement_id_in_the_branding()
+    {
+        var client = await app.LoggedInClientAsync("huisstijl-analytics@hopsakee.test", UserRole.Administrator);
+
+        var html = await client.GetStringAsync("/admin/huisstijl");
+
+        Assert.Contains("GA4-meet-ID", html);
+    }
+
+    [Fact]
+    public async Task Administrator_tests_the_review_link_and_downloads_its_qr_code_in_the_review_requests()
     {
         await using (var scope = await app.TenantScopeAsync("hopsakee"))
         {
             var admin = Admin(scope);
-            await admin.SaveAsync(await admin.GetAsync() with { ReviewLink = "https://g.page/r/hopsakee/review" });
+            await admin.SaveReviewRequestsAsync(await admin.GetReviewRequestsAsync() with { ReviewLink = "https://g.page/r/hopsakee/review" });
         }
         var client = await app.LoggedInClientAsync("gegevens-review@hopsakee.test", UserRole.Administrator);
 
-        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/admin/bedrijfsgegevens"));
+        var html = WebUtility.HtmlDecode(await client.GetStringAsync("/admin/klanten/reviewvragen"));
+
+        Assert.Equal(["Klantenbeheer", "Reviewvragen"], BackOfficeMenuTests.Breadcrumb(html));
+        Assert.Contains("href=\"admin/klanten/reviewvragen\"", html);
 
         Assert.Contains("Google-reviewlink", html);
         Assert.Contains("Reviewvragen sturen", html);
@@ -270,17 +358,20 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         Assert.Matches("<a(?=[^>]*href=\"/review-qr.png[^\"]*\")(?=[^>]*download)[^>]*>(?:(?!</a>).)*QR-code downloaden", html);
     }
 
-    [Fact]
-    public async Task Staff_has_no_access_to_the_business_details()
+    [Theory]
+    [InlineData("admin/bedrijfsgegevens")]
+    [InlineData("admin/planning/instellingen")]
+    [InlineData("admin/klanten/reviewvragen")]
+    public async Task Staff_has_no_access_to_the_business_details_planning_settings_and_review_requests(string page)
     {
         var client = await app.LoggedInClientAsync("gegevens-medewerker@hopsakee.test", UserRole.Staff);
 
-        var response = await client.GetAsync("/admin/bedrijfsgegevens");
+        var response = await client.GetAsync("/" + page);
         if (response.StatusCode == HttpStatusCode.Redirect)
             response = await client.GetAsync(response.Headers.Location);
 
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
-        Assert.DoesNotContain("href=\"admin/bedrijfsgegevens\"", await (await client.GetAsync("/admin/reservaties")).Content.ReadAsStringAsync());
+        Assert.DoesNotContain($"href=\"{page}\"", await (await client.GetAsync("/admin/reservaties")).Content.ReadAsStringAsync());
     }
 
     [Fact]
@@ -289,7 +380,7 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await app.CreateTenantAsync("review-standaard", "review-standaard.test");
         await using var scope = await app.TenantScopeAsync("review-standaard");
 
-        var saved = await Admin(scope).GetAsync();
+        var saved = await Admin(scope).GetReviewRequestsAsync();
 
         Assert.Null(saved.ReviewLink);
         Assert.False(saved.SendReviewRequests);
@@ -303,13 +394,14 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await using var scope = await app.TenantScopeAsync("review-link");
         var admin = Admin(scope);
 
-        await admin.SaveAsync(Full with { ReviewLink = " https://g.page/r/feest/review " });
-        Assert.Equal("https://g.page/r/feest/review", (await admin.GetAsync()).ReviewLink);
+        await admin.SaveReviewRequestsAsync(new ReviewRequestSettings { ReviewLink = " https://g.page/r/feest/review " });
+        Assert.Equal("https://g.page/r/feest/review", (await admin.GetReviewRequestsAsync()).ReviewLink);
 
-        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() => admin.SaveAsync(Full with { ReviewLink = "g.page/r/feest/review" }));
+        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() =>
+            admin.SaveReviewRequestsAsync(new ReviewRequestSettings { ReviewLink = "g.page/r/feest/review" }));
         Assert.Equal(["De Google-reviewlink moet een volledig adres zijn dat begint met https://, zoals Google het geeft bij \"Vraag om reviews\"."],
             refused.Problems);
-        Assert.Equal("https://g.page/r/feest/review", (await admin.GetAsync()).ReviewLink);
+        Assert.Equal("https://g.page/r/feest/review", (await admin.GetReviewRequestsAsync()).ReviewLink);
     }
 
     [Fact]
@@ -319,10 +411,11 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await using var scope = await app.TenantScopeAsync("review-zonder-link");
         var admin = Admin(scope);
 
-        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() => admin.SaveAsync(Full with { SendReviewRequests = true }));
+        var refused = await Assert.ThrowsAsync<BusinessDetailsException>(() =>
+            admin.SaveReviewRequestsAsync(new ReviewRequestSettings { SendReviewRequests = true }));
 
         Assert.Equal(["Vul eerst je Google-reviewlink in: zonder link kunnen er geen reviewvragen vertrekken."], refused.Problems);
-        Assert.False((await admin.GetAsync()).SendReviewRequests);
+        Assert.False((await admin.GetReviewRequestsAsync()).SendReviewRequests);
     }
 
     [Fact]
@@ -331,10 +424,10 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await app.CreateTenantAsync("review-aan", "review-aan.test");
         var monday = new DateTimeOffset(2026, 11, 9, 14, 0, 0, TimeSpan.Zero);
         var tuesday = monday.AddDays(1);
-        var withLink = Full with { ReviewLink = "https://g.page/r/feest/review" };
+        var withLink = new ReviewRequestSettings { ReviewLink = "https://g.page/r/feest/review" };
 
         await SaveAtAsync("review-aan", monday, withLink with { SendReviewRequests = true });
-        var on = await SaveAtAsync("review-aan", tuesday, withLink with { SendReviewRequests = true, Phone = "+32 475 99 99 99" });
+        var on = await SaveAtAsync("review-aan", tuesday, withLink with { SendReviewRequests = true });
         Assert.True(on.SendReviewRequests);
         Assert.Equal(monday, on.ReviewRequestsSince);
 
@@ -363,10 +456,10 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         var client = app.CreateClient("review-qr.test");
 
         await using (var scope = await app.TenantScopeAsync("review-qr"))
-            await Admin(scope).SaveAsync(Full with { ReviewLink = "https://g.page/r/feest/review" });
+            await Admin(scope).SaveReviewRequestsAsync(new ReviewRequestSettings { ReviewLink = "https://g.page/r/feest/review" });
         var first = await client.GetAsync("/review-qr.png");
         await using (var scope = await app.TenantScopeAsync("review-qr"))
-            await Admin(scope).SaveAsync(Full with { ReviewLink = "https://g.page/r/ander-feest/review" });
+            await Admin(scope).SaveReviewRequestsAsync(new ReviewRequestSettings { ReviewLink = "https://g.page/r/ander-feest/review" });
         var second = await client.GetAsync("/review-qr.png");
 
         Assert.Equal(HttpStatusCode.OK, first.StatusCode);
@@ -382,22 +475,22 @@ public sealed class BusinessDetailsTests(MoshtarApp app) : IClassFixture<Moshtar
         await app.CreateTenantAsync("review-qr-een", "review-qr-een.test");
         await app.CreateTenantAsync("review-qr-twee", "review-qr-twee.test");
         await using (var scope = await app.TenantScopeAsync("review-qr-een"))
-            await Admin(scope).SaveAsync(Full with { ReviewLink = "https://g.page/r/feest/review" });
+            await Admin(scope).SaveReviewRequestsAsync(new ReviewRequestSettings { ReviewLink = "https://g.page/r/feest/review" });
 
         Assert.Equal(HttpStatusCode.OK, (await app.CreateClient("review-qr-een.test").GetAsync("/review-qr.png")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await app.CreateClient("review-qr-twee.test").GetAsync("/review-qr.png")).StatusCode);
     }
 
     /// <summary>Bewaart op dit tijdstip en geeft terug wat er daarna bewaard staat.</summary>
-    private async Task<BusinessDetailsSettings> SaveAtAsync(string slug, DateTimeOffset now, BusinessDetailsSettings settings)
+    private async Task<ReviewRequestSettings> SaveAtAsync(string slug, DateTimeOffset now, ReviewRequestSettings settings)
     {
         await using var at = app.WithWebHostBuilder(b => b.ConfigureTestServices(s => s.AddSingleton<TimeProvider>(new FixedClock(now))));
         await using var scope = at.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var tenant = await db.Tenants.AsNoTracking().Include(t => t.Hosts).SingleAsync(t => t.Slug == slug);
         scope.ServiceProvider.GetRequiredService<HostTenantContext>().UseTenant(tenant);
-        await Admin(scope).SaveAsync(settings);
-        return await Admin(scope).GetAsync();
+        await Admin(scope).SaveReviewRequestsAsync(settings);
+        return await Admin(scope).GetReviewRequestsAsync();
     }
 
     private sealed class FixedClock(DateTimeOffset now) : TimeProvider

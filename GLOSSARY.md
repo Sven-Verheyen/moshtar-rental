@@ -25,7 +25,7 @@ Een gebruiker die reservaties opvolgt, maar geen prijzen, voorraad, instellingen
 _Avoid_: personeel, operator
 
 **Bedrijfsgegevens** (`BusinessDetails`):
-Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien, het meet-ID van zijn Google Analytics en zijn reviewlink.
+Het adres, e-mailadres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien. Werkgebied en rondes stelt hij in bij Planning, zijn reviewlink bij Reviewvragen en het meet-ID van zijn Google Analytics bij Huisstijl.
 _Avoid_: profiel, contactgegevens
 
 **Toestemming** (`AnalyticsConsent`):
@@ -75,6 +75,16 @@ _Avoid_: VIES (in gesprekken), btw-register, KBO
 **Anonimiseren** (`Anonymize`):
 De persoonsgegevens van een klant wissen, bijvoorbeeld op zijn vraag, terwijl zijn reservaties blijven bestaan zonder te tonen van wie ze waren. Een klant zonder reservaties wordt verwijderd in plaats van geanonimiseerd.
 _Avoid_: wissen, vergeten, archiveren
+
+## Back office
+
+**Back office**:
+Het beheergedeelte van Moshtar waar de gebruikers van een verhuurder hun verhuur beheren. Het menu is ingedeeld in onderdelen; elke pagina hoort bij precies één onderdeel.
+_Avoid_: admin, beheerpagina's, dashboard
+
+**Onderdeel**:
+Een groep pagina's in het menu van het back office. Er zijn er zes, in deze volgorde: Planning, Reservaties, Klantenbeheer, Artikelbeheer, Website en mails, Instellingen. Een gebruiker ziet alleen de onderdelen met pagina's die hij mag openen. Het onderdeel Planning bevat de pagina Planning.
+_Avoid_: module, sectie, groep, tab
 
 ## Aanbod
 
@@ -224,7 +234,7 @@ Het bericht dat een verhuurder een klant de dag na de einddag van elke reservati
 _Avoid_: reviewverzoek, feedbackmail, enquête
 
 **Reviewlink** (`ReviewLink`):
-De link van Google waarmee een klant meteen een review over de verhuurder schrijft, ook als QR-code. Hij hoort bij de bedrijfsgegevens en is iets anders dan de link naar het Google-bedrijfsprofiel.
+De link van Google waarmee een klant meteen een review over de verhuurder schrijft, ook als QR-code. De verhuurder stelt hem in bij Reviewvragen; hij is iets anders dan de link naar het Google-bedrijfsprofiel.
 _Avoid_: Google-link, reviewpagina
 
 **Afgemeld voor reviewvragen** (`ReviewOptOut`):
@@ -232,5 +242,5 @@ Een e-mailadres dat via de link onderaan een reviewvraag liet weten geen reviewv
 _Avoid_: uitgeschreven, opt-out, blacklist
 
 **Huisstijl** (`Branding`):
-Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office.
+Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office. Op de pagina Huisstijl stelt hij ook het meet-ID van zijn Google Analytics in, al hoort dat niet bij de huisstijl zelf.
 _Avoid_: branding, thema, look

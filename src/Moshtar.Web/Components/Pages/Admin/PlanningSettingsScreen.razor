@@ -1,0 +1,96 @@
+@page "/admin/planning/instellingen"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Application.Tenancy
+@using Moshtar.Domain.Rounds
+@inject IBusinessDetailsAdministration BusinessDetailsAdmin
+@inject ISnackbar Snackbar
+
+<PageTitle>Instellingen van de planning</PageTitle>
+
+<AdminShell Title="Instellingen van de planning">
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Werkgebied</MudText>
+        <MudTextField @bind-Value="_serviceArea" Label="Gemeenten waar je levert" Variant="Variant.Outlined" Lines="6"
+                      HelperText="Eén gemeente per regel." />
+        <MudCheckBox @bind-Value="_offersPickup" Label="Klanten kunnen zelf afhalen" Color="Color.Primary" Class="mt-2" />
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">Zonder vinkje lever je altijd en krijgt de klant geen keuze.</MudText>
+    </MudPaper>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.h6" Class="mb-2">Rondes in de planning</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            Hiermee berekent de planning de verwachte uren. Het vertrekuur kan je per dag nog aanpassen, de opbouw- of afbouwtijd per stop.
+        </MudText>
+        <MudStack Row="true" Wrap="Wrap.Wrap" Class="mb-3">
+            <MudTextField @bind-Value="_deliveryDeparture" Label="Vertrekuur leverronde" InputType="InputType.Time" Variant="Variant.Outlined" Style="max-width: 12rem" />
+            <MudTextField @bind-Value="_collectionDeparture" Label="Vertrekuur ophaalronde" InputType="InputType.Time" Variant="Variant.Outlined" Style="max-width: 12rem" />
+        </MudStack>
+        <MudStack Row="true" Wrap="Wrap.Wrap">
+            <MudNumericField @bind-Value="_setupMinutes" Label="Opbouwtijd (min)" Variant="Variant.Outlined" Min="0" Max="480" Style="max-width: 12rem" />
+            <MudNumericField @bind-Value="_teardownMinutes" Label="Afbouwtijd (min)" Variant="Variant.Outlined" Min="0" Max="480" Style="max-width: 12rem" />
+            <MudNumericField @bind-Value="_windowMinutes" Label="Breedte venster (min)" Variant="Variant.Outlined" Min="30" Max="240" Step="30"
+                             Style="max-width: 12rem" HelperText="Per half uur, bv. 60 voor een venster van 1 uur." />
+        </MudStack>
+    </MudPaper>
+
+    @if (_problems.Count > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">
+            @foreach (var problem in _problems)
+            {
+                <div>@problem</div>
+            }
+        </MudAlert>
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Opslaan</MudButton>
+</AdminShell>
+
+@code {
+    private string? _serviceArea;
+    private bool _offersPickup;
+    private string? _deliveryDeparture, _collectionDeparture;
+    private int _setupMinutes, _teardownMinutes, _windowMinutes;
+    private IReadOnlyList<string> _problems = [];
+
+    /// <summary>Een uur uit een tijdveld (HH:mm); leeg of onleesbaar: de standaard.</summary>
+    private static TimeOnly Time(string? value, TimeOnly fallback) =>
+        TimeOnly.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var time) ? time : fallback;
+
+    protected override async Task OnInitializedAsync() => Show(await BusinessDetailsAdmin.GetPlanningAsync());
+
+    private void Show(PlanningSettings s)
+    {
+        _serviceArea = string.Join('\n', s.ServiceArea);
+        _offersPickup = s.OffersPickup;
+        _deliveryDeparture = s.Rounds.DeliveryDeparture.ToString("HH:mm");
+        _collectionDeparture = s.Rounds.CollectionDeparture.ToString("HH:mm");
+        _setupMinutes = s.Rounds.SetupMinutes;
+        _teardownMinutes = s.Rounds.TeardownMinutes;
+        _windowMinutes = s.Rounds.WindowMinutes;
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await BusinessDetailsAdmin.SavePlanningAsync(new PlanningSettings
+            {
+                ServiceArea = Moshtar.Domain.Tenants.BusinessDetails.ServiceArea(_serviceArea),
+                OffersPickup = _offersPickup,
+                Rounds = new RoundSettings(
+                    Time(_deliveryDeparture, RoundSettings.Default.DeliveryDeparture), Time(_collectionDeparture, RoundSettings.Default.CollectionDeparture),
+                    _setupMinutes, _teardownMinutes, _windowMinutes),
+            });
+            _problems = [];
+            Show(await BusinessDetailsAdmin.GetPlanningAsync());
+            Snackbar.Add("De instellingen van de planning zijn bewaard.", Severity.Success);
+        }
+        catch (BusinessDetailsException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+}

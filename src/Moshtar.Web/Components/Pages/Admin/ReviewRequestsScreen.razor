@@ -1,0 +1,100 @@
+@page "/admin/klanten/reviewvragen"
+@layout AdminLayout
+@rendermode InteractiveServer
+@attribute [Authorize(Roles = Roles.Administrator)]
+@using Moshtar.Application.Tenancy
+@inject IBusinessDetailsAdministration BusinessDetailsAdmin
+@inject ISnackbar Snackbar
+
+<PageTitle>Reviewvragen</PageTitle>
+
+<AdminShell Title="Reviewvragen">
+    <MudPaper Class="pa-4 mb-4" Elevation="1">
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            De dag na de huurperiode vraagt Moshtar elke klant om een review te schrijven, met een knop en een QR-code naar je reviewlink.
+        </MudText>
+        <MudTextField @bind-Value="_reviewLink" Label="Google-reviewlink" Variant="Variant.Outlined" Class="mb-3"
+                      Placeholder="https://g.page/r/.../review" Immediate="true"
+                      HelperText="Vind je in je Google-bedrijfsprofiel bij &quot;Vraag om reviews&quot;. Niet hetzelfde als de link naar je bedrijfsprofiel." />
+        <MudStack Row="true" Wrap="Wrap.Wrap" Class="mb-3">
+            <MudButton Href="@TestLink" Target="_blank" rel="noopener" Variant="Variant.Outlined" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.OpenInNew" Disabled="@(TestLink is null)">Link testen</MudButton>
+            @if (_savedReviewLink is not null)
+            {
+                <MudButton Href="@QrCodeUrl" download="review-qr.png" Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.QrCode2">QR-code downloaden</MudButton>
+            }
+        </MudStack>
+        @if (_savedReviewLink is not null)
+        {
+            <img src="@QrCodeUrl" alt="QR-code van je reviewlink" width="160" height="160" class="mb-3" style="display: block" />
+        }
+        <MudSwitch @bind-Value="_sendReviewRequests" Label="Reviewvragen sturen" Color="Color.Primary"
+                   Disabled="@(!_sendReviewRequests && TestLink is null)" />
+        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+            @if (_since is { } since)
+            {
+                @($"Aan sinds {Moshtar.Domain.Common.Belgium.Local(since):d MMMM yyyy HH:mm}. Alleen reservaties die daarna eindigen krijgen een reviewvraag.")
+            }
+            else
+            {
+                @("Kan pas aan met een reviewlink. Alleen reservaties die na het aanzetten eindigen krijgen een reviewvraag.")
+            }
+        </MudText>
+    </MudPaper>
+
+    @if (_problems.Count > 0)
+    {
+        <MudAlert Severity="Severity.Error" Class="mb-3">
+            @foreach (var problem in _problems)
+            {
+                <div>@problem</div>
+            }
+        </MudAlert>
+    }
+
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveAsync">Opslaan</MudButton>
+</AdminShell>
+
+@code {
+    private string? _reviewLink;
+    private bool _sendReviewRequests;
+    private string? _savedReviewLink;
+    private DateTimeOffset? _since;
+    private IReadOnlyList<string> _problems = [];
+
+    /// <summary>De ingevulde reviewlink om te testen, als ze een volledig https-adres is.</summary>
+    private string? TestLink => Moshtar.Domain.Tenants.BusinessDetails.Link(_reviewLink);
+
+    /// <summary>
+    /// De QR-code van de bewaarde link; een vaste vingerafdruk van de link in het adres zorgt dat een gewijzigde link
+    /// niet uit de cache komt, en dat dezelfde link op elke server en na een herstart hetzelfde adres houdt.
+    /// </summary>
+    private string QrCodeUrl =>
+        $"{Moshtar.Application.Reviews.ReviewQrCodePath.Path}?v={Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(_savedReviewLink ?? "")))[..12]}";
+
+    protected override async Task OnInitializedAsync() => Show(await BusinessDetailsAdmin.GetReviewRequestsAsync());
+
+    private void Show(ReviewRequestSettings s)
+    {
+        _reviewLink = s.ReviewLink;
+        _sendReviewRequests = s.SendReviewRequests;
+        _savedReviewLink = s.ReviewLink;
+        _since = s.ReviewRequestsSince;
+    }
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            await BusinessDetailsAdmin.SaveReviewRequestsAsync(new ReviewRequestSettings { ReviewLink = _reviewLink, SendReviewRequests = _sendReviewRequests });
+            _problems = [];
+            Show(await BusinessDetailsAdmin.GetReviewRequestsAsync());
+            Snackbar.Add("Je reviewvragen zijn bewaard.", Severity.Success);
+        }
+        catch (BusinessDetailsException e)
+        {
+            _problems = e.Problems;
+        }
+    }
+}

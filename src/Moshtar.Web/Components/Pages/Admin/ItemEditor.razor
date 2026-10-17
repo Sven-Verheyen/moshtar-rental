@@ -13,7 +13,7 @@
 
 <PageTitle>@Title</PageTitle>
 
-<AdminShell Title="@Title">
+<AdminShell Title="@Title" Crumb="@(Id is null ? null : _name)">
     <MudLink Href="admin/artikelen" Class="mb-4 d-inline-block">← Alle artikelen</MudLink>
 
     @if (_loaded && _draft is null)

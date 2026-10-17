@@ -1,4 +1,7 @@
+@using Moshtar.Web.Admin
 @inject ITenantContext TenantContext
+@inject NavigationManager Navigation
+@inject IShortageOverview Shortages
 
 <MudThemeProvider />
 <MudPopoverProvider />
@@ -21,33 +24,57 @@
     @* Op een gsm schuift het menu over de inhoud en gaat het dicht na een keuze. *@
     <MudDrawer @bind-Open="_menuOpen" Variant="DrawerVariant.Responsive" ClipMode="DrawerClipMode.Always" Elevation="1">
         <MudNavMenu>
-            <MudNavLink Href="admin/planning" Icon="@Icons.Material.Filled.CalendarToday">Planning</MudNavLink>
-            <MudNavLink Href="admin/reservaties" Icon="@Icons.Material.Filled.EventNote">Reservaties</MudNavLink>
-            <MudNavLink Href="admin/klanten" Icon="@Icons.Material.Filled.Contacts">Klanten</MudNavLink>
-            <ShortageMenuLink />
-            <MudNavLink Href="admin/winkelkarren" Icon="@Icons.Material.Filled.ShoppingCart">Open winkelkarren</MudNavLink>
-            <AuthorizeView Roles="@Roles.Administrator">
-                <MudNavGroup Title="Artikelen" Icon="@Icons.Material.Filled.Toys" Expanded="true">
-                    <MudNavLink Href="admin/artikelen" Icon="@Icons.Material.Filled.Toys">Artikelen</MudNavLink>
-                    <MudNavLink Href="admin/pakketten" Icon="@Icons.Material.Filled.Inventory2">Pakketten</MudNavLink>
-                    <MudNavLink Href="admin/uitgelicht" Icon="@Icons.Material.Filled.Star">Uitgelicht</MudNavLink>
-                    <MudNavLink Href="admin/categorieen" Icon="@Icons.Material.Filled.Category">Categorieën</MudNavLink>
-                    <MudNavLink Href="admin/prijsregels" Icon="@Icons.Material.Filled.Sell">Prijsregels</MudNavLink>
-                    <MudNavLink Href="admin/blokkeringen" Icon="@Icons.Material.Filled.Block">Blokkeringen</MudNavLink>
-                </MudNavGroup>
-                <MudNavLink Href="admin/gebruikers" Icon="@Icons.Material.Filled.People">Gebruikers</MudNavLink>
-                <MudNavLink Href="admin/mailsjablonen" Icon="@Icons.Material.Filled.Email">Mailsjablonen</MudNavLink>
-                <MudNavLink Href="admin/marketingcontacten" Icon="@Icons.Material.Filled.Campaign">Marketingcontacten</MudNavLink>
-                <MudNavLink Href="admin/huisstijl" Icon="@Icons.Material.Filled.Palette">Huisstijl</MudNavLink>
-                <MudNavLink Href="admin/bedrijfsgegevens" Icon="@Icons.Material.Filled.Business">Bedrijfsgegevens</MudNavLink>
-                <MudNavLink Href="admin/websiteteksten" Icon="@Icons.Material.Filled.TextFields">Websiteteksten</MudNavLink>
-            </AuthorizeView>
+            @* Eén groep per onderdeel; alleen het onderdeel van de huidige pagina staat open. Een klik op een onderdeel klapt het
+               open of dicht, er is geen overzichtspagina. *@
+            @foreach (var part in _parts)
+            {
+                <div data-menu-part="@part.Title" data-menu-open="@(IsOpen(part) ? "true" : "false")">
+                    <MudNavGroup Title="@part.Title" Icon="@part.Icon" Expanded="IsOpen(part)" ExpandedChanged="open => _open[part.Title] = open">
+                        <TitleContent>
+                            @part.Title
+                            @if (!IsOpen(part) && part.Pages.Any(p => p.Href == BackOfficeMenu.ShortagesHref))
+                            {
+                                <ShortageChip Count="_shortages" Part="true" />
+                            }
+                        </TitleContent>
+                        <ChildContent>
+                            @foreach (var link in part.Pages)
+                            {
+                                <MudNavLink Href="@link.Href" Icon="@link.Icon" Match="@(link == _location?.Page ? NavLinkMatch.Prefix : NavLinkMatch.All)">
+                                    @link.Title
+                                    @if (link.Href == BackOfficeMenu.ShortagesHref)
+                                    {
+                                        <ShortageChip Count="_shortages" />
+                                    }
+                                </MudNavLink>
+                            }
+                        </ChildContent>
+                    </MudNavGroup>
+                </div>
+            }
             @* Volledig laden: de reservatiewebsite draait zonder de JavaScript van het back office. *@
-            <MudNavLink Href="/" data-enhance-nav="false" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Storefront">Reservatiewebsite</MudNavLink>
+            <MudNavLink Href="/" data-enhance-nav="false" data-menu-end Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Storefront">Reservatiewebsite</MudNavLink>
         </MudNavMenu>
     </MudDrawer>
     <MudMainContent>
         <MudContainer MaxWidth="MaxWidth.ExtraLarge" Class="py-6">
+            @if (_breadcrumb.Count > 0)
+            {
+                <nav aria-label="Kruimelpad" data-breadcrumb>
+                    <MudBreadcrumbs Items="_breadcrumb" Separator="›" Class="pa-0 mb-2">
+                        <ItemTemplate Context="crumb">
+                            @if (crumb.Href is { } href)
+                            {
+                                <MudLink Href="@href">@crumb.Text</MudLink>
+                            }
+                            else
+                            {
+                                <span>@crumb.Text</span>
+                            }
+                        </ItemTemplate>
+                    </MudBreadcrumbs>
+                </nav>
+            }
             <MudText Typo="Typo.h4" Class="mb-4">@Title</MudText>
             @ChildContent
         </MudContainer>
@@ -56,7 +83,45 @@
 
 @code {
     private bool _menuOpen = true;
+    private IReadOnlyList<BackOfficePart> _parts = [];
+    private BackOfficeLocation? _location;
+    private readonly Dictionary<string, bool> _open = [];
+    private int _shortages;
+
+    [CascadingParameter] private Task<AuthenticationState> AuthenticationState { get; set; } = default!;
 
     [Parameter, EditorRequired] public string Title { get; set; } = "";
     [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>
+    /// De laatste stap van het kruimelpad op een subpagina, zoals de naam van het geopende artikel; leeg: de titel van de pagina.
+    /// </summary>
+    [Parameter] public string? Crumb { get; set; }
+
+    /// <summary>
+    /// Onderdeel › menupagina › subpagina. Het onderdeel is geen link (er is geen overzichtspagina) en de huidige pagina ook niet.
+    /// </summary>
+    private List<BreadcrumbItem> _breadcrumb = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _parts = BackOfficeMenu.VisibleTo((await AuthenticationState).User);
+        _location = BackOfficeMenu.Locate(Navigation.ToBaseRelativePath(Navigation.Uri));
+        _shortages = await Shortages.CountAsync();
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (_location is not { } location) return;
+        _breadcrumb = [new(location.Part.Title, href: null)];
+        if (location.IsSubpage)
+        {
+            _breadcrumb.Add(new(location.Page.Title, location.Page.Href));
+            _breadcrumb.Add(new(string.IsNullOrWhiteSpace(Crumb) ? Title : Crumb, href: null));
+        }
+        else
+            _breadcrumb.Add(new(location.Page.Title, href: null));
+    }
+
+    private bool IsOpen(BackOfficePart part) => _open.TryGetValue(part.Title, out var open) ? open : part.Title == _location?.Part.Title;
 }

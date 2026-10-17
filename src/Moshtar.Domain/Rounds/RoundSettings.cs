@@ -1,7 +1,7 @@
 namespace Moshtar.Domain.Rounds;
 
 /// <summary>
-/// De standaarden van een verhuurder voor zijn rondes, in Bedrijfsgegevens: de vertrekuren, hoe lang opbouwen en
+/// De standaarden van een verhuurder voor zijn rondes, in Planning › Instellingen: de vertrekuren, hoe lang opbouwen en
 /// afbouwen duurt, en hoe breed het verwacht tijdsvenster is.
 /// </summary>
 public sealed record RoundSettings(

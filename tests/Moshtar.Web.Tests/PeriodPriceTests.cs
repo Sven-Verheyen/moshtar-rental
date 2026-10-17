@@ -194,7 +194,7 @@ public sealed class PeriodPriceTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         var day = await SeedAsync("periode-ga", offset: 14);
         await using (var scope = await app.TenantScopeAsync("periode-ga"))
             await scope.ServiceProvider.GetRequiredService<IBusinessDetailsAdministration>()
-                .SaveAsync(new BusinessDetailsSettings { Email = "info@periode-ga.test", GoogleAnalyticsId = "G-TEST12345" });
+                .SaveGoogleAnalyticsIdAsync("G-TEST12345");
         var client = app.CreateClient("periode-ga.test");
         var home = await client.GetStringAsync("/");
         await client.PostAsync("/toestemming", new FormUrlEncodedContent(new Dictionary<string, string>
