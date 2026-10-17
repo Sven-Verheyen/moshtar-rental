@@ -12,13 +12,13 @@ aan andere verhuurbedrijven aangeboden te worden.
   FAQPage, BreadcrumbList), en elke verhuurder een eigen `/robots.txt`, `/sitemap.xml` en `/llms.txt`.
   Eén modern sjabloon, ingekleurd met de huisstijl van de verhuurder (kleur, en een geüpload logo en sfeerfoto, in te
   stellen op `/admin/huisstijl`). De publieke pagina's zijn statisch, zonder JavaScript en zonder MudBlazor (stijl in `wwwroot/site.css`).
-  De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens en het werkgebied, in te stellen op
-  `/admin/bedrijfsgegevens`. Titel en ondertitel van de home en de veelgestelde vragen (`/veelgestelde-vragen`) past de
+  De footer en de contactpagina (`/contact`) tonen de bedrijfsgegevens (in te stellen op
+  `/admin/bedrijfsgegevens`) en het werkgebied (op `/admin/planning/instellingen`). Titel en ondertitel van de home en de veelgestelde vragen (`/veelgestelde-vragen`) past de
   beheerder aan op `/admin/websiteteksten`; anders gelden de standaardteksten van Moshtar. Categorieën maakt hij aan op
   `/admin/categorieen`, met naam, slug en inleiding per taal en een volgorde die hij versleept; een lege categorie kan
   hij er verwijderen. Een gewijzigde slug stuurt het oude adres met een 301 door naar het nieuwe, per taal (tabel
   `OldSlugs`, ook voor artikelen en pakketten).
-  Met een GA4-meet-ID (op `/admin/bedrijfsgegevens`) vraagt een toestemmingsbalk of Google Analytics mag; het script
+  Met een GA4-meet-ID (op `/admin/huisstijl`) vraagt een toestemmingsbalk of Google Analytics mag; het script
   laadt pas na "Accepteren" en meet dan ook gecontroleerde beschikbaarheid en bevestigde reservaties, zonder
   persoonsgegevens. De keuze staat in de cookie `moshtar-analytics` (`POST /toestemming`, wijzigen via "Cookie-instellingen"
   in de footer). Elke verhuurder heeft een privacyverklaring per taal (`/privacy`, `/fr/confidentialite`, `/en/privacy`).

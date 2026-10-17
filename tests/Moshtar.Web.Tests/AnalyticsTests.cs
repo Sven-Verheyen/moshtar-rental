@@ -269,7 +269,7 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
             await scope.ServiceProvider.GetRequiredService<IBusinessDetailsAdministration>().SaveAsync(new BusinessDetailsSettings
             {
                 Email = "info@privacy.test", Street = "Privacystraat 1", PostalCode = "2640", City = "Mortsel",
-                VatNumber = "BE 0123.456.789", GoogleAnalyticsId = "G-TEST12345",
+                VatNumber = "BE 0123.456.789",
             });
 
         var response = await app.CreateClient("ga-privacy.test").GetAsync(path);
@@ -339,6 +339,6 @@ public sealed class AnalyticsTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         });
         await db.SaveChangesAsync();
         await scope.ServiceProvider.GetRequiredService<IBusinessDetailsAdministration>()
-            .SaveAsync(new BusinessDetailsSettings { Email = $"info@{slug}.test", GoogleAnalyticsId = measurementId });
+            .SaveGoogleAnalyticsIdAsync(measurementId);
     }
 }

@@ -75,7 +75,9 @@ public sealed class ReviewWhatsAppTests(MoshtarApp app) : IClassFixture<MoshtarA
         Assert.Contains("Tom Klant", Section(await PlanningAsync(future, end.AddDays(1)), "reviewvragen"));
         Assert.DoesNotContain("id=\"reviewvragen\"", await PlanningAsync(future, end.AddDays(2)));
         Assert.DoesNotContain("id=\"reviewvragen\"", await PlanningAsync(off, end.AddDays(1)));
-        Assert.DoesNotContain("Reviewvragen", await PlanningAsync(off, end.AddDays(1)));
+        // Het menu van de beheerder linkt naar de pagina Reviewvragen; het blok in de planning herken je aan zijn kop.
+        Assert.Matches("<h6[^>]*>Reviewvragen</h6>", await PlanningAsync(future, end.AddDays(1)));
+        Assert.DoesNotMatch("<h6[^>]*>Reviewvragen</h6>", await PlanningAsync(off, end.AddDays(1)));
     }
 
     [Fact]

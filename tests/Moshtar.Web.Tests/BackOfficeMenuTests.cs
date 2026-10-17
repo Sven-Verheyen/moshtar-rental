@@ -27,9 +27,9 @@ public sealed class BackOfficeMenuTests(MoshtarApp app) : IClassFixture<MoshtarA
         Assert.Equal(["Planning", "Reservaties", "Klantenbeheer", "Artikelbeheer", "Website en mails", "Instellingen"], menu.Select(p => p.Title));
         Assert.Equal(
         [
-            ["admin/planning", "admin/planning/leverlijst"],
+            ["admin/planning", "admin/planning/leverlijst", "admin/planning/instellingen"],
             ["admin/reservaties", "admin/reservaties/nieuw", "admin/tekorten", "admin/winkelkarren"],
-            ["admin/klanten", "admin/marketingcontacten"],
+            ["admin/klanten", "admin/marketingcontacten", "admin/klanten/reviewvragen"],
             ["admin/artikelen", "admin/pakketten", "admin/categorieen", "admin/uitgelicht", "admin/prijsregels", "admin/blokkeringen"],
             ["admin/websiteteksten", "admin/huisstijl", "admin/mailsjablonen"],
             ["admin/bedrijfsgegevens", "admin/gebruikers"],
@@ -56,6 +56,8 @@ public sealed class BackOfficeMenuTests(MoshtarApp app) : IClassFixture<MoshtarA
     [InlineData("/admin/tekorten", "Reservaties")]
     [InlineData("/admin/klanten/nieuw", "Klantenbeheer")]
     [InlineData("/admin/klanten/importeren", "Klantenbeheer")]
+    [InlineData("/admin/klanten/reviewvragen", "Klantenbeheer")]
+    [InlineData("/admin/planning/instellingen", "Planning")]
     [InlineData("/admin/artikelen/nieuw", "Artikelbeheer")]
     [InlineData("/admin/pakketten/nieuw", "Artikelbeheer")]
     [InlineData("/admin/mailsjablonen", "Website en mails")]
@@ -76,7 +78,7 @@ public sealed class BackOfficeMenuTests(MoshtarApp app) : IClassFixture<MoshtarA
 
         var pages = Menu(await client.GetStringAsync("/admin")).SelectMany(p => p.Pages).ToList();
 
-        Assert.Equal(19, pages.Count);
+        Assert.Equal(21, pages.Count);
         foreach (var page in pages)
             Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/{page}")).StatusCode);
     }
@@ -139,7 +141,7 @@ public sealed class BackOfficeMenuTests(MoshtarApp app) : IClassFixture<MoshtarA
     }
 
     /// <summary>De stappen van het kruimelpad; een klikbare stap als "tekst → adres".</summary>
-    private static List<string> Breadcrumb(string html)
+    internal static List<string> Breadcrumb(string html)
     {
         html = WebUtility.HtmlDecode(html);
         var start = html.IndexOf("data-breadcrumb", StringComparison.Ordinal);

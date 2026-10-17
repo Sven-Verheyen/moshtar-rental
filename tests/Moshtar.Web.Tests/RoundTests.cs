@@ -157,8 +157,8 @@ public sealed class RoundTests(MoshtarApp app) : IClassFixture<MoshtarApp>
         await using (var scope = await app.TenantScopeAsync("hopsakee"))
         {
             var details = scope.ServiceProvider.GetRequiredService<IBusinessDetailsAdministration>();
-            var current = await details.GetAsync();
-            await details.SaveAsync(current with { Rounds = current.Rounds with { CollectionDeparture = new TimeOnly(17, 0), TeardownMinutes = 25 } });
+            var current = await details.GetPlanningAsync();
+            await details.SavePlanningAsync(current with { Rounds = current.Rounds with { CollectionDeparture = new TimeOnly(17, 0), TeardownMinutes = 25 } });
         }
         var gent = await ReserveAsync("Greet", "Gent", day.AddDays(-1), day, "Veldstraat 10", "9000", "Gent");
         var namen = await ReserveAsync("Nico", "Namen", day.AddDays(-1), day, "Rue de Fer 10", "5000", "Namen");

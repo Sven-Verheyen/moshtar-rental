@@ -164,7 +164,7 @@ public sealed class ComboDiscountTests(MoshtarApp app) : IClassFixture<MoshtarAp
         await NewTenantAsync("combo-ga");
         await using (var scope = await app.TenantScopeAsync("combo-ga"))
             await scope.ServiceProvider.GetRequiredService<IBusinessDetailsAdministration>()
-                .SaveAsync(new BusinessDetailsSettings { Email = "info@combo-ga.test", GoogleAnalyticsId = "G-TEST12345" });
+                .SaveGoogleAnalyticsIdAsync("G-TEST12345");
         var client = app.CreateClient("combo-ga.test");
         var home = await client.GetStringAsync("/");
         await client.PostAsync("/toestemming", new FormUrlEncodedContent(new Dictionary<string, string>

@@ -35,6 +35,7 @@ public static class BackOfficeMenu
             new("Planning", "admin/planning", Icons.Material.Filled.CalendarToday),
             // Zonder dag: de leverlijst toont dan die van vandaag.
             new("Leverlijst", "admin/planning/leverlijst", Icons.Material.Filled.LocalShipping),
+            new("Instellingen", "admin/planning/instellingen", Icons.Material.Filled.Tune, Roles.Administrator),
         ]),
         new("Reservaties", Icons.Material.Filled.EventNote,
         [
@@ -47,6 +48,7 @@ public static class BackOfficeMenu
         [
             new("Klanten", "admin/klanten", Icons.Material.Filled.Contacts),
             new("Marketingcontacten", "admin/marketingcontacten", Icons.Material.Filled.Campaign, Roles.Administrator),
+            new("Reviewvragen", "admin/klanten/reviewvragen", Icons.Material.Filled.RateReview, Roles.Administrator),
         ]),
         new("Artikelbeheer", Icons.Material.Filled.Toys,
         [
