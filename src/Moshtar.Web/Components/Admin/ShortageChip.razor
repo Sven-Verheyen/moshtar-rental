@@ -2,17 +2,13 @@
    onderdeel Reservaties als dat dicht is. *@
 @if (Count > 0)
 {
-    @if (Part)
-    {
-        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ml-2" data-part-shortage-count="@Count">@Count</MudChip>
-    }
-    else
-    {
-        <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ml-2" data-shortage-count="@Count">@Count</MudChip>
-    }
+    <MudChip T="string" Size="Size.Small" Color="Color.Warning" Class="ml-2" UserAttributes="Marker">@Count</MudChip>
 }
 
 @code {
     [Parameter] public int Count { get; set; }
     [Parameter] public bool Part { get; set; }
+
+    /// <summary>Het kenmerk waaraan de teller te herkennen is: naast het onderdeel of naast de pagina Tekorten.</summary>
+    private Dictionary<string, object?> Marker => new() { [Part ? "data-part-shortage-count" : "data-shortage-count"] = Count };
 }

@@ -242,5 +242,5 @@ Een e-mailadres dat via de link onderaan een reviewvraag liet weten geen reviewv
 _Avoid_: uitgeschreven, opt-out, blacklist
 
 **Huisstijl** (`Branding`):
-Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office.
+Het logo, de kleur en de sfeerfoto van een verhuurder. Logo en kleur komen automatisch in zijn klantmails en op zijn reservatiewebsite, de sfeerfoto bovenaan zijn reservatiewebsite. Logo en sfeerfoto uploadt de verhuurder in het back office. Op de pagina Huisstijl stelt hij ook het meet-ID van zijn Google Analytics in, al hoort dat niet bij de huisstijl zelf.
 _Avoid_: branding, thema, look

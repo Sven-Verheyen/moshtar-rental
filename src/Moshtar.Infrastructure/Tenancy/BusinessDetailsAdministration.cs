@@ -78,14 +78,16 @@ internal sealed class BusinessDetailsAdministration(AppDbContext db, ITenantCont
 
     public async Task SaveReviewRequestsAsync(ReviewRequestSettings s, CancellationToken ct = default)
     {
-        // Het tijdstip van aanzetten blijft staan zolang de schakelaar aan blijft; opnieuw aanzetten begint opnieuw.
-        var since = s.SendReviewRequests ? (await ReadAsync(ct)).ReviewRequestsSince ?? clock.GetUtcNow() : (DateTimeOffset?)null;
+        // Het tijdstip van aanzetten blijft staan zolang de schakelaar aan blijft; opnieuw aanzetten begint opnieuw. Het
+        // wordt bepaald op de bewaarde verhuurder (die eerst aan de beurt is); de kopie in dit scherm neemt het over.
+        DateTimeOffset? since = null;
         await SavePartAsync(
             (BusinessDetails.ReviewLinkProblem(s.ReviewLink, s.SendReviewRequests) is { } review ? [review] : Array.Empty<string>())
                 .Concat(TooLong(("De Google-reviewlink", s.ReviewLink, 500))),
             tenant =>
             {
                 tenant.ReviewLink = BusinessDetails.Link(s.ReviewLink);
+                since ??= s.SendReviewRequests ? tenant.ReviewRequestsSince ?? clock.GetUtcNow() : null;
                 tenant.ReviewRequestsSince = since;
             },
             ct);

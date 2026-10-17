@@ -84,6 +84,32 @@ public sealed class BackOfficeMenuTests(MoshtarApp app) : IClassFixture<MoshtarA
     }
 
     [Fact]
+    public async Task The_start_page_and_the_subpages_open_at_their_existing_address()
+    {
+        var user = await app.CreateUserAsync("hopsakee", "subadressen-beheerder@hopsakee.test");
+        var client = await app.LoggedInClientAsync("subadressen-beheerder@hopsakee.test", UserRole.Administrator);
+        Guid customer, item, bundle;
+        await using (var scope = await app.TenantScopeAsync("hopsakee"))
+        {
+            customer = (await scope.ServiceProvider.GetRequiredService<ICustomerAdministration>().AddAsync(new CustomerDetails(
+                CustomerKind.Private, "Adres", "Klant", "subadres@example.test", "0499 11 22 33",
+                new Address { Street = "Heidestraat 14", PostalCode = "2950", City = "Kapellen" }, "nl"), user.Id)).CustomerId!.Value;
+            item = await scope.ServiceProvider.GetRequiredService<IRentalItemAdministration>().CreateAsync(new([new RentalItemText("nl", "Springkasteel Adres")],
+                null, 1, 100, null, new ItemSpecs(null, null, null, null, null, null, false), "subadres-kasteel"));
+            bundle = await scope.ServiceProvider.GetRequiredService<IBundleAdministration>().CreateAsync(new BundleInput(
+                [new RentalItemText("nl", "Pakket Adres")], [new BundleContent(item, 1)], 150, null, "subadres-pakket"));
+        }
+
+        Assert.Equal(["Planning", "Planning"], Breadcrumb(await client.GetStringAsync("/admin")));
+        foreach (var page in new[]
+                 {
+                     $"/admin/artikelen/{item}", $"/admin/pakketten/{bundle}", $"/admin/klanten/{customer}",
+                     "/admin/klanten/nieuw", "/admin/klanten/importeren", "/admin/reservaties/nieuw",
+                 })
+            Assert.Equal(HttpStatusCode.OK, (await client.GetAsync(page)).StatusCode);
+    }
+
+    [Fact]
     public async Task The_shortage_count_shows_next_to_shortages_and_next_to_the_closed_part_reservations()
     {
         var client = await app.LoggedInClientAsync("menu-tekorten-medewerker@hopsakee.test", UserRole.Staff);
