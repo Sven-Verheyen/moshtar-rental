@@ -234,7 +234,7 @@ Het bericht dat een verhuurder een klant de dag na de einddag van elke reservati
 _Avoid_: reviewverzoek, feedbackmail, enquête
 
 **Reviewlink** (`ReviewLink`):
-De link van Google waarmee een klant meteen een review over de verhuurder schrijft, ook als QR-code. Hij hoort bij de bedrijfsgegevens en is iets anders dan de link naar het Google-bedrijfsprofiel.
+De link van Google waarmee een klant meteen een review over de verhuurder schrijft, ook als QR-code. De verhuurder stelt hem in bij Reviewvragen; hij is iets anders dan de link naar het Google-bedrijfsprofiel.
 _Avoid_: Google-link, reviewpagina
 
 **Afgemeld voor reviewvragen** (`ReviewOptOut`):
