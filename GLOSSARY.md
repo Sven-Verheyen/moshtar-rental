@@ -25,7 +25,7 @@ Een gebruiker die reservaties opvolgt, maar geen prijzen, voorraad, instellingen
 _Avoid_: personeel, operator
 
 **Bedrijfsgegevens** (`BusinessDetails`):
-Het adres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien, het meet-ID van zijn Google Analytics en zijn reviewlink.
+Het adres, e-mailadres, telefoonnummer, WhatsApp-nummer, btw-nummer, de sociale media en het Google-bedrijfsprofiel van een verhuurder, zoals klanten ze op de reservatiewebsite zien. Werkgebied en rondes stelt hij in bij Planning, zijn reviewlink bij Reviewvragen en het meet-ID van zijn Google Analytics bij Huisstijl.
 _Avoid_: profiel, contactgegevens
 
 **Toestemming** (`AnalyticsConsent`):
@@ -75,6 +75,16 @@ _Avoid_: VIES (in gesprekken), btw-register, KBO
 **Anonimiseren** (`Anonymize`):
 De persoonsgegevens van een klant wissen, bijvoorbeeld op zijn vraag, terwijl zijn reservaties blijven bestaan zonder te tonen van wie ze waren. Een klant zonder reservaties wordt verwijderd in plaats van geanonimiseerd.
 _Avoid_: wissen, vergeten, archiveren
+
+## Back office
+
+**Back office**:
+Het beheergedeelte van Moshtar waar de gebruikers van een verhuurder hun verhuur beheren. Het menu is ingedeeld in onderdelen; elke pagina hoort bij precies één onderdeel.
+_Avoid_: admin, beheerpagina's, dashboard
+
+**Onderdeel**:
+Een groep pagina's in het menu van het back office. Er zijn er zes, in deze volgorde: Planning, Reservaties, Klantenbeheer, Artikelbeheer, Website en mails, Instellingen. Een gebruiker ziet alleen de onderdelen met pagina's die hij mag openen. Het onderdeel Planning bevat de pagina Planning.
+_Avoid_: module, sectie, groep, tab
 
 ## Aanbod
 
